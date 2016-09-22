@@ -507,7 +507,7 @@ real::t1,t2,t3,t4
               CALL med_read_wrf_chem_input ( grid , config_flags)
 
               IF(grid%emiss_opt == ECPTEC .or. grid%emiss_opt == GOCART_ECPTEC   &
-                                         .or. grid%biomass_burn_opt == BIOMASSB) THEN
+                .or. (grid%biomass_burn_opt == BIOMASSB.and.config_flags%io_style_fireemissions.ne.101)) THEN
                  message = 'READING EMISSIONS DATA OPT 3'
                  CALL  wrf_message ( message )
                  CALL med_read_wrf_chem_emissopt3 ( grid , config_flags)
@@ -529,12 +529,29 @@ real::t1,t2,t3,t4
                  CALL med_read_wrf_chem_gocart_bg ( grid , config_flags)
               END IF
 
+              !czhao
+              IF(grid%dust_opt == 11) THEN !cz
+                 message = 'READING GOCART DUST for SORGAM and MOSAIC as well'
+                 CALL  wrf_message ( message )
+                 CALL med_read_wrf_chem_gocart_bg ( grid , config_flags)
+                 print*,'check gocart erod in real_em',maxval(grid%erod)
+              END IF
+
+!             IF(grid%dust_opt == 3) THEN !cz
+!                message = 'READING Olson veg map for DUST'
+!                CALL  wrf_message ( message )
+!                CALL med_read_wrf_chem_olson_veg ( grid , config_flags)
+!             END IF
+
            ELSEIF(grid%chem_in_opt == 0)then
               ! Generate chemistry data from a idealized vertical profile
               message = 'STARTING WITH BACKGROUND CHEMISTRY '
               CALL  wrf_message ( message )
 
               CALL input_chem_profile ( grid )
+
+              message = 'FINISHING WITH BACKGROUND CHEMISTRY '
+              CALL  wrf_message ( message )
 
               IF(grid%bio_emiss_opt == 2 ) THEN
                  message = 'READING BEIS3.14 EMISSIONS DATA'
@@ -546,9 +563,11 @@ real::t1,t2,t3,t4
                  CALL med_read_wrf_chem_bioemiss ( grid , config_flags)
               END IF
               IF(grid%emiss_opt == ECPTEC .or. grid%emiss_opt == GOCART_ECPTEC   &
-                                         .or. grid%biomass_burn_opt == BIOMASSB) THEN
+                .or. (grid%biomass_burn_opt == BIOMASSB.and.config_flags%io_style_fireemissions.ne.101)) THEN
                  message = 'READING EMISSIONS DATA OPT 3'
                  CALL  wrf_message ( message )
+
+
 !                CALL med_read_bin_chem_emissopt3 ( grid , config_flags)
                  CALL med_read_wrf_chem_emissopt3 ( grid , config_flags)
               END IF
@@ -558,6 +577,20 @@ real::t1,t2,t3,t4
                  CALL  wrf_message ( message )
                  CALL med_read_wrf_chem_gocart_bg ( grid , config_flags)
               END IF
+
+              !czhao
+              IF(grid%dust_opt == 11) THEN !cz
+                 message = 'READING GOCART DUST for SORGAM and MOSAIC as well'
+                 CALL  wrf_message ( message )
+                 CALL med_read_wrf_chem_gocart_bg ( grid , config_flags)
+                 print*,'check gocart erod in real_em',maxval(grid%erod)
+              END IF
+
+!             IF(grid%dust_opt == 3) THEN !cz
+!                message = 'READING Olson veg map for DUST'
+!                CALL  wrf_message ( message )
+!                CALL med_read_wrf_chem_olson_veg ( grid , config_flags)
+!             END IF
 
            ELSE
              message = 'RUNNING WITHOUT CHEMISTRY INITIALIZATION'

@@ -152,6 +152,7 @@
                ims,ime, jms,jme, kms,kme,                              &
                its,ite, jts,jte, kts,kte                               )
      CASE (PHOTFASTJ)
+! jdf add ivgtyp for mexico city
        call wrf_debug(15,'calling fastj_driver')
        call fastj_driver(id,curr_secs,dtstep,config_flags,             &
                gmt,julday,t_phy,moist,p8w,p_phy,                       &
@@ -161,6 +162,7 @@
                ph_ch3coch3,ph_ch3coc2h5,ph_hcocho,ph_ch3cocho,         &
                ph_hcochest,ph_ch3o2h,ph_ch3coo2h,ph_ch3ono2,ph_hcochob,&
                ph_n2o5,                                                &
+               ivgtyp,                                                 &
                tauaer1,tauaer2,tauaer3,tauaer4,                        &
                gaer1,gaer2,gaer3,gaer4,                                &
                waer1,waer2,waer3,waer4,                                &

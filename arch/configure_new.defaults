@@ -133,14 +133,18 @@ OMPCC           =       # -mp
 SFC             =       pgf90
 SCC             =       gcc
 CCOMP           =       pgcc
-DM_FC           =       mpif90 -f90=$(SFC)
-DM_CC           =       mpicc -cc=$(SCC)
+#DM_FC           =       mpif90 -f90=$(SFC)
+#DM_CC           =       mpicc -cc=$(SCC)
+#add -lpmi for sooty and eastwind machines in PNNL  -czhao
+DM_FC           =       mpif90 -f90=$(SFC) -lpmi
+DM_CC           =       mpicc -cc=$(SCC) -lpmi
 FC              =       CONFIGURE_FC
 CC              =       CONFIGURE_CC
 LD              =       $(FC)
 RWORDSIZE       =       CONFIGURE_RWORDSIZE
 PROMOTION       =       -r$(RWORDSIZE) -i4
-ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_SUBR -DWRF_USE_CLM
+#add SNICAR_FRC  -czhao
+ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_SUBR -DWRF_USE_CLM -DSNICAR_FRC
 CFLAGS_LOCAL    =       -w -O3
 LDFLAGS_LOCAL   =       
 CPLUSPLUSLIB    =       
@@ -330,14 +334,15 @@ OMPCC           =       # -openmp -fpp -auto
 SFC             =       ifort
 SCC             =       icc
 CCOMP           =       icc
-DM_FC           =       mpif90 -f90=$(SFC)
-DM_CC           =       mpicc -cc=$(SCC)
+#czhao add it for olympus and eastwind in PNNL
+DM_FC           =       mpif90 -f90=$(SFC) -lpmi
+DM_CC           =       mpicc -cc=$(SCC) -lpmi
 FC              =       CONFIGURE_FC
 CC              =       CONFIGURE_CC
 LD              =       $(FC)
 RWORDSIZE       =       CONFIGURE_RWORDSIZE
 PROMOTION       =       -i4
-ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DWRF_USE_CLM
+ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DWRF_USE_CLM -DSNICAR_FRC
 CFLAGS_LOCAL    =       -w -O3 -ip #-xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -no-multibyte-chars
 LDFLAGS_LOCAL   =       -ip #-xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -align all -fno-alias -fno-common
 CPLUSPLUSLIB    =       
@@ -345,7 +350,9 @@ ESMF_LDFLAG     =       $(CPLUSPLUSLIB)
 FCOPTIM         =       -O3
 FCREDUCEDOPT	=       $(FCOPTIM)
 FCNOOPT		=       -O0 -fno-inline -fno-ip
-FCDEBUG         =       # -g $(FCNOOPT) -traceback # -fpe0 -check all -ftrapuv -unroll0 -u
+#czhao add -heap-arrays for olympus
+#czhao add -no-ip for constance 
+FCDEBUG         =       -heap-arrays -no-ip # -g $(FCNOOPT) -traceback # -fpe0 -check all -ftrapuv -unroll0 -u
 FORMAT_FIXED    =       -FI
 FORMAT_FREE     =       -FR
 FCSUFFIX        =
@@ -423,14 +430,18 @@ CC              =       $(DM_CC)
 LD              =       $(FC)
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 PROMOTION       =       -i4
-ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DCHUNK=64 -DXEON_OPTIMIZED_WSM5 -DOPTIMIZE_CFL_TEST -DWRF_USE_CLM
+#czhao change it for Tianhe HPC 
+#ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DCHUNK=64 -DXEON_OPTIMIZED_WSM5 -DOPTIMIZE_CFL_TEST -DWRF_USE_CLM
+ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DCHUNK=64 -DWRF_USE_CLM -DSNICAR_FRC
 OPTNOSIMD       =
 OPTAVX          =       -xAVX
 CFLAGS_LOCAL    =       -w -O3 $(OPTAVX)
 LDFLAGS_LOCAL   =       $(OPTAVX)
 CPLUSPLUSLIB    =       
 ESMF_LDFLAG     =       $(CPLUSPLUSLIB)
-FCOPTIM         =       -O3 $(OPTAVX)
+#czhao change it for Tianhe HPC 
+#FCOPTIM         =       -O3 $(OPTAVX)
+FCOPTIM         =       -O2 $(OPTAVX)
 FCREDUCEDOPT	=       $(FCOPTIM)
 FCNOOPT		=       -O0 -fno-inline -fno-ip
 FCDEBUG         =       # -g $(FCNOOPT) -traceback # -fpe0 -check all -ftrapuv -unroll0 -u
@@ -650,14 +661,15 @@ OMPCC           =       # -openmp -fpp -auto
 SFC             =       ifort
 SCC             =       icc
 CCOMP           =       icc
-DM_FC           =       mpif90 -f90=$(SFC)
-DM_CC           =       mpicc -cc=$(SCC)
+#czhao add it for olympus and eastwind in PNNL
+DM_FC           =       mpif90 -f90=$(SFC) -lpmi
+DM_CC           =       mpicc -cc=$(SCC) -lpmi
 FC              =       CONFIGURE_FC
 CC              =       CONFIGURE_CC
 LD              =       $(FC)
 RWORDSIZE       =       CONFIGURE_RWORDSIZE
 PROMOTION       =        -i4
-ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DWRF_USE_CLM
+ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DWRF_USE_CLM -DSNICAR_FRC
 CFLAGS_LOCAL    =       -w -O3 -ip #-xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -no-multibyte-chars
 LDFLAGS_LOCAL   =       -ip #-xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -align all -fno-alias -fno-common
 CPLUSPLUSLIB    =       
@@ -665,7 +677,8 @@ ESMF_LDFLAG     =       $(CPLUSPLUSLIB)
 FCOPTIM         =       -O3
 FCREDUCEDOPT	=       $(FCOPTIM)
 FCNOOPT		=       -O0 -fno-inline -fno-ip
-FCDEBUG         =       # -g $(FCNOOPT) -traceback # -fpe0 -check all -ftrapuv -unroll0 -u
+#czhao add -heap-arrays for ifort
+FCDEBUG         =       -heap-arrays # -g $(FCNOOPT) -traceback # -fpe0 -check all -ftrapuv -unroll0 -u
 FORMAT_FIXED    =       -FI
 FORMAT_FREE     =       -FR
 FCSUFFIX        =
@@ -1171,7 +1184,7 @@ LDFLAGS_LOCAL   =
 CPLUSPLUSLIB    =       
 ESMF_LDFLAG     =       $(CPLUSPLUSLIB)
 # PGI recommended
-FCOPTIM         =       -O3 #-fastsse -Mvect=noaltcode -Msmartalloc -Mprefetch=distance:8 -Mfprelaxed # -Minfo=all =Mneginfo=all
+FCOPTIM         =       -O3 -fastsse -Mvect=noaltcode -Msmartalloc -Mprefetch=distance:8 -Mfprelaxed -Kieee # -Minfo=all =Mneginfo=all
 # For Pathscale compiler
 #FCOPTIM        =       -O3 -OPT:Ofast
 FCREDUCEDOPT	=       $(FCOPTIM)
@@ -1253,8 +1266,11 @@ OMPCPP          =       # -D_OPENMP
 OMP             =       # -openmp -fpp -auto
 OMPCC           =       # -openmp -fpp -auto
 SFC             =       ftn
-SCC             =       icc 
-CCOMP           =       icc 
+#czhao change icc to cc for Edison
+#SCC             =      icc 
+#CCOMP           =      icc 
+SCC             =       cc 
+CCOMP           =       cc 
 DM_FC           =       ftn
 DM_CC           =       cc
 FC              =       $(DM_FC)
@@ -1262,7 +1278,7 @@ CC              =       $(DM_CC)
 LD              =       $(FC)
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 PROMOTION       =       -i4
-ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DWRF_USE_CLM
+ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DWRF_USE_CLM -DSNICAR_FRC
 OPTNOSIMD       =
 OPTAVX          =       -xAVX
 CFLAGS_LOCAL    =       -w -O3 $(OPTAVX)
@@ -1286,7 +1302,9 @@ AR              =      ar
 ARFLAGS         =      ru
 M4              =      m4
 RANLIB          =      ranlib
-CC_TOOLS        =      gcc
+#czhao change gcc to cc for Edison
+#CC_TOOLS        =      gcc
+CC_TOOLS        =      cc
 
 ###########################################################
 #ARCH    Fujitsu FX10 Linux SPARC64IXfx, mpifrtpx and mpifccpx compilers #serial smpar dmpar dm+sm

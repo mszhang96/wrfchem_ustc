@@ -62,7 +62,12 @@
       integer, parameter :: nar = 10           ! crustal
       integer, parameter :: nahso5 = 11        ! hso5-
       integer, parameter :: nahmsa = 12        ! hmsa
-      integer, parameter :: naspec = 12        ! number of aerosol species
+      integer, parameter :: nad = 13           ! dust 
+      integer, parameter :: nt1r1 = 14         ! tr1r1 
+      integer, parameter :: nt1r2 = 15         ! tr1r2
+      integer, parameter :: nt1r3 = 16         ! tr1r3
+      integer, parameter :: nt1r4 = 17         ! tr1r4
+      integer, parameter :: naspec = 17        ! number of aerosol species
 !
 ! condensible gas-phase components in local arrays
 !
@@ -121,6 +126,11 @@
       integer, parameter :: kec  = nae               ! ec
       integer, parameter :: koc  = nao               ! oc
       integer, parameter :: kcru = nar               ! crustal
+      integer, parameter :: kdst = nad               ! dust 
+      integer, parameter :: kt1r1 = nt1r1            ! tr1r1 
+      integer, parameter :: kt1r2 = nt1r2            ! tr1r2 
+      integer, parameter :: kt1r3 = nt1r3            ! tr1r3 
+      integer, parameter :: kt1r4 = nt1r4            ! tr1r4 
 !      integer, parameter :: khso5 = 1                ! hso5-
 !      integer, parameter :: khmsa = 2                ! hmsa
 !      integer, parameter :: kform = 3                ! formic acid

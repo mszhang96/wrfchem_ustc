@@ -717,6 +717,8 @@ nested_grid%chem_in_opt = parent_grid%chem_in_opt
               end if
 
               if(nested_grid%dust_opt == 1 .or. nested_grid%dmsemis_opt == 1         &
+                 !czhao
+                 .or. nested_grid%dust_opt==3   &
                  .or. nested_grid%chem_opt == 300  .or. nested_grid%chem_opt == 301) then 
                  message = 'READING GOCART BG AND/OR DUST and DMS REF FIELDS'
                  CALL  wrf_message ( message )

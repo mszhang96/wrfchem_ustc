@@ -71,10 +71,16 @@ CONTAINS
 
          IF ( .NOT. unix_access_ok ) THEN
             PRINT *,'Oops, how can I access UNIX commands from Fortran?'
-            CALL wrf_error_fatal ( 'system_or_exec_only' )
+         !czhao close this line to avoid error
+           ! CALL wrf_error_fatal ( 'system_or_exec_only' )
          END IF
 
          !  Read the number of files.
+
+         !czhao fix number_of_eligible_files for chemical initial files
+         IF (TRIM(ROOT)=='wrf_chem_input') THEN
+            number_of_eligible_files = 1 
+         ELSE 
 
          OPEN (FILE   = '.foo1'       , &
                UNIT   = 112           , &
@@ -84,6 +90,8 @@ CONTAINS
 
          READ ( 112 , * ) number_of_eligible_files
          CLOSE ( 112 )
+
+         ENDIF
 
          !  If there are zero files, we are toast.
 
@@ -121,17 +129,39 @@ print *,'tried to allocate ',number_of_eligible_files,' eligible files, (look at
 
          !  Open the file that has the list of filenames.
 
-         OPEN (FILE   = '.foo'        , &
+         !czhao fix name of chemical initial files
+         IF (TRIM(ROOT)=='wrf_chem_input') THEN
+
+          if (id==1) then 
+          OPEN (FILE   = 'wrfchem_init_names1' , &
+               UNIT   = 111           , &
+               STATUS = 'OLD'         , &
+               ACCESS = 'SEQUENTIAL'  , &
+               FORM   = 'FORMATTED'     )
+          endif 
+          if (id==2) then 
+          OPEN (FILE   = 'wrfchem_init_names2' , &
+               UNIT   = 111           , &
+               STATUS = 'OLD'         , &
+               ACCESS = 'SEQUENTIAL'  , &
+               FORM   = 'FORMATTED'     )
+          endif
+
+         ELSE 
+
+          OPEN (FILE   = '.foo'        , &
                UNIT   = 111           , &
                STATUS = 'OLD'         , &
                ACCESS = 'SEQUENTIAL'  , &
                FORM   = 'FORMATTED'     )
 
+         ENDIF
+
          !  Read all of the file names and store them.
 
          DO loop = 1 , number_of_eligible_files
             READ ( 111 , FMT='(A)' ) eligible_file_name(loop)
-print *,TRIM(eligible_file_name(loop))
+            print *,TRIM(eligible_file_name(loop))
          END DO
          CLOSE ( 111 )
 

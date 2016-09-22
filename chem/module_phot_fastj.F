@@ -1,3 +1,4 @@
+
 !************************************************************************
 ! This computer software was prepared by Battelle Memorial Institute,
 ! hereinafter the Contractor, under Contract No. DE-AC05-76RL0 1830 with
@@ -76,6 +77,7 @@
                ph_ch3coch3,ph_ch3coc2h5,ph_hcocho,ph_ch3cocho,         &
                ph_hcochest,ph_ch3o2h,ph_ch3coo2h,ph_ch3ono2,ph_hcochob,&
                ph_n2o5,                                                &
+               ivgtyp,                                                 &
                tauaer1,tauaer2,tauaer3,tauaer4,                        &
                gaer1,gaer2,gaer3,gaer4,                                &
                waer1,waer2,waer3,waer4,                                &
@@ -166,6 +168,8 @@
          INTENT(IN ) ::                                             &
            l2aer,l3aer,l4aer,l5aer,l6aer,l7aer                      
 
+  INTEGER,  DIMENSION( ims:ime , jms:jme )                   ,    &
+          INTENT(IN   ) :: ivgtyp
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),         &
          INTENT(INOUT ) ::                                chem
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,    &
@@ -237,8 +241,10 @@
            CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
            CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, &
            CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
+           CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE, CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
            MOZART_MOSAIC_4BIN_VBS0_KPP, CRI_MOSAIC_8BIN_AQ_KPP, &
-           CRI_MOSAIC_4BIN_AQ_KPP )
+           CRI_MOSAIC_4BIN_AQ_KPP, SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP, &!BSINGH(12/05/2013): Added for SAPRC 8 bin vbs
+           SAPRC99_MOSAIC_8BIN_VBS2_KPP )!BSINGH(04/07/2014): Added for SAPRC 8 bin vbs non-aq
        processingAerosols = .true.
     case default
        processingAerosols = .false.
@@ -345,9 +351,11 @@
       zatw(lpar+1)=z_at_w(iclm,lpar+1,jclm)
 ! call interface_fastj
 	  CALL wrf_debug(250,'fastj_driver: calling interface_fastj')
+! jdf add ivgtyp for mexico city
 	  call interface_fastj(tmidh,sla,slo,julday,           &
            pbnd, psfc, temp, ozone,                        &
            dz, cloudmr, airdensity, relhum, zatw,          &
+           ivgtyp(iclm,jclm),                              &
            iclm, jclm, lpar, jpnl,                         &
            curr_secs, valuej, cos_sza, processingAerosols, &
            sizeaer,extaer,waer,gaer,tauaer,l2,l3,l4,l5,l6,l7)
@@ -508,6 +516,7 @@
         subroutine interface_fastj(tmidh,sla,slo,julian_day,   &
              pbnd, psfc, temp, ozone,                          &
              dz, cloudmr, airdensity, relhum, zatw,            &
+             ivgtyp,                                           &
              isvode, jsvode, lpar, jpnl,                       &
       	     curr_secs, valuej, cos_sza, processingAerosols,   &
              sizeaer,extaer,waer,gaer,tauaer,l2,l3,l4,l5,l6,l7)
@@ -571,6 +580,7 @@
    logical,parameter :: ldeg45=.false. !Logical flag for degraded CTM resolution
    integer lpar           !Number of levels in CTM
    integer jpnl           !Number of levels requiring chemistry
+   integer ivgtyp
    real(kind=double), dimension(ipar_fastj) :: xgrd !  Longitude (midpoint, radians)
    real(kind=double), dimension(jpar) :: ygrd           !  Latitude  (midpoint, radians)
    real(kind=double), dimension(jpar) :: ydgrd          !  Latitude  (midpoint, degrees)
@@ -724,7 +734,13 @@
 	   col_ozone(k) = ozone(k)
 	end do
 
- 	surface_albedo=0.055
+!	surface_albedo=0.055
+! jdf added ivgtyp for mexico city, barnard estimates
+        if(ivgtyp.eq.1) then
+          surface_albedo=0.086
+        else
+          surface_albedo=0.065
+        endif
 
 ! set aerosol parameters needed by Fast-J	                         	         	
         if (processingAerosols) then
@@ -769,10 +785,11 @@
          valuej(k,nphoto_fastj)=0.0
          do l = 1, nphoto_fastj-1
             if (valuej(k,l) .lt. 0) then
-               write( msg, '(a,f14.2,4i4,1x,e11.4)' )   &
-                    'FASTJ negative Jrate ' //   &
-                    'tsec i j k l J(k,l)', curr_secs,isvode,jsvode,k,l,valuej(k,l)
+               write( msg, '(a,4i4,1x)' )   &
+               'FASTJ negative Jrate ' //'tsec i j k l J(k,l)', &
+               isvode,jsvode,k,l
                call peg_message( lunerr, msg )
+               write(*,*) valuej(k,l)
                valuej(k,l) = 0.0
 ! following code used if want run stopped with negative Jrate                 
 !                 msg = '*** subr interface_fastj -- ' //   &
@@ -1972,7 +1989,9 @@
 !  Ascend from layer J calculating AMFs
         XMU1=ABS(GMU)
         DO 12 I=J,lpar
-          XMU2=DSQRT(1.0D0-RQ(I)*(1.0D0-XMU1**2))
+          !czhao make the value absolute positive
+          XMU2=DSQRT(ABS(1.0D0-RQ(I)*(1.0D0-XMU1**2)))
+!         XMU2=DSQRT(1.0D0-RQ(I)*(1.0D0-XMU1**2))
           XL=RZ(I+1)*XMU2-RZ(I)*XMU1
           AMF(I,J)=XL/(RZ(I+1)-RZ(I))
           XMU1=XMU2

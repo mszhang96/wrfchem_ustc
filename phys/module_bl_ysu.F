@@ -362,6 +362,8 @@ contains
    real,parameter    ::  gamcrt = 3.,gamcrq = 2.e-3
    real,parameter    ::  xka = 2.4e-5
    integer,parameter ::  imvdif = 1
+!wig : parameter added to set a minimum pbl height. To disable this option, set to 0
+      real, parameter :: hpblmin=200.        
 !
    integer,  intent(in   )   ::     ids,ide, jds,jde, kds,kde,                 &
                                     ims,ime, jms,jme, kms,kme,                 &
@@ -483,6 +485,8 @@ contains
    integer ::  n,i,k,l,ic,is
    integer ::  klpbl, ktrace1, ktrace2, ktrace3
 !
+!wig: added kmin for setting minimum pbl height
+   integer, dimension( its:ite )             ::      kmin
 !
    real    ::  dt2,rdt,spdk2,fm,fh,hol1,gamfac,vpert,prnum,prnum0
    real    ::  ss,ri,qmean,tmean,alph,chi,zk,rl2,dk,sri
@@ -574,6 +578,19 @@ contains
        dza(i,k) = za(i,k)-za(i,k-1)
      enddo
    enddo
+
+!wig: determine the k level associated with hpblmin.
+   if( hpblmin >= 1. ) then
+      do i = its,ite                                      
+         kmin(i) = 1
+         do k = kte-1,kts,-1
+            if( zq(i,k) <= hpblmin ) then
+               kmin(i) = k
+               exit
+            end if
+         end do
+      end do
+   end if
 !
 !
 !-----initialize vertical tendencies and
@@ -642,7 +659,9 @@ contains
      pblflg(i) = .true.
      sfcflg(i) = .true.
      sflux(i) = hfx(i)/rhox(i)/cp + qfx(i)/rhox(i)*ep1*thx(i,1)
-     if(br(i).gt.0.0) sfcflg(i) = .false.
+!wig: turn off check for sfc stability if using a minimum pbl height > 0.
+!     if(br(i).gt.0.0) sfcflg(i) = .false.
+     if(br(i).gt.0.0.and.hpblmin<=1.) sfcflg(i) = .false.
    enddo
 !
 !     compute the first guess of pbl height
@@ -675,7 +694,14 @@ contains
        brint = (brcr(i)-brdn(i))/(brup(i)-brdn(i))
      endif
      hpbl(i) = za(i,k-1)+brint*(za(i,k)-za(i,k-1))
-     if(hpbl(i).lt.zq(i,2)) kpbl(i) = 1
+!wig: rig a minimum PBL heigt
+     if( hpblmin >= 1. .and. hpbl(i).lt.hpblmin) then
+        kpbl(i) = kmin(i)
+        hpbl(i) = hpblmin
+     else
+        if(hpbl(i).lt.zq(i,2)) kpbl(i) = 1
+     end if
+!    if(hpbl(i).lt.zq(i,2)) kpbl(i) = 1
      if(kpbl(i).le.1) pblflg(i) = .false.
    enddo
 !
@@ -769,7 +795,14 @@ contains
          brint = (brcr(i)-brdn(i))/(brup(i)-brdn(i))
        endif
        hpbl(i) = za(i,k-1)+brint*(za(i,k)-za(i,k-1))
-       if(hpbl(i).lt.zq(i,2)) kpbl(i) = 1
+!wig: rig a minimum PBL heigt
+       if(hpblmin >= 1. .and. hpbl(i).lt.hpblmin) then
+          kpbl(i) = kmin(i)
+          hpbl(i) = hpblmin
+       else
+          if(hpbl(i).lt.zq(i,2)) kpbl(i) = 1
+       end if
+!      if(hpbl(i).lt.zq(i,2)) kpbl(i) = 1
        if(kpbl(i).le.1) pblflg(i) = .false.
      endif
    enddo
@@ -827,7 +860,14 @@ contains
          brint = (brcr(i)-brdn(i))/(brup(i)-brdn(i))
        endif
        hpbl(i) = za(i,k-1)+brint*(za(i,k)-za(i,k-1))
-       if(hpbl(i).lt.zq(i,2)) kpbl(i) = 1
+!wig: rig a minimum PBL heigt
+       if(hpblmin >= 1. .and. hpbl(i).lt.hpblmin) then
+          kpbl(i) = kmin(i)
+          hpbl(i) = hpblmin
+       else
+          if(hpbl(i).lt.zq(i,2)) kpbl(i) = 1
+       end if
+!      if(hpbl(i).lt.zq(i,2)) kpbl(i) = 1
        if(kpbl(i).le.1) pblflg(i) = .false.
      endif
    enddo

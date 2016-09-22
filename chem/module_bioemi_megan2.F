@@ -461,6 +461,7 @@ CONTAINS
           CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
           CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, &
           CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, CBMZSORG, CBMZSORG_AQ, &
+          CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE, CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
           CBMZ_CAM_MAM3_NOAQ, CBMZ_CAM_MAM3_AQ, CBMZ_CAM_MAM7_NOAQ, CBMZ_CAM_MAM7_AQ)
         
        ! get p_of_megan2cbmz(:), p_of_cbmz(:), and cbmz_per_megan(:)
@@ -470,7 +471,8 @@ CONTAINS
        ! get p_of_megan2mozcart(:), p_of_mozcart(:), and mozcart_per_megan(:)
        CALL get_megan2mozcart_table
 
-    CASE (SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP) ! FIX FOR SAPRC07A
+    CASE (SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_4BIN_VBS9_KPP, &
+         SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_KPP)!BSINGH(12/03/2013): Added SAPRC 8 bin and non-aq on (04/07/2014) ! FIX FOR SAPRC07A
        CALL get_megan2saprcnov_table
 
     CASE ( CRIMECH_KPP, CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP )
@@ -1102,6 +1104,7 @@ is_mozcart_species : &
                 CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
                 CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, &
                 CBMZ_MOSAIC_DMS_4BIN_AQ,CBMZ_MOSAIC_DMS_8BIN_AQ,CBMZSORG, CBMZSORG_AQ, &
+                CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
                 CBMZ_CAM_MAM3_NOAQ, CBMZ_CAM_MAM3_AQ, CBMZ_CAM_MAM7_NOAQ, CBMZ_CAM_MAM7_AQ)
 
              DO icount = 1, n_megan2cbmz
@@ -1169,7 +1172,8 @@ is_mozcart_species : &
 
              END DO
             
-          CASE (SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP) ! FIX FOR SAPRC99 AND SAPRC07
+          CASE (SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_4BIN_VBS9_KPP, &
+               SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_KPP)!BSINGH(12/03/2013): Added SAPRC 8 bin and non-aq on (04/07/2014) ! FIX FOR SAPRC99 AND SAPRC07
 
              DO icount = 1, n_megan2saprcnov
 
@@ -1192,12 +1196,6 @@ is_mozcart_species : &
                       IF ( p_in_chem .EQ. p_isoprene ) THEN
                          ebio_iso(i,j)        = ebio_iso(i,j)       + gas_emis
                          e_bio(i,j,p_isoprene-1)   = e_bio(i,j,p_isoprene-1)  + gas_emis*convert2
-                      ELSE IF ( p_in_chem .EQ. p_terp) THEN
-                         ebio_api(i,j)       = ebio_api(i,j)      + gas_emis
-                         e_bio(i,j,p_terp-1)  = e_bio(i,j,p_terp-1) + gas_emis*convert2
-                      ELSE IF ( p_in_chem .EQ. p_sesq) THEN
-                         ebio_lim(i,j)         = ebio_lim(i,j)        + gas_emis
-                         e_bio(i,j,p_sesq-1)    = e_bio(i,j,p_sesq-1)   + gas_emis*convert2
                       ELSE IF ( p_in_chem .EQ. p_no) THEN
                          ebio_no(i,j)         = ebio_no(i,j)        + gas_emis
                          e_bio(i,j,p_no-1)    = e_bio(i,j,p_no-1)   + gas_emis*convert2
@@ -1261,9 +1259,11 @@ is_mozcart_species : &
                          e_bio(i,j,p_rco_oh-1)    = e_bio(i,j,p_rco_oh-1)   + gas_emis*convert2
                       ELSE IF ( p_in_chem .EQ. p_terp) THEN
                          ebio_terp(i,j)         = ebio_terp(i,j)        + gas_emis
+                         ebio_api(i,j)         = ebio_api(i,j)        + gas_emis
                          e_bio(i,j,p_terp-1)    = e_bio(i,j,p_terp-1)   + gas_emis*convert2
                       ELSE IF ( p_in_chem .EQ. p_sesq) THEN
                          ebio_sesq(i,j)         = ebio_sesq(i,j)        + gas_emis
+                         ebio_lim(i,j)         = ebio_lim(i,j)        + gas_emis
                          e_bio(i,j,p_sesq-1)    = e_bio(i,j,p_sesq-1)   + gas_emis*convert2
 !jdf
                       END IF

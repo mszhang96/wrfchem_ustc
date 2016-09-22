@@ -218,7 +218,7 @@ CONTAINS
          WRITE(message,'(a,i1,a,f10.3,a)') &
           'D0',id,' 3-D analysis nudging reads new data at time = ', xtime, ' min.'
          CALL wrf_message( TRIM(message) )
-         WRITE(message,'(a,i1,a,2f8.2,a)') &
+         WRITE(message,'(a,i1,a,2f10.3,a)') &
           'D0',id,' 3-D analysis nudging bracketing times = ', xtime_old, xtime_new, ' min.'
          CALL wrf_message( TRIM(message) )
        ENDIF

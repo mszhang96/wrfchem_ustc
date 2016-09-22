@@ -13,6 +13,14 @@ CONTAINS
                              , tracer, tracer_tend              &
                              , scalar , scalar_tend             &
                              , fdda3d, fdda2d                   &
+                             , tauaerlw                         &
+                             , tauaersw,waersw,gaersw  &
+                             , tauaersw_dust,waersw_dust,gaersw_dust  &
+                             , tauaersw_bc,waersw_bc,gaersw_bc  &
+                             , tauaersw_sulf,waersw_sulf,gaersw_sulf  &
+                             , tauaersw_oc,waersw_oc,gaersw_oc  &
+                             , tauaersw_other,waersw_other,gaersw_other  &
+                             , tauaerlw_dust,tauaerlw_bc,tauaerlw_sulf,tauaerlw_oc,tauaerlw_other   &
                              , aerod                            &
                              , ru_tendf, rv_tendf               &
                              , rw_tendf, t_tendf                &
@@ -82,6 +90,14 @@ use module_scalar_tables
     REAL    ,DIMENSION(ims:ime,kms:kme,jms:jme,num_scalar),INTENT(INOUT)   :: scalar_tend
     REAL    ,DIMENSION(ims:ime,kms:kme,jms:jme,num_fdda3d),INTENT(INOUT)  :: fdda3d
     REAL    ,DIMENSION(ims:ime,1:1,jms:jme,num_fdda2d),INTENT(INOUT)      :: fdda2d
+    REAL    ,DIMENSION(ims:ime,kms:kme,jms:jme,num_tauaerlw),INTENT(IN),OPTIONAL   :: &
+             tauaerlw,tauaerlw_dust,tauaerlw_bc,tauaerlw_sulf,tauaerlw_oc,tauaerlw_other 
+    REAL    ,DIMENSION(ims:ime,kms:kme,jms:jme,num_tauaersw),INTENT(IN),OPTIONAL   ::  & 
+             tauaersw,tauaersw_dust,tauaersw_bc,tauaersw_sulf,tauaersw_oc,tauaersw_other 
+    REAL    ,DIMENSION(ims:ime,kms:kme,jms:jme,num_waersw),INTENT(IN),OPTIONAL   :: &  
+             waersw,waersw_dust,waersw_bc,waersw_sulf,waersw_oc,waersw_other 
+    REAL    ,DIMENSION(ims:ime,kms:kme,jms:jme,num_gaersw),INTENT(IN),OPTIONAL   :: &
+             gaersw,gaersw_dust,gaersw_bc,gaersw_sulf,gaersw_oc,gaersw_other 
     REAL    ,DIMENSION(ims:ime,kms:kme,jms:jme,num_aerod),INTENT(INOUT)   :: aerod
     REAL    ,DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: psim
     REAL    ,DIMENSION(ims:ime,jms:jme), INTENT(INOUT)         :: psih
@@ -138,6 +154,7 @@ use module_scalar_tables
 
    CHARACTER (LEN=256) :: mminlu
    CHARACTER (LEN=1000) :: message
+   LOGICAL :: do_bioe
 
 #if ( WRF_DFI_RADAR == 1 )
     INTEGER  do_capsupress   ! =1 do CAP supress, other = don't
@@ -194,7 +211,7 @@ BENCH_END(init_zero_tend_tim)
                         grid%v_2, grid%p, grid%pb, grid%alt,             &
                         grid%ph_2, grid%phb, grid%t_2, grid%tsk, moist, num_moist,   &
                         rho,th_phy, p_phy, pi_phy, u_phy, v_phy,         &
-                        p8w, t_phy, t8w, grid%z, grid%z_at_w, dz8w,      &
+                        p8w, grid%t_phy, t8w, grid%z, grid%z_at_w, dz8w,      &
                         grid%p_hyd, grid%p_hyd_w, grid%dnw,              &
                         grid%fnm, grid%fnp, grid%znw, grid%p_top,        &
                         grid%rthraten,                                   &
@@ -244,6 +261,9 @@ BENCH_END(phy_prep_tim)
      &        ,ht_shad_bys=grid%ht_shad_bys, ht_shad_bye=grid%ht_shad_bye      &
      &        ,nested=config_flags%nested, min_ptchsz=grid%min_ptchsz          &
      &        ,spec_bdy_width=config_flags%spec_bdy_width                      &
+               !czhao
+     &        ,solarrad_opt=config_flags%solarrad_opt  &
+     &        ,paleoclimate=config_flags%paleoclimate  &
             ! indexes
      &        ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde          &
      &        ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme          &
@@ -304,6 +324,15 @@ BENCH_START(rad_driver_tim)
      &        ,CAM_ABS_FREQ_S=grid%cam_abs_freq_s                         &
      &        ,XTIME=grid%xtime                                                &
               ,CURR_SECS=curr_secs, ADAPT_STEP_FLAG=adapt_step_flag       &
+!BSINGH - For WRFCuP scheme
+     &        ,CU_PHYSICS=config_flags%cu_physics                         & !CuP, wig 5-Oct-2006
+     &        ,SHALLOWCU_FORCED_RA=config_flags%shallowcu_forced_ra       & !CuP, wig
+     &        ,CUBOT=grid%cubot, CUTOP=grid%cutop, CUPFLAG=grid%cupflag   & !CuP, wig 9-Oct-2006
+     &        ,CLDFRA_CUP=grid%cldfra_cup                                 & !CuP, wig 1-Oct-2006
+     &        ,SHALL=grid%shall                                           & !CuP, wig 4-Feb-2008
+     &        ,QC_IC_CUP=grid%qc_ic_cup                                   & !CuP, rce 29-aug-2011
+     &        ,QNDROP_IC_CUP=grid%qndrop_ic_cup                           & !CuP, rce 29-aug-2011
+!BSINGH - ENDS
             ! indexes
      &        ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde          &
      &        ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme          &
@@ -320,6 +349,8 @@ BENCH_START(rad_driver_tim)
 !JJS 20101020 ^^^^^
 
      &        , CLDFRA=grid%cldfra, CLDFRA_MP_ALL=grid%cldfra_mp_all      &
+     &        , mp_physics = config_flags%mp_physics                      &
+     &        , LRADIUS=grid%LRADIUS,IRADIUS=grid%IRADIUS                 & !BSINGH(01/22/2014)
      &        , re_cloud=grid%re_cloud, re_ice=grid%re_ice, re_snow=grid%re_snow & ! G. Thompson
      &        , has_reqc=grid%has_reqc, has_reqi=grid%has_reqi, has_reqs=grid%has_reqs & ! G. Thompson
      &        , PB=grid%pb                                                &
@@ -331,6 +362,8 @@ BENCH_START(rad_driver_tim)
      &        , QS=moist(ims,kms,jms,P_QS), F_QS=F_QS                     &
      &        , QG=moist(ims,kms,jms,P_QG), F_QG=F_QG                     &
      &        , QNDROP=scalar(ims,kms,jms,P_QNDROP), F_QNDROP=F_QNDROP    &
+!czhao
+     &        , QNICE=scalar(ims,kms,jms,P_QNI), F_QNICE=f_qni                &
      &        ,ACSWUPT=grid%acswupt    ,ACSWUPTC=grid%acswuptc            &
      &        ,ACSWDNT=grid%acswdnt    ,ACSWDNTC=grid%acswdntc            &
      &        ,ACSWUPB=grid%acswupb    ,ACSWUPBC=grid%acswupbc            &
@@ -362,22 +395,86 @@ BENCH_START(rad_driver_tim)
      &        ,AER_RA_FEEDBACK=config_flags%aer_ra_feedback                &
      &        ,PM2_5_DRY=grid%pm2_5_dry, PM2_5_WATER=grid%pm2_5_water               &
      &        ,PM2_5_DRY_EC=grid%pm2_5_dry_ec                                  &
-     &        ,TAUAER300=grid%tauaer1, TAUAER400=grid%tauaer2 & ! jcb
-     &        ,TAUAER600=grid%tauaer3, TAUAER999=grid%tauaer4 & ! jcb
-     &        ,GAER300=grid%gaer1, GAER400=grid%gaer2, GAER600=grid%gaer3, GAER999=grid%gaer4 & ! jcb
-     &        ,WAER300=grid%waer1, WAER400=grid%waer2, WAER600=grid%waer3, WAER999=grid%waer4 & ! jcb
-     &        ,TAUAERlw1  =grid%tauaerlw1,  TAUAERlw2=grid%tauaerlw2    & 
-     &        ,TAUAERlw3  =grid%tauaerlw3,  TAUAERlw4=grid%tauaerlw4    & 
-     &        ,TAUAERlw5  =grid%tauaerlw5,  TAUAERlw6=grid%tauaerlw6    & 
-     &        ,TAUAERlw7  =grid%tauaerlw7,  TAUAERlw8=grid%tauaerlw8    & 
-     &        ,TAUAERlw9  =grid%tauaerlw9,  TAUAERlw10=grid%tauaerlw10    & 
-     &        ,TAUAERlw11 =grid%tauaerlw11, TAUAERlw12=grid%tauaerlw12    & 
-     &        ,TAUAERlw13 =grid%tauaerlw13, TAUAERlw14=grid%tauaerlw14    & 
-     &        ,TAUAERlw15 =grid%tauaerlw15, TAUAERlw16=grid%tauaerlw16   & 
-     &        ,progn=config_flags%progn                                            &
+               !aerosol shortwave
+     &        ,TAUAERSW=tauaersw,WAERSW=waersw,GAERSW=gaersw      & ! czhao 
+     &        ,TAUAERSW_DUST=tauaersw_DUST,WAERSW_DUST=waersw_DUST,GAERSW_DUST=gaersw_DUST      & ! czhao 
+     &        ,TAUAERSW_BC=tauaersw_BC,WAERSW_BC=waersw_BC,GAERSW_BC=gaersw_BC      & ! czhao 
+     &        ,TAUAERSW_SULF=tauaersw_SULF,WAERSW_SULF=waersw_SULF,GAERSW_SULF=gaersw_SULF      & ! czhao 
+     &        ,TAUAERSW_OC=tauaersw_OC,WAERSW_OC=waersw_OC,GAERSW_OC=gaersw_OC      & ! czhao 
+     &        ,TAUAERSW_OTHER=tauaersw_OTHER,WAERSW_OTHER=waersw_OTHER,GAERSW_OTHER=gaersw_OTHER      & ! czhao 
+               !aerosol longwave
+     &        ,TAUAERLW=tauaerlw  & ! czhao 
+     &        ,TAUAERLW_DUST=tauaerlw_dust  & ! czhao 
+     &        ,TAUAERLW_BC=tauaerlw_bc  & ! czhao 
+     &        ,TAUAERLW_SULF=tauaerlw_sulf  & ! czhao 
+     &        ,TAUAERLW_OC=tauaerlw_oc  & ! czhao 
+     &        ,TAUAERLW_OTHER=tauaerlw_other  & ! czhao 
+               !diagnostic forcing
+     &        ,RTHRATENLW_DUST=grid%RTHRATENLW_DUST,RTHRATENLW_BC=grid%RTHRATENLW_BC    &  
+     &        ,RTHRATENLW_SULF=grid%RTHRATENLW_SULF    &  
+     &        ,RTHRATENLW_OC=grid%RTHRATENLW_OC    &  
+     &        ,RTHRATENLW_OTHER=grid%RTHRATENLW_OTHER    &  
+     &        ,RTHRATENLW_CLN=grid%RTHRATENLW_CLN    &  
+     &        ,LWUPT_DUST=grid%LWUPT_DUST,LWUPTC_DUST=grid%LWUPTC_DUST   &
+     &        ,LWDNT_DUST=grid%LWDNT_DUST,LWDNTC_DUST=grid%LWDNTC_DUST  &
+     &        ,LWUPB_DUST=grid%LWUPB_DUST,LWUPBC_DUST=grid%LWUPBC_DUST  &
+     &        ,LWDNB_DUST=grid%LWDNB_DUST,LWDNBC_DUST=grid%LWDNBC_DUST   &
+     &        ,LWUPT_BC=grid%LWUPT_BC,LWUPTC_BC=grid%LWUPTC_BC      &
+     &        ,LWDNT_BC=grid%LWDNT_BC,LWDNTC_BC=grid%LWDNTC_BC      &
+     &        ,LWUPB_BC=grid%LWUPB_BC,LWUPBC_BC=grid%LWUPBC_BC      &
+     &        ,LWDNB_BC=grid%LWDNB_BC,LWDNBC_BC=grid%LWDNBC_BC      &
+     &        ,LWUPT_SULF=grid%LWUPT_SULF,LWUPTC_SULF=grid%LWUPTC_SULF   &
+     &        ,LWDNT_SULF=grid%LWDNT_SULF,LWDNTC_SULF=grid%LWDNTC_SULF  &
+     &        ,LWUPB_SULF=grid%LWUPB_SULF,LWUPBC_SULF=grid%LWUPBC_SULF  &
+     &        ,LWDNB_SULF=grid%LWDNB_SULF,LWDNBC_SULF=grid%LWDNBC_SULF   &
+     &        ,LWUPT_OC=grid%LWUPT_OC,LWUPTC_OC=grid%LWUPTC_OC   &
+     &        ,LWDNT_OC=grid%LWDNT_OC,LWDNTC_OC=grid%LWDNTC_OC  &
+     &        ,LWUPB_OC=grid%LWUPB_OC,LWUPBC_OC=grid%LWUPBC_OC  &
+     &        ,LWDNB_OC=grid%LWDNB_OC,LWDNBC_OC=grid%LWDNBC_OC   &
+     &        ,LWUPT_OTHER=grid%LWUPT_OTHER,LWUPTC_OTHER=grid%LWUPTC_OTHER   &
+     &        ,LWDNT_OTHER=grid%LWDNT_OTHER,LWDNTC_OTHER=grid%LWDNTC_OTHER  &
+     &        ,LWUPB_OTHER=grid%LWUPB_OTHER,LWUPBC_OTHER=grid%LWUPBC_OTHER  &
+     &        ,LWDNB_OTHER=grid%LWDNB_OTHER,LWDNBC_OTHER=grid%LWDNBC_OTHER   &
+     &        ,LWUPT_CLN=grid%LWUPT_CLN,LWUPTC_CLN=grid%LWUPTC_CLN   &
+     &        ,LWDNT_CLN=grid%LWDNT_CLN,LWDNTC_CLN=grid%LWDNTC_CLN  &
+     &        ,LWUPB_CLN=grid%LWUPB_CLN,LWUPBC_CLN=grid%LWUPBC_CLN  &
+     &        ,LWDNB_CLN=grid%LWDNB_CLN,LWDNBC_CLN=grid%LWDNBC_CLN   &
+     &        ,RTHRATENSW_DUST=grid%RTHRATENSW_DUST,RTHRATENSW_BC=grid%RTHRATENSW_BC    &
+     &        ,RTHRATENSW_SULF=grid%RTHRATENSW_SULF    &
+     &        ,RTHRATENSW_OC=grid%RTHRATENSW_OC    &
+     &        ,RTHRATENSW_OTHER=grid%RTHRATENSW_OTHER    &
+     &        ,RTHRATENSW_CLN=grid%RTHRATENSW_CLN    &
+     &        ,SWUPT_DUST=grid%SWUPT_DUST,SWUPTC_DUST=grid%SWUPTC_DUST   &
+     &        ,SWDNT_DUST=grid%SWDNT_DUST,SWDNTC_DUST=grid%SWDNTC_DUST  &
+     &        ,SWUPB_DUST=grid%SWUPB_DUST,SWUPBC_DUST=grid%SWUPBC_DUST  &
+     &        ,SWDNB_DUST=grid%SWDNB_DUST,SWDNBC_DUST=grid%SWDNBC_DUST   &
+     &        ,SWUPT_BC=grid%SWUPT_BC,SWUPTC_BC=grid%SWUPTC_BC      &
+     &        ,SWDNT_BC=grid%SWDNT_BC,SWDNTC_BC=grid%SWDNTC_BC      &
+     &        ,SWUPB_BC=grid%SWUPB_BC,SWUPBC_BC=grid%SWUPBC_BC      &
+     &        ,SWDNB_BC=grid%SWDNB_BC,SWDNBC_BC=grid%SWDNBC_BC      &
+     &        ,SWUPT_SULF=grid%SWUPT_SULF,SWUPTC_SULF=grid%SWUPTC_SULF   &
+     &        ,SWDNT_SULF=grid%SWDNT_SULF,SWDNTC_SULF=grid%SWDNTC_SULF  &
+     &        ,SWUPB_SULF=grid%SWUPB_SULF,SWUPBC_SULF=grid%SWUPBC_SULF  &
+     &        ,SWDNB_SULF=grid%SWDNB_SULF,SWDNBC_SULF=grid%SWDNBC_SULF   &
+     &        ,SWUPT_OC=grid%SWUPT_OC,SWUPTC_OC=grid%SWUPTC_OC   &
+     &        ,SWDNT_OC=grid%SWDNT_OC,SWDNTC_OC=grid%SWDNTC_OC  &
+     &        ,SWUPB_OC=grid%SWUPB_OC,SWUPBC_OC=grid%SWUPBC_OC  &
+     &        ,SWDNB_OC=grid%SWDNB_OC,SWDNBC_OC=grid%SWDNBC_OC   &
+     &        ,SWUPT_OTHER=grid%SWUPT_OTHER,SWUPTC_OTHER=grid%SWUPTC_OTHER   &
+     &        ,SWDNT_OTHER=grid%SWDNT_OTHER,SWDNTC_OTHER=grid%SWDNTC_OTHER  &
+     &        ,SWUPB_OTHER=grid%SWUPB_OTHER,SWUPBC_OTHER=grid%SWUPBC_OTHER  &
+     &        ,SWDNB_OTHER=grid%SWDNB_OTHER,SWDNBC_OTHER=grid%SWDNBC_OTHER   &
+     &        ,SWUPT_CLN=grid%SWUPT_CLN,SWUPTC_CLN=grid%SWUPTC_CLN   &
+     &        ,SWDNT_CLN=grid%SWDNT_CLN,SWDNTC_CLN=grid%SWDNTC_CLN  &
+     &        ,SWUPB_CLN=grid%SWUPB_CLN,SWUPBC_CLN=grid%SWUPBC_CLN  &
+     &        ,SWDNB_CLN=grid%SWDNB_CLN,SWDNBC_CLN=grid%SWDNBC_CLN   &
+     &        ,PROGN=config_flags%progn,PROGN_ICE=config_flags%progn_ice    & !czhao
 #endif
      &         ,slope_rad=config_flags%slope_rad,topo_shading=config_flags%topo_shading     &
-     &         ,shadowmask=grid%shadowmask,ht=grid%ht,dx=grid%dx,dy=grid%dy &           
+     &         ,shadowmask=grid%shadowmask,ht=grid%ht,dx=grid%dx,dy=grid%dy & 
+               !czhao
+     &         ,radeffc=grid%radeffc,radeffi=grid%radeffi   &
+     &        ,solarrad_opt=config_flags%solarrad_opt,paleoclimate=config_flags%paleoclimate &          
      &         ,IS_CAMMGMP_USED = grid%is_CAMMGMP_used    )
 
 BENCH_END(rad_driver_tim)
@@ -408,21 +505,34 @@ BENCH_START(surf_driver_tim)
       else
           HYDRO_dt = -1
       endif
+      
+#ifdef WRF_USE_CLM
+      if(config_flags%chem_opt.gt.0) then !czhao +++++
+      if( config_flags%bio_emiss_opt == MEGAN2_CLM ) then
+        do_bioe = grid%itimestep == 1 .or. mod( grid%itimestep,grid%stepbioe ) == 0
+      else
+        do_bioe = .false.
+      endif
+      endif !czhao-----
+#else
+      do_bioe = .false.
+#endif
 
       CALL surface_driver(                                                &
      &        HYDRO_dt=HYDRO_dt,  sfcheadrt=grid%sfcheadrt,               &
      &        INFXSRT=grid%INFXSRT,  soldrain=grid%soldrain,              &
      &         ACGRDFLX=grid%acgrdflx  ,ACHFX=grid%achfx        ,ACLHF=grid%aclhf        &
      &        ,ACSNOM=grid%acsnom      ,ACSNOW=grid%acsnow      ,AKHS=grid%akhs          &
-     &        ,AKMS=grid%akms          ,ALBBCK=grid%albbck      ,ALBEDO=grid%albedo      &
+     &        ,AKMS=grid%akms          ,ALBBCK=grid%albbck      ,ALBEDO=grid%albedo, ALBEDOG=grid%albedog,ALBEDO_AER=grid%albedo_aer,ALBEDO_BC=grid%albedo_bc,ALBEDO_DST=grid%albedo_dst      &
      &        ,EMBCK=grid%embck                                                          &
      &        ,BR=br              ,CANWAT=grid%canwat      ,CHKLOWQ=chklowq    &
      &        ,CT=grid%ct              ,DT=grid%dt         ,DX=grid%dx         &
      &        ,DZ8W=dz8w          ,DZS=grid%dzs            ,FLHC=grid%flhc          &
      &        ,FM=grid%fm         ,FHH=grid%fh                                      &
      &        ,FLQC=grid%flqc          ,GLW=grid%glw            ,GRDFLX=grid%grdflx      &
-     &        ,GSW=grid%gsw    ,SWDOWN=grid%swdown        ,GZ1OZ0=gz1oz0      ,HFX=grid%hfx              &
-     &        ,HT=grid%ht              ,IFSNOW=config_flags%ifsnow      ,ISFFLX=config_flags%isfflx      &
+     &        ,GSW=grid%gsw    ,SWDOWN=grid%swdown   ,GZ1OZ0=gz1oz0 ,HFX=grid%hfx          &
+     &        ,HT=grid%ht, TERRAIN_EFFECT=config_flags%terrain_effect   &
+     &        ,IFSNOW=config_flags%ifsnow      ,ISFFLX=config_flags%isfflx      &
      &        ,FRACTIONAL_SEAICE=config_flags%fractional_seaice           &
      &        ,SEAICE_ALBEDO_OPT=config_flags%seaice_albedo_opt           &
      &        ,SEAICE_ALBEDO_DEFAULT=config_flags%seaice_albedo_default   &
@@ -433,7 +543,7 @@ BENCH_START(surf_driver_tim)
      &        ,SEAICE_SNOWDEPTH_MIN=config_flags%seaice_snowdepth_min     &
      &        ,TICE2TSK_IF2COLD=config_flags%tice2tsk_if2cold             &
      &        ,IFNDALBSI=grid%ifndalbsi, IFNDICEDEPTH=grid%ifndicedepth   &
-     &        ,IFNDSNOWSI=grid%ifndsnowsi                                 &
+     &        ,IFNDSNOWSI=grid%ifndsnowsi, DO_BIOE=do_bioe                &
      &        ,ISLTYP=grid%isltyp      ,ITIMESTEP=grid%itimestep, JULIAN_IN=grid%julian                  &
      &        ,IVGTYP=grid%ivgtyp      ,LH=grid%lh              ,LOWLYR=grid%lowlyr      &
      &        ,MAVAIL=grid%mavail      ,NUM_SOIL_LAYERS=config_flags%num_soil_layers        &
@@ -463,7 +573,7 @@ BENCH_START(surf_driver_tim)
      &        ,TYR=grid%tyr            ,TYRA=grid%tyra          ,TDLY=grid%tdly          &
      &        ,TLAG=grid%tlag          ,LAGDAY=config_flags%lagday      ,NYEAR=grid%nyear        &
      &        ,NDAY=grid%nday          ,TMN_UPDATE=grid%tmn_update      ,YR=yr            &
-     &        ,TSLB=grid%tslb          ,T_PHY=t_phy        ,U10=grid%u10            &
+     &        ,TSLB=grid%tslb          ,T_PHY=grid%t_phy        ,U10=grid%u10            &
      &        ,URATX=grid%uratx        ,VRATX=grid%vratx   ,TRATX=grid%tratx        &
      &        ,UDRUNOFF=grid%udrunoff  ,UST=grid%ust       ,UZ0=grid%uz0            &
      &        ,U_FRAME=grid%u_frame    ,U_PHY=u_phy        ,V10=grid%v10            &
@@ -481,11 +591,12 @@ BENCH_START(surf_driver_tim)
      &        ,TML=grid%tml, T0ML=grid%t0ml, HML=grid%hml, H0ML=grid%h0ml, HUML=grid%huml, HVML=grid%hvml, F=grid%f &
      &        ,TMOML=grid%TMOML,ISWATER=iswater &
 ! CLM Varaibles
+     &        ,BIO_EMISS_OPT=config_flags%bio_emiss_opt,E_BIO=grid%e_bio,NE_AREA=grid%ne_area &
      &        ,NUMC=grid%numc,NUMP=grid%nump,SABV=grid%sabv,SABG=grid%sabg,LWUP=grid%lwup,SNL=grid%snl, &
      &         HISTORY_INTERVAL=config_flags%history_interval ,        &!ylu add hist inverval for accumulation T max/min
      &         SNOWDP=grid%snowdp, WTC=grid%wtc,WTP=grid%wtp, H2OSNO=grid%h2osno,T_GRND=grid%t_grnd,T_VEG=grid%t_veg, &
      &         H2OCAN=grid%h2ocan, H2OCAN_COL=grid%h2ocan_col,T2M_MAX=grid%t2m_max,T2M_MIN=grid%t2m_min,T2CLM=grid%t2clm,&
-     &         T_REF2M=grid%t_ref2m,H2OSOI_LIQ_S1=grid%h2osoi_liq_s1,H2OSOI_LIQ_S2=grid%h2osoi_liq_s2,&
+     &         T_REF2M=grid%t_ref2m,Q_REF2M=grid%q_ref2m,H2OSOI_LIQ_S1=grid%h2osoi_liq_s1,H2OSOI_LIQ_S2=grid%h2osoi_liq_s2,&
      &         H2OSOI_LIQ_S3=grid%h2osoi_liq_s3,H2OSOI_LIQ_S4=grid%h2osoi_liq_s4, H2OSOI_LIQ_S5=grid%h2osoi_liq_s5, &
      &         H2OSOI_LIQ1=grid%h2osoi_liq1,H2OSOI_LIQ2=grid%h2osoi_liq2, H2OSOI_LIQ3=grid%h2osoi_liq3,H2OSOI_LIQ4=grid%h2osoi_liq4,&
      &         H2OSOI_LIQ5=grid%h2osoi_liq5,H2OSOI_LIQ6=grid%h2osoi_liq6,H2OSOI_LIQ7=grid%h2osoi_liq7,H2OSOI_LIQ8=grid%h2osoi_liq8,&
@@ -508,6 +619,34 @@ BENCH_START(surf_driver_tim)
      &         HFXsubgrid=grid%HFXsubgrid,LWUPsubgrid=grid%LWUPsubgrid, Q2subgrid=grid%Q2subgrid,SABVsubgrid=grid%SABVsubgrid,    &
      &         SABGsubgrid=grid%SABGsubgrid,NRAsubgrid=grid%NRAsubgrid, SWUPsubgrid=grid%SWUPsubgrid,LHsoi=grid%LHsoi, &
      &         LHveg=grid%LHveg, LHtran=grid%LHtran &
+     &        ,t_veg24=grid%t_veg24,            t_veg240=grid%t_veg240              & !voce accum variables
+     &        ,fsun24=grid%fsun24,              fsun240=grid%fsun240                & !voce accum variables
+     &        ,fsd24=grid%fsd24,                fsd240=grid%fsd240                  & !voce accum variables
+     &        ,fsi24=grid%fsi24,                fsi240=grid%fsi240                  & !voce accum variables
+     &        ,laip=grid%laip,                                                      & !voce accum variables
+     !czhao
+     &         watsat2d=grid%watsat2d,     & 
+     &         snowdust_col2d=grid%snowdust_col,snowdust_top2d=grid%snowdust_top,snow_top2d=grid%snow_top,snow_frac2d=grid%snow_frac,     & 
+     &         snowlayer2d=grid%snowlayer2d,snowrds2d1=grid%snowrds2d1,     & 
+     &         snowrds2d2=grid%snowrds2d2,snowrds2d3=grid%snowrds2d3,     & 
+     &         snowrds2d4=grid%snowrds2d4,snowrds2d5=grid%snowrds2d5,     & 
+     &         sfc_frc_aer=grid%sfc_frc_aer,sfc_frc_aer_snow=grid%sfc_frc_aer_snow,        &
+     &         sfc_frc_bc=grid%sfc_frc_bc,sfc_frc_bc_snow=grid%sfc_frc_bc_snow,        &
+     &         sfc_frc_dst=grid%sfc_frc_dst,sfc_frc_dst_snow=grid%sfc_frc_dst_snow,        &
+     &         snowbc_col2d=grid%snowbc_col,snowbc_top2d=grid%snowbc_top,    & 
+     &         mss_bcpho=grid%mss_bcpho,mss_bcphi=grid%mss_bcphi,    & 
+     &         mss_ocpho=grid%mss_ocpho,mss_ocphi=grid%mss_ocphi,    & 
+     &         mss_dst1=grid%mss_dst1,mss_dst2=grid%mss_dst2,    & 
+     &         mss_dst3=grid%mss_dst3,mss_dst4=grid%mss_dst4,    & 
+     &         mss_cnc_bcpho=grid%mss_cnc_bcpho,mss_cnc_bcphi=grid%mss_cnc_bcphi,    & 
+     &         mss_cnc_ocpho=grid%mss_cnc_ocpho,mss_cnc_ocphi=grid%mss_cnc_ocphi,    & 
+     &         mss_cnc_dst1=grid%mss_cnc_dst1,mss_cnc_dst2=grid%mss_cnc_dst2,    & 
+     &         mss_cnc_dst3=grid%mss_cnc_dst3,mss_cnc_dst4=grid%mss_cnc_dst4,    & 
+     &         pct_pft_input=grid%pct_pft_input,num_pft_input=grid%num_pft_clm,    & 
+     &         input_pft_flag=config_flags%input_pft                            &
+#ifdef WRF_CHEM
+     &        ,drydep_flux=grid%drydep_flux,wetdep_flux=grid%wetdep_flux   & !czhao add aerosol deposition to surface 
+#endif
 ! end of CLM varaiblies
      &        ,SLOPE_RAD=config_flags%slope_rad,TOPO_SHADING=config_flags%topo_shading & ! solar
      &        ,SHADOWMASK=grid%shadowmask                                              & ! solar
@@ -920,6 +1059,37 @@ BENCH_START(cu_driver_tim)
      &             ,CLDFRA=grid%cldfra,CLDFRA_MP_ALL=grid%cldfra_mp_all  &
      &             ,TPERT2D=grid%tpert2d                                 &
      &             ,GSW=grid%gsw,cugd_avedx=config_flags%cugd_avedx       &
+     !BSINGH - For WRFCuP scheme
+     &             ,AKPBL=grid%akpbl,BR=br, REGIME=grid%regime, T2=grid%t2, Q2=grid%q2   & !CuP, wig 3-Aug-2006
+     &             ,SLOPESFC=grid%slopeSfc, SLOPEEZ=grid%slopeEZ                    & !CuP, wig 7-Aug-2006
+     &             ,SIGMASFC=grid%sigmaSfc, SIGMAEZ=grid%sigmaEZ                    & !CuP, wig 7-Aug-2006
+     &             ,CUPFLAG=grid%cupflag                                       & !CuP, wig 9-Oct-2006
+     &             ,CLDFRA_CUP=grid%cldfra_cup, CLDFRATEND_CUP=grid%cldfratend_cup  & !CuP, wig 18-Sep-2006
+     &             ,SHALL=grid%shall, TAUCLOUD=grid%taucloud, TACTIVE=grid%tactive       & !CuP, wig 18-Sep-2006
+     &             ,TSTAR=grid%tstar, LNTERMS=grid%lnterms, LNINT=grid%lnint             & !CuP, wig 4-Oct-2006
+     &             ,ACTIVEFRAC=grid%activeFrac                                 & !CuP, lkb
+     &             ,NUMBINS=config_flags%numBins                               & !CuP, wig
+     &             ,THBINSIZE=config_flags%thBinSize                           & !CuP, wig
+     &             ,RBINSIZE=config_flags%rBinSize                             & !CuP, wig
+     &             ,MINDEEPFREQ=config_flags%minDeepFreq                       & !CuP, wig
+     &             ,MINSHALLOWFREQ=config_flags%minShallowFreq                 & !CuP, wig
+     &             ,WCLOUDBASE=grid%wCloudBase                                 & !CuP, lkb
+     &             ,WACT_CUP=grid%wact_cup                                     & !CuP, rce 25-aug-2011
+     &             ,WULCL_CUP=grid%wulcl_cup                                   & !CuP, rce 23-jan-2012
+     &             ,WUP_CUP=grid%wup_cup                                       & !CuP, rce 15-mar-2013 !BSINGH(12/05/2013)
+     &             ,QC_IC_CUP=grid%qc_ic_cup                                   & !CuP, rce 29-aug-2011
+     &             ,QNDROP_IC_CUP=grid%qndrop_ic_cup                           & !CuP, rce 29-aug-2011
+     &             ,QC_IU_CUP=grid%qc_iu_cup                                   & !CuP, rce 08-feb-2012
+     &             ,FCVT_QC_TO_PR_CUP=grid%fcvt_qc_to_pr_cup                   & !CuP, rce 12-apr-2012
+     &             ,FCVT_QC_TO_QI_CUP=grid%fcvt_qc_to_qi_cup                   & !CuP, rce 12-apr-2012
+     &             ,FCVT_QI_TO_PR_CUP=grid%fcvt_qi_to_pr_cup                   & !CuP, rce 12-apr-2012
+     &             ,MFUP_CUP=grid%mfup_cup                                     & !CuP, rce 23-jan-2012
+     &             ,MFUP_ENT_CUP=grid%mfup_ent_cup                             & !CuP, rce 23-jan-2012
+     &             ,MFDN_CUP=grid%mfdn_cup                                     & !CuP, rce 12-apr-2012
+     &             ,MFDN_ENT_CUP=grid%mfdn_ent_cup                             & !CuP, rce 12-apr-2012
+     &             ,UPDFRA_CUP=grid%updfra_cup                                 & !CuP, rce 23-jan-2012
+     &             ,TCLOUD_CUP=grid%tcloud_cup                                 & !CuP, rce 06-feb-2012
+     !BSINGH -ENDS
      &             ,k22_shallow=grid%k22_shallow,kbcon_shallow=grid%kbcon_shallow &
      &             ,ktop_shallow=grid%ktop_shallow,xmb_shallow=grid%xmb_shallow   &
      &             ,ktop_deep=grid%ktop_deep                              &
@@ -955,6 +1125,9 @@ BENCH_START(cu_driver_tim)
      &             ,CU_PHYSICS=config_flags%cu_physics                    &
      &             ,BL_PBL_PHYSICS=config_flags%bl_pbl_physics            &
      &             ,SF_SFCLAY_PHYSICS=config_flags%sf_sfclay_physics      &
+     !BSINGH - For WRFCuP scheme
+     &             ,SHCU_AEROSOLS_OPT=config_flags%shcu_aerosols_opt           & !CuP, rce 22-aug-2011
+     !BSINGH -ENDS
      &             ,KFETA_TRIGGER=config_flags%kfeta_trigger              &
                  ! Dimension arguments
      &             ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde     &
@@ -985,6 +1158,9 @@ BENCH_START(cu_driver_tim)
      &             ,ZNU=grid%znu                                          &
      &             ,MP_PHYSICS=config_flags%mp_physics                    &
      &             ,GD_CLOUD=grid%GD_CLOUD,GD_CLOUD2=grid%GD_CLOUD2       &
+#ifdef WRF_CHEM
+     &             ,CHEM_OPT=config_flags%chem_opt                             & !CuP, rce 22-aug-2011 !BSINGH - For WRFCuP scheme
+#endif
 #if ( WRF_DFI_RADAR == 1 )
      &             ,DO_CAPSUPPRESS=do_capsupress                          &
 #endif
@@ -999,7 +1175,7 @@ BENCH_END(cu_driver_tim)
       DO ij = 1 , grid%num_tiles
            call convtrans_prep(grid%gd_cloud,grid%gd_cloud2,grid%gd_cloud_a,&
      &          grid%gd_cloud_b,grid%raincv,grid%raincv_a,grid%raincv_b,     &
-     &          grid%gd_cldfr,moist,p_QV,p_QC,p_qi,T_PHY,P_PHY,num_moist,    &
+     &          grid%gd_cldfr,moist,p_QV,p_QC,p_qi,grid%T_PHY,P_PHY,num_moist,    &
      &          grid%gd_cloud2_a,grid%gd_cloud2_b,grid%convtrans_avglen_m,&
      &          adapt_step_flag,curr_secs,                &
      &          grid%itimestep,grid%dt,                                      &
@@ -1025,7 +1201,7 @@ BENCH_START(shcu_driver_tim)
      &             ,J_START=grid%j_start, J_END=min(grid%j_end, jde-1)    &
      &             ,KTS=k_start, KTE=min(k_end, kde-1)                    &
      &             ,NUM_TILES=grid%num_tiles                              &
-     &             ,U=u_phy, V=v_phy, TH=th_phy, T=t_phy                  &
+     &             ,U=u_phy, V=v_phy, TH=th_phy, T=grid%t_phy                  &
      &             ,P=grid%p_hyd, PI=pi_phy, RHO=rho, MOIST=moist         &
      &             ,NUM_MOIST=num_moist                                   &
      &             ,ITIMESTEP=grid%itimestep, DT=grid%dt, DX=grid%dx      &
@@ -1243,6 +1419,8 @@ BENCH_START(fdda_driver_tim)
                    ,IPSY=ipsy,IPEY=ipey,JPSY=jpsy,JPEY=jpey,KPSY=kpsy,KPEY=kpey     )
 
 BENCH_END(fdda_driver_tim)
+
+    t_phy = grid%t_phy
 
   END SUBROUTINE first_rk_step_part1
 

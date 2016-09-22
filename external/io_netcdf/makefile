@@ -60,7 +60,7 @@ diffwrf:                diffwrf.F90
 	   echo "***************************************************************************** " ; \
         fi
 
-field_routines.o:	field_routines.F90 wrf_io.o
+field_routines.o:	field_routines.F90
 			$(CPP1) -I../ioapi_share field_routines.F90 > field_routines.f
 			$(FC) -o $@ $(FFLAGS) -c field_routines.f
 

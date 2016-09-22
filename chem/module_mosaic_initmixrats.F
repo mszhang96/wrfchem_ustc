@@ -77,7 +77,7 @@
 !   local variables
         integer :: i, ic, j, k
 
-#if (CASENAME == 0) || (CASENAME == 1) || (CASENAME == 2) || (CASENAME == 3)
+#if (CASENAME == 0) || (CASENAME == 1) || (CASENAME == 2) || (CASENAME == 3) || (CASENAME == 4)
 	if (config_flags%aer_ic_opt == aer_ic_pnnl) then
 	    call mosaic_init_wrf_mixrats_opt2(   &
 		iflagaa, config_flags,           &
@@ -182,7 +182,8 @@
 	integer iphase, itype, ntot_nsm
 	integer iiprof_nsm(nmaxd_nsm)
 	integer lldum_so4, lldum_nh4, lldum_oc, lldum_bc,   &
-		lldum_oin, lldum_na, lldum_cl, lldum_hysw
+		lldum_oin, lldum_na, lldum_cl, lldum_hysw, lldum_dust, &
+                lldum_tr1r1,lldum_tr1r2,lldum_tr1r3,lldum_tr1r4
 
 	real sx_nsm(nmaxd_nsm), sxr2_nsm(nmaxd_nsm),   &
       	  x0_nsm(nmaxd_nsm), x3_nsm(nmaxd_nsm),   &
@@ -192,6 +193,8 @@
 	real dgnum_nsm(nmaxd_nsm), sigmag_nsm(nmaxd_nsm)
 	real aaprof_nsm(maxd_acomp+1,nmaxd_nsm)
 	real bbprof_nsm(nmaxd_nsm)
+        real so4vaptoaer
+        DATA so4vaptoaer/.999/
 
 	character*80 msg
 	character*10 dumname
@@ -219,9 +222,19 @@
 	lldum_oc  = 0
 	lldum_bc  = 0
 	lldum_oin = 0
+	lldum_dust = 0
+	lldum_tr1r1 = 0
+	lldum_tr1r2 = 0
+	lldum_tr1r3 = 0
+	lldum_tr1r4 = 0
 	lldum_na  = 0
 	lldum_cl  = 0
 	lldum_hysw = 0
+
+
+        write(0,*) 'czhao check ncomp_plustracer ',ncomp_plustracer_aer(itype)
+        print*, 'czhao check ncomp_plustracer ',ncomp_plustracer_aer(itype)
+
 
 	do ll = 1, ncomp_plustracer_aer(itype)
 	    if (massptr_aer(ll,m,itype,iphase) .eq.   &
@@ -234,10 +247,21 @@
 		lptr_bc_aer(m,itype,iphase))  lldum_bc  = ll
 	    if (massptr_aer(ll,m,itype,iphase) .eq.   &
 		lptr_oin_aer(m,itype,iphase)) lldum_oin = ll
+   if (massptr_aer(ll,m,itype,iphase) .eq.   &
+ lptr_dust_aer(m,itype,iphase)) lldum_dust = ll
+   if (massptr_aer(ll,m,itype,iphase) .eq.   &
+ lptr_tr1r1_aer(m,itype,iphase)) lldum_tr1r1 = ll
+   if (massptr_aer(ll,m,itype,iphase) .eq.   &
+ lptr_tr1r2_aer(m,itype,iphase)) lldum_tr1r2 = ll
+   if (massptr_aer(ll,m,itype,iphase) .eq.   &
+ lptr_tr1r3_aer(m,itype,iphase)) lldum_tr1r3 = ll
+   if (massptr_aer(ll,m,itype,iphase) .eq.   &
+ lptr_tr1r4_aer(m,itype,iphase)) lldum_tr1r4 = ll
 	    if (massptr_aer(ll,m,itype,iphase) .eq.   &
 		lptr_na_aer(m,itype,iphase))  lldum_na  = ll
 	    if (massptr_aer(ll,m,itype,iphase) .eq.   &
 		lptr_cl_aer(m,itype,iphase))  lldum_cl  = ll
+       
 	end do
 	if (hyswptr_aer(m,itype) .gt. 0)   &
 		lldum_hysw = ncomp_plustracer_aer(itype) + 1
@@ -253,6 +277,17 @@
 		msg = '*** subr mosaic_init_wrf_mixrats - lldum_bc = 0'
 	if (lldum_oin .le. 0)   &
 		msg = '*** subr mosaic_init_wrf_mixrats - lldum_oin = 0'
+!czhao turn off it
+!if (lldum_dust .le. 0)   &
+!msg = '*** subr mosaic_init_wrf_mixrats - lldum_dust = 0'
+!if (lldum_tr1r1 .le. 0)   &
+!msg = '*** subr mosaic_init_wrf_mixrats - lldum_tr1r1 = 0'
+!if (lldum_tr1r2 .le. 0)   &
+!msg = '*** subr mosaic_init_wrf_mixrats - lldum_tr1r2 = 0'
+!if (lldum_tr1r3 .le. 0)   &
+!msg = '*** subr mosaic_init_wrf_mixrats - lldum_tr1r3 = 0'
+!if (lldum_tr1r4 .le. 0)   &
+!msg = '*** subr mosaic_init_wrf_mixrats - lldum_tr1r4 = 0'
 	if (lldum_na .le. 0)   &
 		msg = '*** subr mosaic_init_wrf_mixrats - lldum_na = 0'
 	if (lldum_cl .le. 0)   &
@@ -268,22 +303,28 @@
 !   accum mode with so4, nh4, oc, bc
 	    dgnum_nsm( nsm) = 0.15e-4
 	    sigmag_nsm(nsm) = 2.0
-	    aaprof_nsm(lldum_so4,nsm) = 0.50
+	    !aaprof_nsm(lldum_so4,nsm) = 0.50   !czhao
+	    aaprof_nsm(lldum_so4,nsm) = 0.16*0.98
 	    aaprof_nsm(lldum_nh4,nsm) = aaprof_nsm(lldum_so4,nsm)   &
 					* (mw_nh4_aer/mw_so4_aer)
-	    aaprof_nsm(lldum_oc,nsm) = 0.25
-	    aaprof_nsm(lldum_bc,nsm) = 0.05
+	    !aaprof_nsm(lldum_oc,nsm) = 0.25  !czhao
+	    aaprof_nsm(lldum_oc,nsm) = 0.015*0.98
+	    !aaprof_nsm(lldum_bc,nsm) = 0.05  !czhao 
+	    aaprof_nsm(lldum_bc,nsm) = 0.005*0.98 
 	    aaprof_nsm(lldum_hysw,nsm) = aaprof_nsm(lldum_so4,nsm) * 0.2
 
 	else if (nsm .eq. 2) then
 !   aitken mode with so4, nh4, oc, bc
 	    dgnum_nsm( nsm) = 0.03e-4
 	    sigmag_nsm(nsm) = 2.0
-	    aaprof_nsm(lldum_so4,nsm) = 0.50 * 0.020
+	    !aaprof_nsm(lldum_so4,nsm) = 0.50 * 0.020  !czhao
+	    aaprof_nsm(lldum_so4,nsm) = 0.16 * 0.020
 	    aaprof_nsm(lldum_nh4,nsm) = aaprof_nsm(lldum_so4,nsm)   &
 					* (mw_nh4_aer/mw_so4_aer)
-	    aaprof_nsm(lldum_oc,nsm) = 0.25 * 0.020
-	    aaprof_nsm(lldum_bc,nsm) = 0.05 * 0.020
+	    !aaprof_nsm(lldum_oc,nsm) = 0.25 * 0.020
+	    aaprof_nsm(lldum_oc,nsm) = 0.015 * 0.020
+	    !aaprof_nsm(lldum_bc,nsm) = 0.05 * 0.020
+	    aaprof_nsm(lldum_bc,nsm) = 0.005 * 0.020
 	    aaprof_nsm(lldum_hysw,nsm) = aaprof_nsm(lldum_so4,nsm) * 0.2
 
 	else if (nsm .eq. 3) then
@@ -520,7 +561,7 @@
 !   load the chem array
 !
         do 16390 m = 1, nsize_aer(itype)
-        do 16350 l = 1, 15
+        do 16350 l = 1, 20
 
 	    if (l .eq. 1) then
 		l1 = lptr_so4_aer(m,itype,iphase)
@@ -541,15 +582,25 @@
 	    else if (l .eq. 9) then
 		l1 = lptr_oin_aer(m,itype,iphase)
 	    else if (l .eq. 10) then
-		l1 = lptr_oc_aer(m,itype,iphase)
+		l1 = lptr_dust_aer(m,itype,iphase)
 	    else if (l .eq. 11) then
-		l1 = lptr_bc_aer(m,itype,iphase)
+		l1 = lptr_oc_aer(m,itype,iphase)
 	    else if (l .eq. 12) then
-		l1 = hyswptr_aer(m,itype)
+		l1 = lptr_bc_aer(m,itype,iphase)
 	    else if (l .eq. 13) then
-		l1 = waterptr_aer(m,itype)
+		l1 = hyswptr_aer(m,itype)
 	    else if (l .eq. 14) then
+		l1 = waterptr_aer(m,itype)
+	    else if (l .eq. 15) then
 		l1 = numptr_aer(m,itype,iphase)
+	    else if (l .eq. 16) then
+		l1 = lptr_tr1r1_aer(m,itype,iphase)
+	    else if (l .eq. 17) then
+		l1 = lptr_tr1r2_aer(m,itype,iphase)
+	    else if (l .eq. 18) then
+		l1 = lptr_tr1r3_aer(m,itype,iphase)
+	    else if (l .eq. 19) then
+		l1 = lptr_tr1r4_aer(m,itype,iphase)
 	    else
 		goto 16350
 	    end if
@@ -562,6 +613,12 @@
 		do kt = kts, kte-1
 		do jt = jts, jte
 		    chem(it,kt,jt,l3) = rclm(1,l1)
+                    if (l3 == lptr_so4_aer(m,itype,iphase).and.m==1) then 
+                    ! in default initial condition, 
+                    ! adjust the sulf gas mixing ratio to be the same as sorgam
+                    ! here ! czhao 
+                     chem(it,kt,jt,p_sulf)= chem(it,kt,jt,p_sulf)*(1.-so4vaptoaer)
+                    endif
 		end do
 		end do
 		end do
@@ -569,7 +626,6 @@
 
 16350   continue
 16390   continue
-
 
 !   all done
 	return
@@ -1328,10 +1384,10 @@
 !		(/ 0.04, 0.10, 0.35, 0.29, 0.15, 0.07, 0.00, 0.00 /)
 
 	real :: qfine_so4, qfine_no3, qfine_cl, qfine_msa,   &
-		qfine_co3, qfine_nh4, qfine_na, qfine_ca, qfine_oin,   &
+		qfine_co3, qfine_nh4, qfine_na, qfine_ca, qfine_oin,qfine_dust,   &
 		qfine_oc, qfine_bc, qfine_hysw, qfine_watr, qfine_vol
 	real :: qcoar_so4, qcoar_no3, qcoar_cl, qcoar_msa,   &
-		qcoar_co3, qcoar_nh4, qcoar_na, qcoar_ca, qcoar_oin,   &
+		qcoar_co3, qcoar_nh4, qcoar_na, qcoar_ca, qcoar_oin,qcoar_dust,   &
 		qcoar_oc, qcoar_bc, qcoar_hysw, qcoar_watr, qcoar_vol
 
 	character*80 msg
@@ -1472,6 +1528,17 @@
              mult = 0.30
           end if
           exit SIZE_LOOP
+       else if  (nch .eq. lptr_dust_aer(m,itype,iphase))  then
+! dust aerosol profile
+          if ( zz <= 1580. ) then
+             mult = 1.0 + 1.77e-4 *zz
+                  elseif( zz > 1580. &
+                  .and. zz <= 5280. ) then
+             mult = 1.28 - 2.65e-4*(zz-1580.)
+          else
+             mult = 0.30
+          end if
+          exit SIZE_LOOP
        else
 ! generic profile
 #endif
@@ -1601,6 +1668,26 @@
           mult = 0.015
         end if
         iflg=1
+      else if  (nch .eq. lptr_dust_aer(m,itype,iphase))  then
+! dust aerosol profile
+        if( zz <= 500. ) then
+          mult = 1.000
+        elseif( zz > 500. &
+          .and. zz <= 1000. ) then
+          mult = 1.000 - 0.0007340*(zz-500.)
+        elseif( zz > 1000. &
+          .and. zz <= 5000. ) then
+          mult = 0.633 - 0.0001103*(zz-1000.)
+        elseif( zz > 5000. &
+          .and. zz <= 10000. ) then
+          mult = 0.192 - 0.0000080*(zz-5000.)
+        elseif( zz > 10000. &
+          .and. zz <= 20000. ) then
+          mult = 0.152 - 0.0000137*(zz-10000.)
+        else
+          mult = 0.015
+        end if
+        iflg=1 
       else
         if( zz <= 5000. ) then
           mult = 1.0
@@ -1654,6 +1741,8 @@
 !	qfine_oin = 3.48     ! 10-May-2005
 	qfine_oin = mult*3.48     ! not sure why mult was dropped from qfine_oin
 	qcoar_oin = mult*0.35
+	qfine_dust = mult*3.48     ! not sure why mult was dropped from qfine_oin
+	qcoar_dust = mult*0.35
 	qfine_oc  = mult*1.00
 	qcoar_oc  = mult*1.50
 	qfine_bc  = mult*0.2
@@ -1691,6 +1780,8 @@
         qcoar_na  = mult*0.700/2.0
         qfine_oin = mult*4.500
         qcoar_oin = mult*4.500/2.0
+        qfine_dust = mult*4.500
+        qcoar_dust = mult*4.500/2.0
         qfine_oc  = mult*0.088
         qcoar_oc  = mult*0.088/2.0
         qfine_bc  = mult*0.013
@@ -1709,6 +1800,8 @@
         qcoar_na  = mult*0.700
         qfine_oin = mult*4.500
         qcoar_oin = mult*4.500/2.0
+        qfine_dust = mult*4.500
+        qcoar_dust = mult*4.500/2.0
         qfine_oc  = mult*0.088
         qcoar_oc  = mult*0.0
         qfine_bc  = mult*0.013
@@ -1751,14 +1844,14 @@
 	    (qfine_co3/dens_co3_aer) + (qfine_nh4/dens_nh4_aer) +   &
 	    (qfine_na /dens_na_aer ) + (qfine_ca /dens_ca_aer ) +   &
 	    (qfine_oin/dens_oin_aer) + (qfine_oc /dens_oc_aer ) +   &
-	    (qfine_bc /dens_bc_aer ) )
+	    (qfine_bc /dens_bc_aer ) + (qfine_dust/dens_dust_aer) )
 	qcoar_vol = 1.0e-6 * (   &
 	    (qcoar_so4/dens_so4_aer) + (qcoar_no3/dens_no3_aer) +   &
 	    (qcoar_cl /dens_cl_aer ) + (qcoar_msa/dens_msa_aer) +   &
 	    (qcoar_co3/dens_co3_aer) + (qcoar_nh4/dens_nh4_aer) +   &
 	    (qcoar_na /dens_na_aer ) + (qcoar_ca /dens_ca_aer ) +   &
 	    (qcoar_oin/dens_oin_aer) + (qcoar_oc /dens_oc_aer ) +   &
-	    (qcoar_bc /dens_bc_aer ) )
+	    (qcoar_bc /dens_bc_aer ) + (qcoar_dust/dens_dust_aer) )
 
 	qfine = -1.0e30
 	qcoar = -1.0e30
@@ -1793,6 +1886,9 @@
 	    else if (nch .eq. lptr_oin_aer(m,itype,iphase)) then
 		qfine = qfine_oin
 		qcoar = qcoar_oin
+	    else if (nch .eq. lptr_dust_aer(m,itype,iphase)) then
+		qfine = qfine_dust
+		qcoar = qcoar_dust
 	    else if (nch .eq. lptr_oc_aer(m,itype,iphase)) then
 		qfine = qfine_oc
 		qcoar = qcoar_oc

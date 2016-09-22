@@ -526,6 +526,7 @@ FUNCTION real_time_r8( timeinterval ) RESULT ( out_time )
 !
 ! Todd Hutchinson, WSI 4/17/2007
 ! Converted to r8, William.Gustafson@pnl.gov; 8-May-2008
+! Improved, Chun.Zhao@pnnl.gov; 10-June-2013 
 
 ! !RETURN VALUE:
       REAL(KIND=8) :: out_time
@@ -537,8 +538,8 @@ FUNCTION real_time_r8( timeinterval ) RESULT ( out_time )
 
       CALL WRFU_TimeIntervalGet(timeinterval,Sn=dt_num,Sd=dt_den,S_i8=dt_whole)
       if (ABS(dt_den) < 1) then
-         out_time = REAL(dt_whole)
+         out_time = REAL(dt_whole,8)
       else
-         out_time = REAL(dt_whole) + REAL(dt_num,8)/REAL(dt_den,8)
+         out_time = REAL(dt_whole,8) + REAL(dt_num,8)/REAL(dt_den,8)
       endif
 END FUNCTION real_time_r8

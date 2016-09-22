@@ -47,9 +47,9 @@
       parameter(ngas_soa = 68+2+16)	! volatile soa species that have a gaseous counterpart
       parameter(ngas_volatile = ngas_ioa + ngas_soa)
       parameter(ngas_het = 2)   ! gas species only involved in heterogeneous reactions ! DL - 9/9/2011
-      parameter(naer = 11+68+2+16)	! num of chemical species per bin (inorg + oc + bc + oin + soa)
-      parameter(naercomp = 26+68+2+16)	! num of electrolytes + oc, bc, oin, & soa
-      parameter(nelectrolyte = 22) ! num of electrolytes
+      parameter(naer = 11+68+2+16+1+4)	! num of chemical species per bin (inorg + oc + bc + oin + soa+dust+four source tracers)
+      parameter(naercomp = 26+68+2+16+1+4)	! num of electrolytes + oc, bc, oin, & soa, dust, four source tracers
+      parameter(nelectrolyte = 22+1) ! num of electrolytes
       parameter(nsalt    = 15)	! num of soluble salts
       parameter(nsoluble = 20)	! num of soluble electrolytes
       parameter(ncation = 4)	! num of cations
@@ -133,7 +133,7 @@
       integer, save ::   &
        iso4_a,     ino3_a,     icl_a,     inh4_a,     ico3_a,  &
        imsa_a,     ina_a,      ica_a,     ioc_a,      ibc_a,   &
-       ioin_a
+       ioin_a,     idust_a,    itr1r1_a,  itr1r2_a, itr1r3_a, itr1r4_a 
 
       integer, save ::   &
       ipcg1_b_c_a,ipcg2_b_c_a,ipcg3_b_c_a,ipcg4_b_c_a, &
@@ -170,7 +170,7 @@
        jcaso4,     jcano3,     jcacl2,     jcaco3,     jh2so4,  &
        jhno3,      jhcl,       jhhso4,                          &
        jnh4msa,    jnamsa,     jcamsa2,    jmsa,                &
-       joc,        jbc,        join,       jh2o
+       joc,        jbc,        join,       jh2o,  jdust,jtr1r1,jtr1r2,jtr1r3,jtr1r4
 
       integer, save ::   &
       jpcg1_b_c,jpcg2_b_c,jpcg3_b_c,jpcg4_b_c, &

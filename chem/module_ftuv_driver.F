@@ -197,7 +197,7 @@
 !     output arguments
 !----------------------------------------------------
       real, dimension( ims:ime, kms:kme, jms:jme ),                    &
-            intent(out  ) :: ph_no2, ph_o31d, ph_o33p, ph_hono,        &
+            intent(inout  ) :: ph_no2, ph_o31d, ph_o33p, ph_hono,        &
                              ph_hno3, ph_hno4, ph_no3o2, ph_no3o,      &
                              ph_h2o2, ph_ch2om, ph_ch2or, ph_ald,      &
                              ph_op1, ph_op2, ph_paa, ph_ket, ph_glya,  &
@@ -539,6 +539,8 @@ level_loop : &
           ph_onit(i,k,j)  = max( 0._dp,prate(k,pid_onit)*m2s )
           ph_macr(i,k,j)  = max( 0._dp,prate(k,pid_macr) *m2s )
           ph_ch3coc2h5(i,k,j) = max( 0._dp,prate(k,23)*m2s )
+          !czhao
+          ph_n2o5(i,k,j) = max(0._dp,prate(k,pid_n2o5)*m2s )
         enddo
 
         do m = 1,nw-1
@@ -562,7 +564,8 @@ level_loop : &
             config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
           do k = kts, kte
             ph_n2o(i,k,j)  = max( 0._dp,prate(k,pid_n2o)*m2s )
-            ph_n2o5(i,k,j) = max( 0._dp,prate(k,pid_n2o5)*m2s )
+            !czhao
+            !ph_n2o5(i,k,j) = max( 0._dp,prate(k,pid_n2o5)*m2s )
             ph_mvk(i,k,j)  = max( 0._dp,prate(k,pid_mvk)*m2s )
             ph_pan(i,k,j)  = max( 0._dp,prate(k,pid_pan)*m2s )
             ph_ald(i,k,j)  = max( 0._dp,(prate(k,pid_ch3choa)+prate(k,pid_ch3chob)+prate(k,pid_ch3choc))*m2s )

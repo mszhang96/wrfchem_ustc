@@ -165,6 +165,7 @@ MODULE MODULE_MP_MORR_TWO_MOMENT
 
      REAL, PRIVATE ::      AI,AC,AS,AR,AG ! 'A' PARAMETER IN FALLSPEED-DIAM RELATIONSHIP
      REAL, PRIVATE ::      BI,BC,BS,BR,BG ! 'B' PARAMETER IN FALLSPEED-DIAM RELATIONSHIP
+     REAL, PRIVATE ::      QCVAR        ! 1/relative variance of sub-grid qc
 !     REAL, PRIVATE ::      R           ! GAS CONSTANT FOR AIR
 !     REAL, PRIVATE ::      RV          ! GAS CONSTANT FOR WATER VAPOR
 !     REAL, PRIVATE ::      CP          ! SPECIFIC HEAT AT CONSTANT PRESSURE FOR DRY AIR
@@ -227,7 +228,7 @@ MODULE MODULE_MP_MORR_TWO_MOMENT
      REAL, PRIVATE :: CONS11,CONS12,CONS13,CONS14,CONS15,CONS16,CONS17,CONS18,CONS19,CONS20
      REAL, PRIVATE :: CONS21,CONS22,CONS23,CONS24,CONS25,CONS26,CONS27,CONS28,CONS29,CONS30
      REAL, PRIVATE :: CONS31,CONS32,CONS33,CONS34,CONS35,CONS36,CONS37,CONS38,CONS39,CONS40
-     REAL, PRIVATE :: CONS41
+     REAL, PRIVATE :: CONS41,CONS42,CONS43
 
 
 CONTAINS
@@ -311,7 +312,7 @@ SUBROUTINE MORR_TWO_MOMENT_INIT
 ! INUC = 0, USE FORMULA FROM RASMUSSEN ET AL. 2002 (MID-LATITUDE)
 !      = 1, USE MPACE OBSERVATIONS (ARCTIC ONLY)
 
-      INUC = 0
+      INUC = 0  ! INUC should be 0 for including WRF-Chem aerosols
 
 ! SWITCH FOR GRAUPEL/HAIL NO GRAUPEL/HAIL
 ! IGRAUP = 0, INCLUDE GRAUPEL/HAIL
@@ -436,6 +437,9 @@ SUBROUTINE MORR_TWO_MOMENT_INIT
          RR = 8.3187
          BACT = VI*OSM*EPSM*MW*RHOA/(MAP*RHOW)
 
+         qcvar = 2.
+
+
 ! AEROSOL SIZE DISTRIBUTION PARAMETERS CURRENTLY SET FOR MPACE 
 ! (see morrison et al. 2007, JGR)
 ! MODE 1
@@ -497,6 +501,8 @@ SUBROUTINE MORR_TWO_MOMENT_INIT
          CONS39=PI*PI/36.*RHOW*BIMM
          CONS40=PI/6.*BIMM
          CONS41=PI*PI*ECR*RHOW
+         CONS42=gamma(qcvar+1.)
+         CONS43=gamma(qcvar)
 
 !+---+-----------------------------------------------------------------+
 !..Set these variables needed for computing radar reflectivity.  These
@@ -542,11 +548,18 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
                 refl_10cm, diagflag, do_radar_ref,      & ! GT added for reflectivity calcs
                 qrcuten, qscuten, qicuten, mu           & ! hm added
                ,F_QNDROP, qndrop                        & ! hm added, wrf-chem 
+               ,F_QNICEAER, qniceaer                        & ! czhao added, wrf-chem 
+               ,F_QNICEMIX, qnicemix                        & ! czhao added, wrf-chem 
+               ,rndst1,rndst2,rndst3,rndst4             & ! czhao added, wrf-chem 
+               ,nacon1,nacon2,nacon3,nacon4             & ! czhao added, wrf-chem 
                ,IDS,IDE, JDS,JDE, KDS,KDE               & ! domain dims
                ,IMS,IME, JMS,JME, KMS,KME               & ! memory dims
                ,ITS,ITE, JTS,JTE, KTS,KTE               & ! tile   dims            )
 !jdf		   ,C2PREC3D,CSED3D,ISED3D,SSED3D,GSED3D,RSED3D & ! HM ADD, WRF-CHEM
-		   ,QLSINK,PRECR,PRECI,PRECS,PRECG &        ! HM ADD, WRF-CHEM
+!czhao         ,QLSINK,PRECR,PRECI,PRECS,PRECG &        ! HM ADD, WRF-CHEM
+               !czhao added for radiation scheme
+               ,radeffc,radeffi            &
+               ,QLSINK,ILSINK,PRECR,PRECI,PRECS,PRECG,R2EVAP3D,I2EVAP3D,f_mixcloud &        ! HM ADD, WRF-CHEM
                                             )
  
 ! QV - water vapor mixing ratio (kg/kg)
@@ -587,6 +600,7 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
 ! EFFIS - CLOUD DROPLET EFFECTIVE RADIUS OUTPUT TO RADIATION CODE (micron)
 ! HM, ADDED FOR WRF-CHEM COUPLING
 ! QLSINK - TENDENCY OF CLOUD WATER TO RAIN, SNOW, GRAUPEL (KG/KG/S)
+! ILSINK - TENDENCY OF CLOUD ICE TO PRECIPITATION (KG/KG/S) !czhao
 ! CSED,ISED,SSED,GSED,RSED - SEDIMENTATION FLUXES (KG/M^2/S) FOR CLOUD WATER, ICE, SNOW, GRAUPEL, RAIN
 ! PRECI,PRECS,PRECG,PRECR - SEDIMENTATION FLUXES (KG/M^2/S) FOR ICE, SNOW, GRAUPEL, RAIN
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -621,8 +635,13 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
                           qv, qc, qr, qi, qs, qg, ni, ns, nr, TH, NG   
 !jdf                      qndrop ! hm added, wrf-chem
    REAL, DIMENSION(ims:ime, kms:kme, jms:jme), optional,INTENT(INOUT):: qndrop
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme), optional,INTENT(IN):: qniceaer
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme), optional,INTENT(IN):: qnicemix
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme), optional,INTENT(IN):: & 
+   rndst1,rndst2,rndst3,rndst4,nacon1,nacon2,nacon3,nacon4 
 !jdf  REAL, DIMENSION(ims:ime, kms:kme, jms:jme),INTENT(INOUT):: CSED3D, &
-   REAL, DIMENSION(ims:ime, kms:kme, jms:jme), optional,INTENT(INOUT):: QLSINK, &
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme), optional,INTENT(INOUT):: &
+                          QLSINK,ILSINK,R2EVAP3D,I2EVAP3D, &
                           PRECI,PRECS,PRECG,PRECR ! HM, WRF-CHEM
 !, effcs, effis
 
@@ -630,6 +649,7 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
                           pii, p, dz, rho, w !, tke, nctend, nitend,kzh
    REAL, INTENT(IN):: dt_in
    INTEGER, INTENT(IN):: ITIMESTEP
+   INTEGER, INTENT(IN):: F_MIXCLOUD 
 
    REAL, DIMENSION(ims:ime, jms:jme), INTENT(INOUT):: &
                           RAINNC, RAINNCV, SR, &
@@ -641,13 +661,17 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
 
    REAL , DIMENSION( ims:ime , jms:jme ) , INTENT(IN) ::       ht
 
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme),INTENT(INOUT) ::                     &
+                      radeffc,radeffi
+
+
    ! LOCAL VARIABLES
 
-   REAL, DIMENSION(its:ite, kts:kte, jts:jte)::                     &
-                      effi, effs, effr, EFFG
+   REAL, DIMENSION(its:ite, kts:kte, jts:jte) ::                     &
+                      effi, effs, effr, EFFG, EFFC
 
    REAL, DIMENSION(its:ite, kts:kte, jts:jte)::                     &
-                      T, WVAR, EFFC
+                      T, WVAR
 
    REAL, DIMENSION(kts:kte) ::                                                                & 
                             QC_TEND1D, QI_TEND1D, QNI_TEND1D, QR_TEND1D,                      &
@@ -671,11 +695,20 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
       mu
 
   LOGICAL, INTENT(IN), OPTIONAL ::                F_QNDROP  ! wrf-chem
+  LOGICAL, INTENT(IN), OPTIONAL ::                F_QNICEAER  ! wrf-chem
+  LOGICAL, INTENT(IN), OPTIONAL ::                F_QNICEMIX  ! wrf-chem
   LOGICAL :: flag_qndrop  ! wrf-chem
+  LOGICAL :: flag_qniceaer  ! wrf-chem
+  LOGICAL :: flag_qnicemix  ! wrf-chem
   integer :: iinum ! wrf-chem
 
 ! wrf-chem
-   REAL, DIMENSION(kts:kte) :: nc1d, nc_tend1d,C2PREC,CSED,ISED,SSED,GSED,RSED    
+!czhao   REAL, DIMENSION(kts:kte) :: nc1d, nc_tend1d,C2PREC,CSED,ISED,SSED,GSED,RSED    
+   REAL, DIMENSION(kts:kte) :: nc1d, nc_tend1d,I2PREC,C2PREC,CSED,ISED,SSED,GSED,RSED    
+   REAL, DIMENSION(kts:kte) :: R2EVAP,I2EVAP !evaporation term 
+   REAL, DIMENSION(kts:kte) :: nice1d !ice number from aerosol, the total ice number is NI
+   REAL, DIMENSION(kts:kte) :: nicemix1d !ice number from aerosol, the total ice number is NI
+   REAL, DIMENSION(kts:kte,4) :: rndst1d,nacon1d 
 ! HM add reflectivity      
    REAL, DIMENSION(kts:kte) :: dBZ
                           
@@ -690,7 +723,11 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
 
 ! below for wrf-chem
    flag_qndrop = .false.
+   flag_qniceaer = .false.
+   flag_qnicemix = .false.
    IF ( PRESENT ( f_qndrop ) ) flag_qndrop = f_qndrop
+   IF ( PRESENT ( f_qniceaer ) ) flag_qniceaer = f_qniceaer
+   IF ( PRESENT ( f_qnicemix ) ) flag_qnicemix = f_qnicemix
 !!!!!!!!!!!!!!!!!!!!!!
 
    ! Initialize tendencies (all set to 0) and transfer
@@ -760,16 +797,44 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
           qscu1d(k)     = qscuten(i,k,j)/mu(i,j)
           qicu1d(k)     = qicuten(i,k,j)/mu(i,j)
       end do  !jdf added this
+
+      do k=kts,kte   ! k loop (vertical)
+          I2PREC(k) = 0.0
+          C2PREC(k) = 0.0 
+          R2EVAP(k) = 0.0
+          I2EVAP(k) = 0.0
+      end do  !czhao added this
+
 ! below for wrf-chem
-   IF (flag_qndrop .AND. PRESENT( qndrop )) THEN
+   IF (flag_qndrop.AND.PRESENT(qndrop)) THEN
+     IF ((.NOT.flag_qniceaer).or.(.NOT.(PRESENT(qniceaer)))) THEN
       iact = 3
       DO k = kts, kte
          nc1d(k)=qndrop(i,k,j)
          iinum=0
       ENDDO
+     ELSE
+      iact = 3
+      DO k = kts, kte
+         nc1d(k)=qndrop(i,k,j)
+         nice1d(k)=qniceaer(i,k,j)
+         nicemix1d(k)=qnicemix(i,k,j)
+         rndst1d(k,1)=rndst1(i,k,j)
+         rndst1d(k,2)=rndst2(i,k,j)
+         rndst1d(k,3)=rndst3(i,k,j)
+         rndst1d(k,4)=rndst4(i,k,j)
+         nacon1d(k,1)=nacon1(i,k,j)
+         nacon1d(k,2)=nacon2(i,k,j)
+         nacon1d(k,3)=nacon3(i,k,j)
+         nacon1d(k,4)=nacon4(i,k,j)
+         iinum=-1
+      ENDDO
+     ENDIF
    ELSE
       DO k = kts, kte
          nc1d(k)=0. ! temporary placeholder, set to constant in microphysics subroutine
+         nice1d(k)=0.
+         nicemix1d(k)=0.
          iinum=1
       ENDDO
    ENDIF
@@ -783,19 +848,61 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
        PRECPRT1D,SNOWRT1D,                                                               &
        SNOWPRT1D,GRPLPRT1D,                 & ! hm added 7/13/13
        EFFC1D,EFFI1D,EFFS1D,EFFR1D,DT,                                                   &
-                                            IMS,IME, JMS,JME, KMS,KME,                   &
-                                            ITS,ITE, JTS,JTE, KTS,KTE,                   & ! HM ADD GRAUPEL
-                                    QG_TEND1D,NG_TEND1D,QG1D,NG1D,EFFG1D, &
-                                    qrcu1d, qscu1d, qicu1d, &
+           IMS,IME, JMS,JME, KMS,KME,                   &
+           ITS,ITE, JTS,JTE, KTS,KTE,                   & ! HM ADD GRAUPEL
+           QG_TEND1D,NG_TEND1D,QG1D,NG1D,EFFG1D, &
+           qrcu1d, qscu1d, qicu1d, &
 ! ADD SEDIMENTATION TENDENCIES
-                                  QGSTEN,QRSTEN,QISTEN,QNISTEN,QCSTEN, &
-                                  nc1d, nc_tend1d, iinum, C2PREC,CSED,ISED,SSED,GSED,RSED & !wrf-chem
+           QGSTEN,QRSTEN,QISTEN,QNISTEN,QCSTEN, &
+!czhao     nc1d, nc_tend1d, iinum, C2PREC,CSED,ISED,SSED,GSED,RSED & !wrf-chem
+           nc1d, nc_tend1d, iinum, I2PREC,C2PREC,CSED,ISED,SSED,GSED,RSED,R2EVAP,I2EVAP, & !wrf-chem
+           nice1d,nicemix1d,rndst1d,nacon1d,f_mixcloud  & !czhao, wrf-chem
                        )
 
    !
    ! Transfer 1D arrays back into 3D arrays
    !
       do k=kts,kte
+
+!calculate qlsink and ilsink before update the array  -czhao
+
+          IF ( PRESENT( QLSINK ) ) THEN
+             if(qc(i,k,j)>1.e-12) then
+                QLSINK(I,K,J)  = C2PREC(K)/QC(I,K,J)
+             else
+                QLSINK(I,K,J)  = 0.0
+             endif
+          END IF
+
+          !czhao
+          IF ( PRESENT( ILSINK ) ) THEN
+             if(qi(i,k,j)>1.e-12) then
+                ILSINK(I,K,J)  = I2PREC(K)/QI(I,K,J)
+             else
+                ILSINK(I,K,J)  = 0.0
+             endif
+          END IF
+
+          !czhao
+          IF ( PRESENT( R2EVAP3D ) ) THEN
+             if(QR(i,k,j)>1.e-12) then
+                R2EVAP3D(I,K,J)  = R2EVAP(K)/QR(I,K,J)
+             else
+                R2EVAP3D(I,K,J)  = 0.0
+             endif
+          END IF
+
+          !czhao
+          IF ( PRESENT( I2EVAP3D ) ) THEN
+             if((QS(i,k,j)+QG(i,k,j))>1.e-12) then
+!czhao close it to avoid floating issue 
+!                I2EVAP3D(I,K,J)  = I2EVAP(K)/(QS(I,K,J)+QG(I,K,J))
+                I2EVAP3D(I,K,J)  = 0.0 
+             else
+                I2EVAP3D(I,K,J)  = 0.0
+             endif
+          END IF
+
 
 ! hm, add tendencies to update global variables 
 ! HM, TENDENCIES FOR Q AND N NOW ADDED IN M2005MICRO, SO WE
@@ -826,13 +933,7 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
              qndrop(i,k,j) = nc1d(k)
 !jdf         CSED3D(I,K,J) = CSED(K)
           END IF
-          IF ( PRESENT( QLSINK ) ) THEN
-             if(qc(i,k,j)>1.e-10) then
-                QLSINK(I,K,J)  = C2PREC(K)/QC(I,K,J)
-             else
-                QLSINK(I,K,J)  = 0.0
-             endif
-          END IF
+
           IF ( PRESENT( PRECR ) ) PRECR(I,K,J) = RSED(K)
           IF ( PRESENT( PRECI ) ) PRECI(I,K,J) = ISED(K)
           IF ( PRESENT( PRECS ) ) PRECS(I,K,J) = SSED(K)
@@ -844,7 +945,13 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
 !          EFFIS(I,K,J)     = MIN(EFFI(I,K,J),130.)
 !          EFFIS(I,K,J)     = MAX(EFFIS(I,K,J),13.)
 
-      end do
+           !czhao
+           radeffc(i,k,j)   = MIN(EFFC(I,K,J),50.)
+           radeffc(i,k,j)   = MAX(radeffc(I,K,J),1.)
+           radeffi(i,k,j)   = MIN(EFFI(I,K,J),130.)
+           radeffi(i,k,j)   = MAX(radeffi(I,K,J),13.)
+
+      end do  !k
 
 ! hm modified so that m2005 precip variables correctly match wrf precip variables
       RAINNC(i,j) = RAINNC(I,J)+PRECPRT1D
@@ -885,7 +992,9 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
                         QG3DTEN,NG3DTEN,QG3D,NG3D,EFFG,qrcu1d,qscu1d, qicu1d,    &
                         QGSTEN,QRSTEN,QISTEN,QNISTEN,QCSTEN, &
                         nc3d,nc3dten,iinum, & ! wrf-chem
-				c2prec,CSED,ISED,SSED,GSED,RSED  &  ! hm added, wrf-chem
+!czhao                  c2prec,CSED,ISED,SSED,GSED,RSED  &  ! hm added, wrf-chem
+                        i2prec,c2prec,CSED,ISED,SSED,GSED,RSED,R2EVAP,I2EVAP, &  ! hm added, wrf-chem
+                        nice3d,nicemix3d,rndst,nacon,f_mixcloud  & !czhao, wrf-chem
                         )
 
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -919,6 +1028,8 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
       INTEGER, INTENT( IN)  :: IMS,IME, JMS,JME, KMS,KME,          &
                                ITS,ITE, JTS,JTE, KTS,KTE
 
+      INTEGER, INTENT(IN):: F_MIXCLOUD
+
       REAL, DIMENSION(KTS:KTE) ::  QC3DTEN            ! CLOUD WATER MIXING RATIO TENDENCY (KG/KG/S)
       REAL, DIMENSION(KTS:KTE) ::  QI3DTEN            ! CLOUD ICE MIXING RATIO TENDENCY (KG/KG/S)
       REAL, DIMENSION(KTS:KTE) ::  QNI3DTEN           ! SNOW MIXING RATIO TENDENCY (KG/KG/S)
@@ -942,8 +1053,14 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
       REAL, DIMENSION(KTS:KTE) ::  W3D                ! GRID-SCALE VERTICAL VELOCITY (M/S)
       REAL, DIMENSION(KTS:KTE) ::  WVAR               ! SUB-GRID VERTICAL VELOCITY (M/S)
 ! below for wrf-chem
-      REAL, DIMENSION(KTS:KTE) ::  nc3d
+      REAL, DIMENSION(KTS:KTE) ::  nc3d         ! CLOUD DROPLET NUMBER CONCENTRATION (1/KG)
       REAL, DIMENSION(KTS:KTE) ::  nc3dten
+      REAL, DIMENSION(KTS:KTE),intent(in) ::  nice3d,nicemix3d    !CLOUD ICE NUMBER CONC. (1/KG) from aerosol
+      REAL, DIMENSION(KTS:KTE) :: nice3d_tend  !CLOUD ICE NUMBER CONC. (1/KG) tendency from aerosol
+
+      real, dimension(kts:kte,4),intent(in) ::   & 
+      rndst,  &  ! radius of 4 dust bins for contact freezing (from module_mixactivate.F)
+      nacon   ! number in 4 dust bins for contact freezing  (from module_mixactivate.F)
       integer, intent(in) :: iinum
 
 ! HM ADDED GRAUPEL VARIABLES
@@ -1010,8 +1127,12 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
      REAL, DIMENSION(KTS:KTE) ::  PRD       ! DEP CLOUD ICE
      REAL, DIMENSION(KTS:KTE) ::  PRE       ! EVAP OF RAIN
      REAL, DIMENSION(KTS:KTE) ::  PRDS      ! DEP SNOW
-     REAL, DIMENSION(KTS:KTE) ::  NNUCCC    ! CHANGE N DUE TO CONTACT FREEZ DROPLETS
-     REAL, DIMENSION(KTS:KTE) ::  MNUCCC    ! CHANGE Q DUE TO CONTACT FREEZ DROPLETS
+!czhao
+     REAL, DIMENSION(KTS:KTE) ::  NNUCCC    ! CHANGE N DUE TO CONTACT FREEZ DROPLETS if WRF-Chem, due to contact and immersion freezing if WRF
+     REAL, DIMENSION(KTS:KTE) ::  MNUCCC    ! CHANGE Q DUE TO CONTACT FREEZ DROPLETS if WRF-Chem, due to contact and immersion freezing if WRF
+!czhao
+     REAL, DIMENSION(KTS:KTE) ::  NNUCCC_IMS  ! CHANGE N DUE TO IMMERSION FREEZ DROPLETS based on BIGG
+     REAL, DIMENSION(KTS:KTE) ::  MNUCCC_IMS  ! CHANGE Q DUE TO IMMERSION FREEZ DROPLETS based on BIGG
      REAL, DIMENSION(KTS:KTE) ::  PRA       ! ACCRETION DROPLETS BY RAIN
      REAL, DIMENSION(KTS:KTE) ::  PRC       ! AUTOCONVERSION DROPLETS
      REAL, DIMENSION(KTS:KTE) ::  PCC       ! COND/EVAP DROPLETS
@@ -1197,11 +1318,21 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
         INTEGER IDROP
 
 ! FOR WRF-CHEM
-	REAL, DIMENSION(KTS:KTE)::C2PREC,CSED,ISED,SSED,GSED,RSED 
+!czhao	REAL, DIMENSION(KTS:KTE)::C2PREC,CSED,ISED,SSED,GSED,RSED 
+	REAL, DIMENSION(KTS:KTE)::I2PREC,C2PREC,CSED,ISED,SSED,GSED,RSED 
+        REAL, DIMENSION(kts:kte) :: R2EVAP,I2EVAP !evaporation term 
 
-! comment lines for wrf-chem since these are intent(in) in that case
-!       REAL, DIMENSION(KTS:KTE) ::  NC3DTEN            ! CLOUD DROPLET NUMBER CONCENTRATION (1/KG/S)
-!       REAL, DIMENSION(KTS:KTE) ::  NC3D               ! CLOUD DROPLET NUMBER CONCENTRATION (1/KG)
+! for ice nucleation, contact freezing
+        real tcnt,viscosity,mfp 
+        real nslip1, nslip2, nslip3, nslip4
+        real ndfaer1, ndfaer2, ndfaer3, ndfaer4
+
+! DROPLET CONCENTRATION AND ITS TENDENCY
+! NOTE: CURRENTLY DROPLET CONCENTRATION IS SPECIFIED !!!!!
+! TENDENCY OF NC IS CALCULATED BUT IT IS NOT USED !!!
+! comment lines for wrf-chem
+!       REAL, DIMENSION(KMS:KME) ::  NC3DTEN            ! CLOUD DROPLET NUMBER CONCENTRATION (1/KG/S)
+!       REAL, DIMENSION(KMS:KME) ::  NC3D               ! CLOUD DROPLET NUMBER CONCENTRATION (1/KG)
 
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
@@ -1217,6 +1348,10 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 ! INITIALIZE VARIABLES FOR WRF-CHEM OUTPUT TO ZERO
 
 		C2PREC(K)=0.
+		I2PREC(K)=0.   ! czhao
+		R2EVAP(K)=0.   ! czhao
+		I2EVAP(K)=0.   ! czhao
+		NICE3D_TEND(K)=0.   ! czhao
 		CSED(K)=0.
 		ISED(K)=0.
 		SSED(K)=0.
@@ -1412,7 +1547,7 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 !.....................................................................
 ! CASE FOR TEMPERATURE ABOVE FREEZING
 
-            IF (T3D(K).GE.273.15) THEN
+    IF (T3D(K).GE.273.15) THEN
 
 !......................................................................
 !HM ADD, ALLOW FOR CONSTANT DROPLET NUMBER
@@ -1801,6 +1936,7 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 ! hm fix 8/4/08
         EVPMS(K) = (QV3D(K)-QVS(K))*EPSS/AB(K)    
         EVPMS(K) = MAX(EVPMS(K),PSMLT(K))
+!       IF (ABS(EVPMS(K)).GT.1.e20) EVPMS(K) = 0.0 !avoid unreasonable values -czhao
         PSMLT(K) = PSMLT(K)-EVPMS(K)
       END IF
       END IF
@@ -1924,7 +2060,7 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 !      NS3DTEN(K) = NS3DTEN(K)-NPRACS(K)
 ! HM, bug fix 5/12/08, npracg is subtracted from nr not ng
 !      NG3DTEN(K) = NG3DTEN(K)
-      NC3DTEN(K) = NC3DTEN(K)+ (-NPRA(K)-NPRC(K))
+      NC3DTEN(K) = NC3DTEN(K)+ (-NPRA(K)-NPRC(K))  ! sink term
       NR3DTEN(K) = NR3DTEN(K)+ (NPRC1(K)+NRAGG(K)-NPRACG(K))
 
 ! HM ADD, WRF-CHEM, ADD TENDENCIES FOR C2PREC
@@ -1990,7 +2126,7 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 !.......................................................................
 ! ACTIVATION OF CLOUD DROPLETS
 ! ACTIVATION OF DROPLET CURRENTLY NOT CALCULATED
-! DROPLET CONCENTRATION IS SPECIFIED !!!!!
+! DROPLET CONCENTRATION IS SPECIFIED OR CALCULATED IN WRF/CHEM!!!!!
 
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 ! SUBLIMATE, MELT, OR EVAPORATE NUMBER CONCENTRATION
@@ -2009,7 +2145,7 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 
 !.....................................................................
 !.....................................................................
-         ELSE  ! TEMPERATURE < 273.15
+   ELSE  ! T3D(K), TEMPERATURE < 273.15
 
 !......................................................................
 !HM ADD, ALLOW FOR CONSTANT DROPLET NUMBER
@@ -2182,6 +2318,8 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 
             MNUCCC(K) = 0.
             NNUCCC(K) = 0.
+            MNUCCC_IMS(K) = 0.
+            NNUCCC_IMS(K) = 0.
             PRC(K) = 0.
             NPRC(K) = 0.
             NPRC1(K) = 0.
@@ -2247,13 +2385,91 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 !.......................................................................
 ! FREEZING OF CLOUD DROPLETS
 ! ONLY ALLOWED BELOW -4 C
-        IF (QC3D(K).GE.QSMALL .AND. T3D(K).LT.269.15) THEN
+      IF (QC3D(K).GE.QSMALL .AND. T3D(K).LT.269.15) THEN
+
+        IF (IINUM.EQ.-1) THEN  ! with WRF-Chem aerosol-ice  -czhao
+        ! contacting freezing through dust aerosol and 
+        ! immersion and condesation freezing are treated here
+        ! deposition freezing through aerosol in pure ice clouds is dealt in later part 
+
+         ! contact freezing (-40<T<-3 C) (Young, 1974) with hooks into simulated dust
+         ! dust size and number in 4 bins are read in from companion routine
+
+          tcnt=(270.16-t3d(k))**1.3
+          viscosity=1.8e-5*(t3d(k)/298.0)**0.85    ! Viscosity (kg/m/s)
+          mfp=2.0*viscosity/(pres(k)  &                   ! Mean free path (m)
+               *sqrt(8.0*28.96e-3/(pi*8.314409*t3d(k))))
+
+          if (nacon(k,2).gt.0.and.nacon(k,3).gt.0) then ! after chemistry
+          nslip1=1.0+(mfp/rndst(k,1))*(1.257+(0.4*Exp(-(1.1*rndst(k,1)/mfp))))! Slip correction factor
+          nslip2=1.0+(mfp/rndst(k,2))*(1.257+(0.4*Exp(-(1.1*rndst(k,2)/mfp))))
+          nslip3=1.0+(mfp/rndst(k,3))*(1.257+(0.4*Exp(-(1.1*rndst(k,3)/mfp))))
+          nslip4=1.0+(mfp/rndst(k,4))*(1.257+(0.4*Exp(-(1.1*rndst(k,4)/mfp))))
+
+          ndfaer1=1.381e-23*t3d(k)*nslip1/(6.*pi*viscosity*rndst(k,1))  ! aerosol diffusivity (m2/s)
+          ndfaer2=1.381e-23*t3d(k)*nslip2/(6.*pi*viscosity*rndst(k,2))
+          ndfaer3=1.381e-23*t3d(k)*nslip3/(6.*pi*viscosity*rndst(k,3))
+          ndfaer4=1.381e-23*t3d(k)*nslip4/(6.*pi*viscosity*rndst(k,4))
+
+          mnuccc(k) = cons42/(cons43*qcvar)*  &
+          (ndfaer1*(nacon(k,1)*tcnt)+ndfaer2*(nacon(k,2)*tcnt)+ndfaer3*(nacon(k,3)*tcnt)+ & 
+           ndfaer4*(nacon(k,4)*tcnt))*pi*pi/3.*rhow* &
+           cdist1(k)*gamma(pgam(k)+5.)/lamc(k)**4
+
+          nnuccc(k) = (ndfaer1*(nacon(k,1)*tcnt)+ndfaer2*(nacon(k,2)*tcnt)+ndfaer3*(nacon(k,3)*tcnt) & 
+          +ndfaer4*(nacon(k,4)*tcnt))*2.*pi*cdist1(k)*gamma(pgam(k)+2.)/lamc(k)
+          endif
+
+          !immersion freezing from WRF-Chem for mix-phased cloud
+          !calculate total IN tendency due to aerosols
+          IF(F_MIXCLOUD.EQ.0) THEN !for DW mixcloud scheme,already the tendency
+           IF (NICE3D(k).GT.NI3D(K)+NS3D(K)+NG3D(K)) THEN
+           NICE3D_TEND(K)=(NICE3D(k)-NI3D(K)-NS3D(K)-NG3D(K))/DT
+           ELSE
+           NICE3D_TEND(K)=0.0
+           ENDIF
+          ELSE 
+           IF ((NICE3D(k)+NICEMIX3D(K)).GT.NI3D(K)+NS3D(K)+NG3D(K)) THEN
+           NICE3D_TEND(K)=(NICE3D(k)+NICEMIX3D(K)-NI3D(K)-NS3D(K)-NG3D(K))/DT
+           ELSE
+           NICE3D_TEND(K)=0.0
+           ENDIF
+          ENDIF
+
+          IF ( T3D(K).GT.238.15) THEN
+           IF(F_MIXCLOUD.eq.0) THEN !for DW mixcloud scheme already the tendency
+            nnuccc(k)=nnuccc(k)+nicemix3d(k)/DT
+           ELSE IF ((NICE3D(k)+NICEMIX3D(K)).GT.0) THEN
+            nnuccc(k)=nnuccc(k)+NICE3D_TEND(K)*(NICEMIX3D(K)/(NICE3D(k)+NICEMIX3D(K)))
+           ENDIF
+            nnuccc(k)=max(nnuccc(k),0.)
+            MNUCCC(K) = NNUCCC(K)*MI0
+          ENDIF
+
+!The below is for IMMERSION FREEZING based on BIGG 1953
+!The immersion freezing ice number is already accounted in aerosol nucleation part, here we re-calculate it for the loss of the cloud droplet due to immersion freezing. It is not for product of ice number due to immersion freezing, otherwise it will be double counted.
+
+!         MNUCCC_IMS(K) = CONS39*                   &
+!             EXP(LOG(CDIST1(K))+LOG(GAMMA(7.+PGAM(K)))-6.*LOG(LAMC(K)))* &
+!                  EXP(AIMM*(273.15-T3D(K)))
+
+!         NNUCCC_IMS(K) = CONS40*                   &
+!             EXP(LOG(CDIST1(K))+LOG(GAMMA(PGAM(K)+4.))-3.*LOG(LAMC(K)))*   &
+!                EXP(AIMM*(273.15-T3D(K)))
+
+!! PUT IN A CATCH HERE TO PREVENT DIVERGENCE BETWEEN NUMBER CONC. AND
+!! MIXING RATIO, SINCE STRICT CONSERVATION NOT CHECKED FOR NUMBER CONC
+
+!         NNUCCC_IMS(K) = MIN(NNUCCC_IMS(K),NC3D(K)/DT)
+
+        ELSE ! without WRF-Chem aerosol-ice 
 
 ! NUMBER OF CONTACT NUCLEI (M^-3) FROM MEYERS ET AL., 1992
 ! FACTOR OF 1000 IS TO CONVERT FROM L^-1 TO M^-3
+         !contact freezing here should be used with WRF-Chem if mixcloud = 1 (Meyers)
+         !IF(F_MIXCLOUD.EQ.1) THEN
 
 ! MEYERS CURVE
-
            NACNT = EXP(-2.80+0.262*(273.15-T3D(K)))*1000.
 
 ! COOPER CURVE
@@ -2262,8 +2478,9 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 ! FLECTHER
 !     NACNT = 0.01*EXP(0.6*(273.15-T3D(K)))
 
+!************************
 ! CONTACT FREEZING
-
+!************************
 ! MEAN FREE PATH
 
             DUM = 7.37*T3D(K)/(288.*10.*PRES(K))/100.
@@ -2279,7 +2496,9 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
                     GAMMA(PGAM(K)+2.)/                         &
                     LAMC(K)
 
+!************************
 ! IMMERSION FREEZING (BIGG 1953)
+!************************
 
 !           MNUCCC(K) = MNUCCC(K)+CONS39*                   &
 !                  EXP(LOG(CDIST1(K))+LOG(GAMMA(7.+PGAM(K)))-6.*LOG(LAMC(K)))*             &
@@ -2302,8 +2521,9 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 ! MIXING RATIO, SINCE STRICT CONSERVATION NOT CHECKED FOR NUMBER CONC
 
            NNUCCC(K) = MIN(NNUCCC(K),NC3D(K)/DT)
+        ENDIF
 
-        END IF
+      END IF
 
 !.................................................................
 !.......................................................................
@@ -2797,27 +3017,56 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 ! NUCLEATION OF CLOUD ICE FROM HOMOGENEOUS AND HETEROGENEOUS FREEZING ON AEROSOL
 
+        IF (IINUM.EQ.-1) THEN ! from WRF-Chem aerosol-ice -czhao 
+          ! deposition freezing processes related to aerosol for pure ice cloud 
+          if ((QVQVS(K).GE.0.999.and.T3D(K).le.265.15).or. &
+              QVQVSI(K).ge.1.08) then 
+
+          !recalculate the tendency
+          !this should be exactly same as the one for immersion freezing
+          IF(F_MIXCLOUD.EQ.0) THEN 
+           IF (NICE3D(k).GT.NI3D(K)+NS3D(K)+NG3D(K)) THEN
+           NICE3D_TEND(K)=(NICE3D(k)-NI3D(K)-NS3D(K)-NG3D(K))/DT
+           ELSE
+           NICE3D_TEND(K)=0.0
+           ENDIF
+          ELSE
+           IF ((NICE3D(k)+NICEMIX3D(K)).GT.NI3D(K)+NS3D(K)+NG3D(K)) THEN
+           NICE3D_TEND(K)=(NICE3D(k)+NICEMIX3D(K)-NI3D(K)-NS3D(K)-NG3D(K))/DT
+           ELSE
+           NICE3D_TEND(K)=0.0
+           ENDIF
+          ENDIF
+
+           IF(F_MIXCLOUD.eq.0) THEN !for DW mixcloud scheme already the tendency
+             NNUCCD(K) = NICE3D_TEND(K)
+           ELSE IF ((NICE3D(K)+NICEMIX3D(K)).GT.0) THEN
+             NNUCCD(K) = NICE3D_TEND(K)*(NICE3D(K)/(NICE3D(k)+NICEMIX3D(K))) 
+           END IF
+             NNUCCD(k)=max(NNUCCD(k),0.)
+             MNUCCD(K) = NNUCCD(K)*MI0
+          endif
+
+        ELSE 
+
          IF (INUC.EQ.0) THEN
-
-! add threshold according to Greg Thomspon
-
-         if ((QVQVS(K).GE.0.999.and.T3D(K).le.265.15).or. &
+          ! add threshold according to Greg Thomspon
+          if ((QVQVS(K).GE.0.999.and.T3D(K).le.265.15).or. &
               QVQVSI(K).ge.1.08) then
+           ! hm, modify dec. 5, 2006, replace with cooper curve
+           kc2 = 0.005*exp(0.304*(273.15-T3D(K)))*1000. ! convert from L-1 to m-3
+           ! limit to 500 L-1
+           kc2 = min(kc2,500.e3)
+           kc2=MAX(kc2/rho(k),0.)  ! convert to kg-1
 
-! hm, modify dec. 5, 2006, replace with cooper curve
-      kc2 = 0.005*exp(0.304*(273.15-T3D(K)))*1000. ! convert from L-1 to m-3
-! limit to 500 L-1
-      kc2 = min(kc2,500.e3)
-      kc2=MAX(kc2/rho(k),0.)  ! convert to kg-1
-
-          IF (KC2.GT.NI3D(K)+NS3D(K)+NG3D(K)) THEN
+           IF (KC2.GT.NI3D(K)+NS3D(K)+NG3D(K)) THEN
              NNUCCD(K) = (KC2-NI3D(K)-NS3D(K)-NG3D(K))/DT
              MNUCCD(K) = NNUCCD(K)*MI0
-          END IF
+           END IF
 
-          END IF
+          endif 
 
-          ELSE IF (INUC.EQ.1) THEN
+         ELSE IF (INUC.EQ.1) THEN
 
           IF (T3D(K).LT.273.15.AND.QVQVSI(K).GT.1.) THEN
 
@@ -2829,6 +3078,8 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
           END IF
 
          END IF
+
+       ENDIF !IINUM
 
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
@@ -2996,7 +3247,6 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
        END IF
 
 ! CONSERVATION OF QC
-
       DUM = (PRC(K)+PRA(K)+MNUCCC(K)+PSACWS(K)+PSACWI(K)+QMULTS(K)+PSACWG(K)+PGSACW(K)+QMULTG(K))*DT
 
       IF (DUM.GT.QC3D(K).AND.QC3D(K).GE.QSMALL) THEN
@@ -3111,9 +3361,19 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
                 QMULTS(K)+QMULTG(K)+QMULTR(K)+QMULTRG(K)+PRACS(K) &
                 +PSACWG(K)+PRACG(K)+PGSACW(K)+PGRACS(K)+PIACR(K)+PIACRS(K))*XLF(K))/CPM(K)
 
+      !if WRF-Chem, then the loss of droplet due to immersion freezing
+      !must be re-calcualted by BIGG, since Meyer or Philips include 
+      !all condensation/deposition and immersion freezing (i.e.,immersion cannot be separated) 
+      IF (iinum.EQ.-1) THEN ! with WRF-Chem
       QC3DTEN(K) = QC3DTEN(K)+                                      &
                  (-PRA(K)-PRC(K)-MNUCCC(K)+PCC(K)-                  &
                   PSACWS(K)-PSACWI(K)-QMULTS(K)-QMULTG(K)-PSACWG(K)-PGSACW(K))
+      ELSE 
+      QC3DTEN(K) = QC3DTEN(K)+                                      &
+                 (-PRA(K)-PRC(K)-MNUCCC(K)+PCC(K)-                  &
+                  PSACWS(K)-PSACWI(K)-QMULTS(K)-QMULTG(K)-PSACWG(K)-PGSACW(K))
+      ENDIF
+
       QI3DTEN(K) = QI3DTEN(K)+                                      &
          (PRD(K)+EPRD(K)+PSACWI(K)+MNUCCC(K)-PRCI(K)-                                 &
                   PRAI(K)+QMULTS(K)+QMULTG(K)+QMULTR(K)+QMULTRG(K)+MNUCCD(K)-PRACI(K)-PRACIS(K))
@@ -3139,8 +3399,16 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 
       END IF
 
+      !if WRF-Chem, then the loss of droplet due to immersion freezing
+      !must be re-calcualted by BIGG, since Meyer or Philips include 
+      !all condensation/deposition and immersion freezing (i.e.,immersion cannot be separated) 
+      IF (iinum.EQ.-1) THEN ! with WRF-Chem
       NC3DTEN(K) = NC3DTEN(K)+(-NNUCCC(K)-NPSACWS(K)                &
             -NPRA(K)-NPRC(K)-NPSACWI(K)-NPSACWG(K))
+      ELSE !without WRF-Chem
+      NC3DTEN(K) = NC3DTEN(K)+(-NNUCCC(K)-NPSACWS(K)                &
+            -NPRA(K)-NPRC(K)-NPSACWI(K)-NPSACWG(K))
+      ENDIF
 
       NI3DTEN(K) = NI3DTEN(K)+                                      &
        (NNUCCC(K)-NPRCI(K)-NPRAI(K)+NMULTS(K)+NMULTG(K)+NMULTR(K)+NMULTRG(K)+ &
@@ -3151,8 +3419,17 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
 
 ! HM ADD, WRF-CHEM, ADD TENDENCIES FOR C2PREC
 
-	C2PREC(K) = PRA(K)+PRC(K)+PSACWS(K)+QMULTS(K)+QMULTG(K)+PSACWG(K)+ &
-       PGSACW(K)+MNUCCC(K)+PSACWI(K)
+      C2PREC(K) = PRA(K)+PRC(K)+PSACWS(K)+QMULTS(K)+QMULTG(K)+PSACWG(K)+ &
+      PGSACW(K)+MNUCCC(K)+PSACWI(K)
+      I2PREC(K) = PRCI(K)+PRAI(K)+PRACI(K)+PRACIS(K) 
+
+      R2EVAP(K) = MAX(-PRE(K),0.0)
+      !czhao remove EVPMS, because it sometimes has unreasonable values
+      !I2EVAP(K) = MAX(-(EVPMS(K)+EPRDS(K)+EVPMG(K)+EPRDG(K)),0.0)
+      !czhao close I2EVAP to avoid floating issue for now
+!     I2EVAP(K) = MAX(-(EPRDS(K)+EVPMG(K)+EPRDG(K)),0.0)
+      I2EVAP(K) = 0.0
+
 !CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 ! NOW CALCULATE SATURATION ADJUSTMENT TO CONDENSE EXTRA VAPOR ABOVE
 ! WATER SATURATION
@@ -3905,7 +4182,9 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
       IF (QI3D(K).GE.QSMALL) THEN
          EFFI(K) = 3./LAMI(K)/2.*1.E6
       ELSE
-         EFFI(K) = 25.
+!        EFFI(K) = 25.
+!czhao
+         EFFI(K) = 0.
       END IF
 
       IF (QNI3D(K).GE.QSMALL) THEN
@@ -3924,7 +4203,9 @@ END SUBROUTINE MP_MORR_TWO_MOMENT
       EFFC(K) = GAMMA(PGAM(K)+4.)/                        &
              GAMMA(PGAM(K)+3.)/LAMC(K)/2.*1.E6
       ELSE
-      EFFC(K) = 25.
+!     EFFC(K) = 25.
+!czhao
+      EFFC(K) = 0.
       END IF
 
       IF (QG3D(K).GE.QSMALL) THEN

@@ -5021,7 +5021,8 @@ contains
                  fac01(lay) * absa(ind1,ig) + &
                  fac11(lay) * absa(ind1+1,ig)) & 
                  + tauself + taufor + taun2)
-             fracs(lay,ig) = fracrefa(ig)
+            fracs(lay,ig) = fracrefa(ig)
+       
          enddo
       enddo
 
@@ -10577,7 +10578,7 @@ contains
              inflglw ,iceflglw,liqflglw,cldfmcl , &
              taucmcl ,ciwpmcl ,clwpmcl , cswpmcl ,reicmcl ,relqmcl , resnmcl , &
              tauaer  , &
-             uflx    ,dflx    ,hr      ,uflxc   ,dflxc,  hrc)
+             uflx    ,dflx    ,hr      ,uflxc   ,dflxc,  hrc,iclm,jclm)
 
 ! -------- Description --------
 
@@ -10670,6 +10671,7 @@ contains
 
 ! ----- Input -----
       integer(kind=im), intent(in) :: ncol            ! Number of horizontal columns
+      integer, intent(in) :: iclm,jclm       ! index of column 
       integer(kind=im), intent(in) :: nlay            ! Number of model layers
       integer(kind=im), intent(inout) :: icld         ! Cloud overlap method
                                                       !    0: Clear only
@@ -11375,6 +11377,9 @@ use rrtmg_lw_init, only: rrtmg_lw_ini
 use rrtmg_lw_rad, only: rrtmg_lw
 use mcica_subcol_gen_lw, only: mcica_subcol_lw
 
+use module_state_description, ONLY : MORR_TWO_MOMENT
+
+
     real retab(95)
     data retab / 						&
          5.92779, 6.26422, 6.61973, 6.99539, 7.39234,	&
@@ -11411,6 +11416,8 @@ CONTAINS
                        p8w, p3d, pi3d,                            &
                        dz8w, tsk, t3d, t8w, rho3d, r, g,          &
                        icloud, warm_rain, cldfra3d,               &
+                       lradius,iradius,                           & !BSINGH (01/22/2014)
+                       is_cammgmp_used,                           & !BSINGH (01/22/2014)
                        f_ice_phy, f_rain_phy,                     &
                        xland, xice, snow,                         &
                        qv3d, qc3d, qr3d,                          &
@@ -11419,14 +11426,13 @@ CONTAINS
                        f_qv, f_qc, f_qr, f_qi, f_qs, f_qg,        &
                        re_cloud, re_ice, re_snow,                 &  ! G. Thompson
                        has_reqc, has_reqi, has_reqs,              &  ! G. Thompson
-                       tauaerlw1,tauaerlw2,tauaerlw3,tauaerlw4,   & ! czhao 
-                       tauaerlw5,tauaerlw6,tauaerlw7,tauaerlw8,   & ! czhao 
-                       tauaerlw9,tauaerlw10,tauaerlw11,tauaerlw12,   & ! czhao 
-                       tauaerlw13,tauaerlw14,tauaerlw15,tauaerlw16,   & ! czhao 
+                       tauaerlw,                                  & !czhao
                        aer_ra_feedback,                           & !czhao
-!jdfcz                 progn,prescribe,                           & !czhao
-                       progn,                                     & !czhao
+                       progn,progn_ice,                           & !czhao
                        qndrop3d,f_qndrop,                         & !czhao
+                       qnice3d,f_qnice,                         & !czhao
+                       radeffc,radeffi,                                 & !czhao
+                       mp_physics,            &
 !ccc added for time varying gases.
                        yr,julian,                                 &
 !ccc
@@ -11442,12 +11448,18 @@ CONTAINS
    IMPLICIT NONE
 !------------------------------------------------------------------
    LOGICAL, INTENT(IN )      ::        warm_rain
+   LOGICAL, INTENT(IN )      ::   is_CAMMGMP_used !BSINGH:01/22/2014: Added for CAM5 RRTMG<->CAMMGMP
 !
    INTEGER, INTENT(IN )      ::        ids,ide, jds,jde, kds,kde, &
                                        ims,ime, jms,jme, kms,kme, &
                                        its,ite, jts,jte, kts,kte
 
    INTEGER, INTENT(IN )      ::        ICLOUD
+
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme), INTENT(IN) ::   &
+                      radeffi, radeffc
+   INTEGER,    INTENT(IN   )    :: mp_physics
+
 !
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme )                 , &
          INTENT(IN   ) ::                                   dz8w, &
@@ -11488,13 +11500,16 @@ CONTAINS
          OPTIONAL                                               , &
          INTENT(IN   ) ::                                         &
                                                         CLDFRA3D, &
+                                                         LRADIUS, &
+                                                         IRADIUS, &
                                                             QV3D, &
                                                             QC3D, &
                                                             QR3D, &
                                                             QI3D, &
                                                             QS3D, &
                                                             QG3D, &
-                                                        QNDROP3D
+                                                        QNDROP3D, &
+                                                        QNICE3D 
 
 !..Added by G. Thompson to couple cloud physics effective radii.
    REAL, DIMENSION(ims:ime,kms:kme,jms:jme), INTENT(IN)::         &
@@ -11503,7 +11518,7 @@ CONTAINS
                                                          re_snow
    INTEGER, INTENT(IN):: has_reqc, has_reqi, has_reqs
 
-   real pi,third,relconst,lwpmin,rhoh2o
+   real pi,third,relconst,lwpmin,iwpmin,rhoh2o,rhoice
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme )                 , &
          OPTIONAL                                               , &
@@ -11512,24 +11527,22 @@ CONTAINS
                                                       F_RAIN_PHY
 
    LOGICAL, OPTIONAL, INTENT(IN)   ::                             &
-                                   F_QV,F_QC,F_QR,F_QI,F_QS,F_QG,F_QNDROP
+                                   F_QV,F_QC,F_QR,F_QI,F_QS,F_QG,F_QNDROP,F_QNICE
 ! Optional
-   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ), OPTIONAL ,       &
-         INTENT(IN    ) :: tauaerlw1,tauaerlw2,tauaerlw3,tauaerlw4, & ! czhao 
-                           tauaerlw5,tauaerlw6,tauaerlw7,tauaerlw8, & ! czhao 
-                           tauaerlw9,tauaerlw10,tauaerlw11,tauaerlw12, & ! czhao 
-                           tauaerlw13,tauaerlw14,tauaerlw15,tauaerlw16
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, nbndlw+1), OPTIONAL ,  &
+         INTENT(IN    ) :: tauaerlw         
 
    INTEGER,    INTENT(IN  ), OPTIONAL   ::       aer_ra_feedback
 !jdfcz   INTEGER,    INTENT(IN  ), OPTIONAL   ::       progn,prescribe
-   INTEGER,    INTENT(IN  ), OPTIONAL   ::       progn
+   INTEGER,    INTENT(IN  ), OPTIONAL   ::       progn,progn_ice
 !  Ozone
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme )                 , &
          OPTIONAL                                               , &
          INTENT(IN   ) :: O33D
    INTEGER, OPTIONAL, INTENT(IN ) :: o3input
 
-      real, parameter :: thresh=1.e-9
+      real, parameter :: thresh1=1.e-9
+      real, parameter :: thresh2=1.e9
       real slope
       character(len=200) :: msg
 
@@ -11549,12 +11562,14 @@ CONTAINS
 !  LOCAL VARS
  
    REAL, DIMENSION( kts:kte+1 ) ::                          Pw1D, &
-                                                            Tw1D
+                                                            Tw1D, &
+                                                            PHYD
 
    REAL, DIMENSION( kts:kte ) ::                          TTEN1D, &
                                                         CLDFRA1D, &
                                                             DZ1D, &
                                                              P1D, &
+                                                         PHYDMID, &
                                                              T1D, &
                                                             QV1D, &
                                                             QC1D, &
@@ -11563,7 +11578,8 @@ CONTAINS
                                                             QS1D, &
                                                             QG1D, &
                                                             O31D, &
-                                                          qndrop1d 
+                                                          qndrop1d, & 
+                                                          qnice1d  
 
 ! Added local arrays for RRTMG
     integer ::                                              ncol, &
@@ -11720,7 +11736,7 @@ CONTAINS
     integer :: pcols, pver
 
 !
-    INTEGER :: i,j,K
+    INTEGER :: i,j,K,iclm,jclm
     LOGICAL :: predicate
 
 ! Added for top of model adjustment.  Steven Cavallo NCAR/MMM December 2010
@@ -11756,24 +11772,8 @@ CONTAINS
 !------------------------------------------------------------------
 #ifdef WRF_CHEM
       IF ( aer_ra_feedback == 1) then
-      IF ( .NOT. &
-      ( PRESENT(tauaerlw1) .AND. &
-        PRESENT(tauaerlw2) .AND. &
-        PRESENT(tauaerlw3) .AND. &
-        PRESENT(tauaerlw4) .AND. &
-        PRESENT(tauaerlw5) .AND. &
-        PRESENT(tauaerlw6) .AND. &
-        PRESENT(tauaerlw7) .AND. &
-        PRESENT(tauaerlw8) .AND. &
-        PRESENT(tauaerlw9) .AND. &
-        PRESENT(tauaerlw10) .AND. &
-        PRESENT(tauaerlw11) .AND. &
-        PRESENT(tauaerlw12) .AND. &
-        PRESENT(tauaerlw13) .AND. &
-        PRESENT(tauaerlw14) .AND. &
-        PRESENT(tauaerlw15) .AND. &
-        PRESENT(tauaerlw16) ) ) THEN
-      CALL wrf_error_fatal  &
+      IF ( .NOT. ( PRESENT(tauaerlw) ) ) THEN
+      CALL wrf_error_fatal  & 
       ('Warning: missing fields required for aerosol radiation' )
       ENDIF
       ENDIF
@@ -11874,6 +11874,14 @@ CONTAINS
              IF (F_QNDROP) THEN
               DO K=kts,kte
                qndrop1d(K)=qndrop3d(I,K,J)
+              ENDDO
+             ENDIF
+            ENDIF
+
+            IF ( PRESENT(F_QNICE).AND.PRESENT(QNICE3D)) THEN
+             IF (F_QNICE) THEN
+              DO K=kts,kte
+               qnice1d(K)=qnice3d(I,K,J)
               ENDDO
              ENDIF
             ENDIF
@@ -12271,47 +12279,11 @@ CONTAINS
 
 
 !link the aerosol feedback to cloud  -czhao
-  if( PRESENT( progn ) ) then
-    if (progn == 1) then
-!jdfcz     if(prescribe==0) then
 
-      pi = 4.*atan(1.0)
-      third=1./3.
-      rhoh2o=1.e3
-      relconst=3/(4.*pi*rhoh2o)
-!     minimun liquid water path to calculate rel
-!     corresponds to optical depth of 1.e-3 for radius 4 microns.
-      lwpmin=3.e-5
-      do k = kts, kte
-         reliq(ncol,k) = 10.
-         if( PRESENT( F_QNDROP ) ) then
-            if( F_QNDROP ) then
-              if ( qc1d(k)*pdel(ncol,k).gt.lwpmin.and. &
-                   qndrop1d(k).gt.1000. ) then
-               reliq(ncol,k)=(relconst*qc1d(k)/qndrop1d(k))**third ! effective radius in m
-!           apply scaling from Martin et al., JAS 51, 1830.
-               reliq(ncol,k)=1.1*reliq(ncol,k)
-               reliq(ncol,k)=reliq(ncol,k)*1.e6 ! convert from m to microns
-               reliq(ncol,k)=max(reliq(ncol,k),4.)
-               reliq(ncol,k)=min(reliq(ncol,k),20.)
-              end if
-            end if
-         end if
-      end do
-!jdfcz     else ! prescribe 
-! following Kiehl
-      call relcalc(ncol, pcols, pver, tlay, landfrac, landm, icefrac, reliq, snowh)
-!     write(0,*) 'lw prescribe aerosol',maxval(qndrop3d)
-!jdfcz     endif
-    else  ! progn   
-      call relcalc(ncol, pcols, pver, tlay, landfrac, landm, icefrac, reliq, snowh)
-    endif
-  else   !present(progn) 
-      call relcalc(ncol, pcols, pver, tlay, landfrac, landm, icefrac, reliq, snowh)
-  endif
+  call relcalc(ncol, pcols, pver, tlay, landfrac, landm, icefrac, reliq, snowh)
 
-! following Kristjansson and Mitchell
-            call reicalc(ncol, pcols, pver, tlay, reice)
+  ! following Kristjansson and Mitchell
+  call reicalc(ncol, pcols, pver, tlay, reice)
 
 
 !..If we already have effective radius of cloud and ice, then just overwrite what
@@ -12328,14 +12300,68 @@ CONTAINS
          end do
       endif
 
+!direct use of effectie radius leads to fail of regtest,
+!so re-calculated using simplified method  -czhao 
+  !reliq replaced by below lines
+  if( PRESENT( progn ) ) then
+    if (progn == 1) then
+
+      pi = 4.*atan(1.0)
+      third=1./3.
+      rhoh2o=1.e3
+      relconst=3/(4.*pi*rhoh2o)
+      !     minimun liquid water path to calculate rel
+      !     corresponds to optical depth of 1.e-3 for radius 4 microns.
+      lwpmin=3.e-5
+      do k = kts, kte
+         reliq(ncol,k) = 10.
+         if( PRESENT( F_QNDROP ) ) then
+            if( F_QNDROP ) then
+              if ( qc1d(k)*pdel(ncol,k).gt.lwpmin.and. &
+                   qndrop1d(k).gt.1000. ) then
+               reliq(ncol,k)=(relconst*qc1d(k)/qndrop1d(k))**third ! effective radius in m
+         !           apply scaling from Martin et al., JAS 51, 1830.
+               reliq(ncol,k)=1.1*reliq(ncol,k)
+               reliq(ncol,k)=reliq(ncol,k)*1.e6 ! convert from m to microns
+               reliq(ncol,k)=max(reliq(ncol,k),4.)
+               reliq(ncol,k)=min(reliq(ncol,k),20.)
+              end if
+            end if
+         end if
+      end do
+    endif !progn==1
+  endif  !present(progn)
+
+
 ! Limit upper bound of reice for Fu ice parameterization and convert
 ! from effective radius to generalized effective size (*1.0315; Fu, 1996)
             if (iceflglw .eq. 3) then
                do k = kts, kte
                   reice(ncol,k) = reice(ncol,k) * 1.0315
+                  reice(ncol,k) = max(13.,reice(ncol,k))
                   reice(ncol,k) = min(140.0,reice(ncol,k))
                end do
             endif
+!BSINGH(01/22/2014): if CAMMGMP is used, use output from CAMMGMP
+!PMA
+            if(is_CAMMGMP_used) then
+               do k = kts, kte
+                  if ( qi1d(k) .gt. 1.e-20 .or. qs1d(k) .gt. 1.e-20) then
+                     reice(ncol,k) = iradius(i,k,j)
+                  else
+                     reice(ncol,k) = 25.
+                  end if
+                  reice(ncol,k) = max(5., min(140.0,reice(ncol,k)))
+                  if ( qc1d(k) .gt. 1.e-20) then
+                     reliq(ncol,k) = lradius(i,k,j)
+                  else
+                     reliq(ncol,k) = 10.
+                  end if
+                  reliq(ncol,k) = max(2.5, min(60.0,reliq(ncol,k)))
+               enddo
+            endif
+!BSINGH (01/22/2014):ENDS
+
 
 ! Set cloud physical property arrays
             do k = kts, kte
@@ -12432,23 +12458,9 @@ CONTAINS
    IF ( AER_RA_FEEDBACK == 1) then
 !     do nb = 1, nbndlw 
       do k = kts,kte      !wig
-        if(tauaerlw1(i,k,j).gt.thresh .and. tauaerlw16(i,k,j).gt.thresh) then
-          tauaer(ncol,k,1)=tauaerlw1(i,k,j)
-          tauaer(ncol,k,2)=tauaerlw2(i,k,j)
-          tauaer(ncol,k,3)=tauaerlw3(i,k,j)
-          tauaer(ncol,k,4)=tauaerlw4(i,k,j)
-          tauaer(ncol,k,5)=tauaerlw5(i,k,j)
-          tauaer(ncol,k,6)=tauaerlw6(i,k,j)
-          tauaer(ncol,k,7)=tauaerlw7(i,k,j)
-          tauaer(ncol,k,8)=tauaerlw8(i,k,j)
-          tauaer(ncol,k,9)=tauaerlw9(i,k,j)
-          tauaer(ncol,k,10)=tauaerlw10(i,k,j)
-          tauaer(ncol,k,11)=tauaerlw11(i,k,j)
-          tauaer(ncol,k,12)=tauaerlw12(i,k,j)
-          tauaer(ncol,k,13)=tauaerlw13(i,k,j)
-          tauaer(ncol,k,14)=tauaerlw14(i,k,j)
-          tauaer(ncol,k,15)=tauaerlw15(i,k,j)
-          tauaer(ncol,k,16)=tauaerlw16(i,k,j)
+        if(tauaerlw(i,k,j,2).gt.thresh1.and.tauaerlw(i,k,j,17).gt.thresh1 & 
+       .and.tauaerlw(i,k,j,17).lt.thresh2.and.tauaerlw(i,k,j,17).lt.thresh2) then
+          tauaer(ncol,k,1:16)=tauaerlw(i,k,j,2:17)
         endif
       enddo ! k
 !     end do ! nb
@@ -12469,7 +12481,7 @@ CONTAINS
 
             call wrf_message("Diagnostics 1: k, tauaerlw1, tauaerlw16")
             do k=kts,kte
-               write(msg,'(i4,2f8.2)') k, tauaerlw1(i,k,j), tauaerlw16(i,k,j)
+               write(msg,'(i4,2f8.2)') k, tauaerlw(i,k,j,2), tauaerlw(i,k,j,17)
                call wrf_message(msg)
             end do
             call wrf_message("-------------------------")
@@ -12479,6 +12491,8 @@ CONTAINS
 #endif
 
 ! Call RRTMG longwave radiation model
+         iclm=i
+         jclm=j
          call rrtmg_lw &
             (ncol    ,nlay    ,icld    , &
              play    ,plev    ,tlay    ,tlev    ,tsfc    , & 
@@ -12487,7 +12501,7 @@ CONTAINS
              inflglw ,iceflglw,liqflglw,cldfmcl , &
              taucmcl ,ciwpmcl ,clwpmcl ,cswpmcl, reicmcl ,relqmcl ,resnmcl , &
              tauaer  , &
-             uflx    ,dflx    ,hr      ,uflxc   ,dflxc,  hrc)
+             uflx    ,dflx    ,hr      ,uflxc   ,dflxc,  hrc,iclm,jclm)
 
 ! Output downard surface flux, and outgoing longwave flux and cloud forcing 
 ! at the top of atmosphere (W/m2)
@@ -12498,6 +12512,11 @@ CONTAINS
 ! of top of model.  Dec 2010.
          olr(i,j) = uflx(1,nlayers+1)
          lwcf(i,j) = uflxc(1,nlayers+1) - uflx(1,nlayers+1)
+
+!        if (i==50.and.j==50) then
+!          print*,'check uflxc ',i,j,kte,nlay
+!          print*,uflxc(1,kte),uflxc(1,kte+1),uflxc(1,kte+2)
+!        endif
 
          if (present(lwupt)) then 
 ! Output up and down toa fluxes for total and clear sky
@@ -12746,7 +12765,8 @@ IMPLICIT NONE
 
       IF ( wrf_dm_on_monitor() ) THEN
         OPEN(rrtmg_unit,FILE='RRTMG_LW_DATA',                  &
-             FORM='UNFORMATTED',STATUS='OLD',ERR=9009)
+             FORM='UNFORMATTED',STATUS='OLD',                  &
+             CONVERT='BIG_ENDIAN',ERR=9009)
       ENDIF
 
       call lw_kgb01(rrtmg_unit)

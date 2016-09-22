@@ -10,7 +10,7 @@ MODULE module_cu_kfeta
 !
 !--------------------------------------------------------------------
 ! Lookup table variables:
-      INTEGER, PARAMETER :: KFNT=250,KFNP=220
+      INTEGER, PARAMETER, PRIVATE :: KFNT=250,KFNP=220 !wig, 24-Aug-2006: added private to prevent CuP conflicts !BSINGH - For WRFCuP scheme
       REAL, DIMENSION(KFNT,KFNP),PRIVATE, SAVE :: TTAB,QSTAB
       REAL, DIMENSION(KFNP),PRIVATE, SAVE :: THE0K
       REAL, DIMENSION(200),PRIVATE, SAVE :: ALU
@@ -32,12 +32,16 @@ CONTAINS
              ,W0AVG,XLV0,XLV1,XLS0,XLS1,CP,R,G,EP1           &
              ,EP2,SVP1,SVP2,SVP3,SVPT0                       &
              ,STEPCU,CU_ACT_FLAG,warm_rain,CUTOP,CUBOT       &
-             ,QV                                             &
+             ,QV,shall                                       & !BSINGH - For WRFCuP scheme added "shall"
             ! optionals
              ,F_QV    ,F_QC    ,F_QR    ,F_QI    ,F_QS       &
              ,RTHCUTEN,RQVCUTEN,RQCCUTEN,RQRCUTEN            &
              ,RQICUTEN,RQSCUTEN, RQVFTEN                     &
-                                                             )
+             !options for WRF-Chem, czhao
+             ,UMF3D,UER3D,UDR3D,DMF3D,DER3D,DDR3D,WU3D       &
+             ,LDB2D,LET2D,KSL2D,LFS2D,KLC2D            &
+             ,ISHALL2D,CHECK2D         )
+
 !
 !-------------------------------------------------------------
    IMPLICIT NONE
@@ -87,9 +91,26 @@ CONTAINS
    REAL,    DIMENSION( ims:ime , jms:jme ),                  &
             INTENT(INOUT) ::                            NCA
 
+ REAL,    DIMENSION( ims:ime , jms:jme ),                  &
+            INTENT(INOUT) ::                            SHALL !BSINGH -  For WRFCuP scheme
+
    REAL, DIMENSION( ims:ime , jms:jme ),                     &
-          INTENT(OUT) ::                              CUBOT, &
+          INTENT(INOUT) ::                              CUBOT, &
                                                       CUTOP    
+
+!--------------------------------------------------------------
+!czhao variables for kfeta convective transport
+!#ifdef WRF_CHEM
+!#endif
+   REAL, DIMENSION (ims:ime,kms:kme,jms:jme),optional,INTENT(INOUT):: &
+   UMF3D,UER3D,UDR3D,DMF3D,DER3D,DDR3D,WU3D
+   INTEGER, DIMENSION(ims:ime,jms:jme),optional,INTENT(INOUT)::    &
+   LDB2D,LET2D,KSL2D,LFS2D,ISHALL2D,CHECK2D,KLC2D
+   REAL, DIMENSION(kms:kme) ::                     &
+   UMF,UER,UDR,DMF,DER,DDR,WU
+   INTEGER LDB,LET,KSL,LFS,KLC
+   INTEGER CHECKCV
+!--------------------------------------------------------------
 
    LOGICAL, DIMENSION( ims:ime , jms:jme ),                  &
           INTENT(INOUT) :: CU_ACT_FLAG
@@ -161,8 +182,10 @@ CONTAINS
    integer :: ibegh,iendh,jbegh,jendh
    integer :: istart,iend,jstart,jend
    INTEGER :: i,j,k,NTST
+   INTEGER :: ishall !BSINGH -  For WRFCuP Scheme
    REAL    :: lastdt = -1.0
    REAL    :: W0AVGfctr, W0fctr, W0den
+
    
 !
    DXSQ=DX*DX
@@ -367,11 +390,40 @@ CONTAINS
 
      DO J = jts,jte
        DO I=its,ite
-          
 
          IF ( NCA(I,J) .ge. 0.5*DT ) then
             CU_ACT_FLAG(i,j) = .false.
+
+!        IF (I==20.AND.J==10) THEN
+!        WRITE(0,*) 'CZHAO CHECK WU ',I,J,KTAU,WU3D(I,KTS:KTE,J)
+!        PRINT*, 'CZHAO CHECK WU ',I,J,KTAU,WU3D(I,KTS:KTE,J)
+!        ENDIF
+
          ELSE
+
+#ifdef WRF_CHEM
+!-------------------------------------------------
+!czhao initialize parameter
+!-------------------------------------------------
+               UMF3D(i,kts:kte,j) = 0.0
+               UER3D(i,kts:kte,j) = 0.0
+               UDR3D(i,kts:kte,j) = 0.0
+               DMF3D(i,kts:kte,j) = 0.0
+               DER3D(i,kts:kte,j) = 0.0
+               DDR3D(i,kts:kte,j) = 0.0
+               WU3D(i,kts:kte,j) = 0.0
+
+               LDB2D(i,j) = 0
+               LET2D(i,j) = 0
+               KSL2D(i,j) = 0
+               LFS2D(i,j) = 0
+               KLC2D(i,j) = 0
+               ISHALL2D(i,j) = 0
+               CHECK2D(i,j) = 0
+               checkcv=0
+#endif
+!--------------------------------------------------
+
 
             DO k=kts,kte
                DQDT(k)=0.
@@ -405,6 +457,7 @@ CONTAINS
                   tpart_v1D(K) = 0.
                ENDIF
             ENDDO
+
             CALL KF_eta_PARA(I, J,                  &
                  U1D,V1D,T1D,QV1D,P1D,DZ1D,W0AVG1D, &
                  tpart_h1D,tpart_v1D,               &
@@ -415,10 +468,71 @@ CONTAINS
                  DQDT,DQIDT,DQCDT,DQRDT,DQSDT,DTDT, &
                  RAINCV,PRATEC,NCA,                 &
                  flag_QI,flag_QS,warm_rain,         &
-                 CUTOP,CUBOT,CUDT,                  &
+                 CUTOP,CUBOT,ishall,CUDT,           & !BSINGH -  Added ishall as arg for WRFCuP
+!czhao
+#ifdef WRF_CHEM  
+                 umf,uer,udr,dmf,der,ddr,wu,           &
+                 ldb,LET,KSL,LFS,klc,checkcv, &
+!#else
+#endif
                  ids,ide, jds,jde, kds,kde,         &
                  ims,ime, jms,jme, kms,kme,         &
                  its,ite, jts,jte, kts,kte)
+
+            
+            shall(i,j) = ishall !BSINGH -  For WRFCuP scheme
+
+
+#ifdef WRF_CHEM
+
+         IF (CUTOP(I,J).GT.CUBOT(I,J).AND.CHECKCV.GT.0) THEN ! convection really occur 
+
+!        IF (I==20.AND.J==10) THEN
+!        WRITE(0,*) 'CZHAO CHECK WU ',I,J,KTAU,WU(KTS:KTE)
+!        PRINT*, 'CZHAO CHECK WU ',I,J,KTAU,WU(KTS:KTE)
+!        ENDIF
+
+!------------------------------------------------------ 
+!czhao output parameter
+             DO K=KTS, KTE
+
+             UMF3D(I,K,J)=UMF(K)
+             UER3D(I,K,J)=UER(K)
+             UDR3D(I,K,J)=UDR(K)
+             DMF3D(I,K,J)=DMF(K)
+             DER3D(I,K,J)=DER(K)
+             DDR3D(I,K,J)=DDR(K)
+             WU3D(I,K,J)=WU(K)
+
+             UMF(K)=0.
+             UER(K)=0.
+             UDR(K)=0.
+             DMF(K)=0.
+             DER(K)=0.
+             DDR(K)=0.
+             WU(K)=0.
+
+             ENDDO
+
+             LDB2D(I,J)=LDB
+             LET2D(I,J)=LET
+             KSL2D(I,J)=KSL
+             LFS2D(I,J)=LFS
+             KLC2D(I,J)=KLC
+             ISHALL2D(I,J)=ISHALL
+             check2d(I,J)=checkcv
+
+             klc=0
+             LDB=0
+             LET=0
+             KSL=0
+             LFS=0
+             ISHALL=0
+             checkcv=0
+         ENDIF
+!----------------------------------------------------------
+#endif
+
             IF(PRESENT(rthcuten).AND.PRESENT(rqvcuten)) THEN
               DO K=kts,kte
                  RTHCUTEN(I,K,J)=DTDT(K)/pi(I,K,J)
@@ -460,9 +574,10 @@ CONTAINS
               ENDIF
             ENDIF
 !
-         ENDIF 
+         ENDIF  !NCA 
        ENDDO     ! i-loop
      ENDDO       ! j-loop
+
 !
    END SUBROUTINE KF_eta_CPS
 ! ****************************************************************************
@@ -477,7 +592,14 @@ CONTAINS
                       DQDT,DQIDT,DQCDT,DQRDT,DQSDT,DTDT,   &
                       RAINCV,PRATEC,NCA,                   &
                       F_QI,F_QS,warm_rain,                 &
-                      CUTOP,CUBOT,CUDT,                    &
+                      CUTOP,CUBOT,ishall,CUDT,             & !BSINGH - For WRFCuP scheme
+!czhao
+#ifdef WRF_CHEM  
+                      UMF,UER,UDR,DMF,DER,DDR,WU,          &
+                      LDB,LET,KPBL,LFS,LC,checkcv, &
+!#else
+#endif
+
                       ids,ide, jds,jde, kds,kde,           &
                       ims,ime, jms,jme, kms,kme,           &
                       its,ite, jts,jte, kts,kte)
@@ -535,7 +657,7 @@ CONTAINS
             INTENT(INOUT) ::                       PRATEC
 
       REAL, DIMENSION( ims:ime , jms:jme ),                &
-            INTENT(OUT) ::                          CUBOT, &
+            INTENT(INOUT) ::                          CUBOT, &
                                                     CUTOP
       REAL,  INTENT(IN   ) :: CUDT
 !
@@ -605,6 +727,9 @@ CONTAINS
       INTEGER :: NCHECK
       INTEGER, DIMENSION (kts:kte) :: KCHECK
 
+!czhao check convection
+      INTEGER    CHECKCV
+
       INTEGER :: ISTOP,ML,L5,KMIX,LOW,                     &
                  LC,MXLAYR,LLFC,NLAYRS,NK,                 &
                  KPBL,KLCL,LCL,LET,IFLAG,                  &
@@ -625,6 +750,18 @@ CONTAINS
 !      DATA RATE/0.01/  ! value used in NRCM
 !      DATA RATE/0.001/  ! effectively turn off autoconversion
 !-----------------------------------------------------------
+
+!czhao initialize the output property of mass flux 
+      do k=kts,kte
+       UMF(k) = 0.0
+       UER(k) = 0.0
+       UDR(k) = 0.0
+       DMF(k) = 0.0
+       DER(k) = 0.0
+       DDR(k) = 0.0
+        WU(k) = 0.0
+      enddo
+
       IPRNT=.FALSE.
       GDRY=-G/CP
       ROCP=R/CP
@@ -744,6 +881,11 @@ usl:   DO
                FBFRC=1.
                CYCLE usl
              ELSE
+                !BSINGH - For WRFCuP scheme
+                ! wig, 29-Aug-2006: I think this is where no convecion occurs. So, force
+                ! ishall to a flag value to indicate this for accounting purposes.
+                ishall = 2
+                !BSINGH -ENDS
                RETURN
              ENDIF
            ENDIF      
@@ -779,6 +921,10 @@ usl:   DO
              END DO    
            ENDIF
            IF(DPTHMX.LT.DPMIN)THEN 
+              !BSINGH - For WRFCuP scheme
+              ! wig, 29-Aug-2006: Indicate no convection occurred in ishall.
+              ishall = 2
+              !BSINGH -ENDS
              RETURN
            ENDIF
            KPBL=LC+NLAYRS-1   
@@ -838,6 +984,10 @@ usl:   DO
             ENDIF 
           ENDDO   
           IF(NK.GT.KL)THEN
+             !BSINGH - For WRFCuP scheme
+             ! wig, 29-Aug-2006: Indicate no convection occurred.
+             ishall = 2
+             !BSINGH -ENDS
             RETURN  
           ENDIF
           K=KLCL-1
@@ -955,6 +1105,8 @@ trigger2:  IF(TLCL+DTLCL+DTRH.LT.TENV)THEN
 !...
 !...ESTIMATE INITIAL UPDRAFT MASS FLUX (UMF(K))...
 !     
+            
+
             WU(K)=WLCL
             AU0=0.01*DXSQ
             UMF(K)=RHOLCL*AU0
@@ -2040,6 +2192,11 @@ iter:     DO NCOUNT=1,10
           IF(FABE.GT.1. .and. ISHALL.EQ.0)THEN
 !          WRITE(98,*)'UPDRAFT/DOWNDRAFT COUPLET INCREASES CAPE AT THIS
 !     *GRID POINT; NO CONVECTION ALLOWED!'
+             !BSINGH - For WRFCuP scheme
+             !wig, 29-Aug-2006: Indicate no convection occurred.
+             ishall = 2
+             !BSINGH -ENDS
+             
             RETURN  
           ENDIF
           IF(NCOUNT.NE.1)THEN
@@ -2094,6 +2251,10 @@ iter:     DO NCOUNT=1,10
 !...IF AINC BECOMES VERY SMALL, EFFECTS OF CONVECTION ! JSK MODS
 !...WILL BE MINIMAL SO JUST IGNORE IT...              ! JSK MODS
             IF(AINC.LT.0.05)then
+               !BSINGH - For WRFCuP scheme
+               ! wig, 29-Aug-2006: Indicate no convection occurred.
+               ishall = 2
+               !BSINGH -ENDS
               RETURN                          ! JSK MODS
             ENDIF
 !            AINC=AMAX1(AINC,0.05)                        ! JSK MODS
@@ -2118,6 +2279,12 @@ iter:     DO NCOUNT=1,10
 !     
           ENDIF
         ENDDO iter
+
+!czhao 
+#ifdef WRF_CHEM
+        CHECKCV=99
+#endif
+
 !     
 !...COMPUTE HYDROMETEOR TENDENCIES AS IS DONE FOR T, QV...
 !     
@@ -2378,6 +2545,13 @@ iter:     DO NCOUNT=1,10
            NCA(I,J) = CUDT*60.
            NSHALL = NSHALL+1
         ENDIF
+
+!       IF(ISHALL.EQ.1) THEN 
+!       IF (NSHALL.GT.1) THEN 
+!        WRITE(0,*) 'CZHAO CHECK NSHALL',I,J,NSHALL,MAXVAL(UMF(kts:kte))
+!        print*, 'CZHAO CHECK NSHALL',I,J,NSHALL,MAXVAL(UMF(kts:kte))
+!       ENDIF
+!       ENDIF
 
         DO K=1,KX
 !         IF(IMOIST(INEST).NE.2)THEN

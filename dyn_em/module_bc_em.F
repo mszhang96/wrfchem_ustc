@@ -1258,9 +1258,9 @@ CONTAINS
        DO loop = spec_zone + 1, spec_zone + relax_zone
          fcx(loop) = 0.1 / dt * (spec_zone + relax_zone - loop) / (relax_zone - 1)
          gcx(loop) = 1.0 / dt / 50. * (spec_zone + relax_zone - loop) / (relax_zone - 1)
-         spongeweight=exp(-(loop-(spec_zone + 1))*spec_exp)
-         fcx(loop) = fcx(loop)*spongeweight
-         gcx(loop) = gcx(loop)*spongeweight
+!wig: off for MILAGRO runs         spongeweight=exp(-(loop-(spec_zone + 1))*spec_exp)
+!         fcx(loop) = fcx(loop)*spongeweight
+!         gcx(loop) = gcx(loop)*spongeweight
        ENDDO   
        
      ELSE IF (nested) THEN

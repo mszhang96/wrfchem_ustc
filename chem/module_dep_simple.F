@@ -269,6 +269,7 @@ tile_lon_loop : &
       if ( (config_flags%chem_opt == CBMZ          ) .or.          &
            (config_flags%chem_opt == CBMZ_BB       ) .or.          &
            (config_flags%chem_opt == CBMZ_BB_KPP   ) .or.          &
+           (config_flags%chem_opt == CBMZ_SORGAM_KPP   ) .or.   &
            (config_flags%chem_opt == CBMZ_MOSAIC_KPP   ) .or.      &
            (config_flags%chem_opt == CBMZ_MOSAIC_4BIN_VBS2_KPP).or.&
            (config_flags%chem_opt == CBMZ_MOSAIC_4BIN_AQ) .or.     &
@@ -277,6 +278,8 @@ tile_lon_loop : &
            (config_flags%chem_opt == CBMZ_MOSAIC_8BIN) .or.        &
            (config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN_AQ) .or. &
            (config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN_AQ) .or. &
+           (config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE) .or. &
+           (config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE) .or. &
            (config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN) .or.    &
            (config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN) .or.    &
            (config_flags%chem_opt == CBMZ_CAM_MAM3_NOAQ ) .or.     &
@@ -310,7 +313,9 @@ tile_lon_loop : &
                   (config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN) .or.    &
                   (config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN) .or.    &
                   (config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN_AQ) .or. &
-                  (config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN_AQ) ) then
+                  (config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN_AQ) .or. &
+                  (config_flags%chem_opt == CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE) .or. &
+                  (config_flags%chem_opt == CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE) ) then
                   ddvel(i,j,p_dms)         = 0
                   ddvel(i,j,p_msa)         = ddvel(i,j,p_hno3)
                   ddvel(i,j,p_dmso)        = 0
@@ -368,6 +373,23 @@ tile_lon_loop : &
          end do
       end if
 
+      if  (config_flags%chem_opt == CBMZ_SORGAM_KPP  )   then
+         do j=jts,jte
+            do i=its,ite
+               ddvel(i,j,p_aro1)        = 0
+               ddvel(i,j,p_aro2)         = 0
+               ddvel(i,j,p_alk1)         = 0
+               ddvel(i,j,p_ole1)        = 0
+               ddvel(i,j,p_api1)        = 0
+               ddvel(i,j,p_api2)        = 0
+               ddvel(i,j,p_lim1)        = 0
+               ddvel(i,j,p_lim2)        = 0
+               ddvel(i,j,p_api)        = 0
+               ddvel(i,j,p_lim)        = 0
+
+            end do
+         end do
+      end if
 
       if  (config_flags%chem_opt == CBMZ_MOSAIC_KPP  )   then
          do j=jts,jte
@@ -387,6 +409,41 @@ tile_lon_loop : &
          end do
       end if
 
+      if  (config_flags%chem_opt == CBMZ_MOSAIC_8BIN_VBS9_KPP  )   then
+         do j=jts,jte
+            do i=its,ite
+               ddvel(i,j,p_aro1)        = 0
+               ddvel(i,j,p_aro2)         = 0
+               ddvel(i,j,p_alk1)         = 0
+               ddvel(i,j,p_ole1)        = 0
+               ddvel(i,j,p_api1)        = 0
+               ddvel(i,j,p_api2)        = 0
+               ddvel(i,j,p_lim1)        = 0
+               ddvel(i,j,p_lim2)        = 0
+               ddvel(i,j,p_api)        = 0
+               ddvel(i,j,p_lim)        = 0
+
+            end do
+         end do
+      end if
+
+      if  (config_flags%chem_opt == CBMZ_MOSAIC_4BIN_VBS9_KPP  )   then
+         do j=jts,jte
+            do i=its,ite
+               ddvel(i,j,p_aro1)        = 0
+               ddvel(i,j,p_aro2)         = 0
+               ddvel(i,j,p_alk1)         = 0
+               ddvel(i,j,p_ole1)        = 0
+               ddvel(i,j,p_api1)        = 0
+               ddvel(i,j,p_api2)        = 0
+               ddvel(i,j,p_lim1)        = 0
+               ddvel(i,j,p_lim2)        = 0
+               ddvel(i,j,p_api)        = 0
+               ddvel(i,j,p_lim)        = 0
+
+            end do
+         end do
+      end if
 
 
 ! For gocartracm,radm
@@ -646,7 +703,7 @@ END SUBROUTINE wesely_driver
         REAL, intent(in)    :: t                            ! surface temp (K)
         REAL, intent(in)    :: p_srf                        ! surface pressure (Pa)
         REAL, intent(in)    :: spec_hum                     ! surface specific humidity (kg/kg)
-        real, intent(out)   :: rcx(numgas)
+        real, intent(inout)   :: rcx(numgas)
         LOGICAL, intent(in) :: highnh3, rainflag, wetflag
 
 !----------------------------------------------------------------------
@@ -1037,7 +1094,7 @@ is_nh3: if( p_nh3 > 1 ) then
 !--------------------------------------------------
         INTEGER, intent(in) :: iland
         REAL, intent(in)    :: clw, rh, rmol, ustar
-        REAL, intent(out)   :: dvfog, dvpart
+        REAL, intent(inout)   :: dvfog, dvpart
 
 !--------------------------------------------------
 ! .. Intrinsic Functions ..
@@ -1128,7 +1185,7 @@ is_nh3: if( p_nh3 > 1 ) then
 ! .. Array Arguments ..
 !--------------------------------------------------
         REAL, intent(in)  :: srfres(numgas)
-        REAL, intent(out) :: vgs(numgas)
+        REAL, intent(inout) :: vgs(numgas)
 
 !--------------------------------------------------
 ! .. Local Scalars ..
@@ -1140,6 +1197,9 @@ is_nh3: if( p_nh3 > 1 ) then
 ! .. Local Arrays ..
 !--------------------------------------------------
         REAL :: vgspec(numgas)
+
+        !czhao initialize vgs
+        vgs(:)=0.0
 
 !--------------------------------------------------
 !   Calculate aerodynamic resistance for reference
@@ -1210,7 +1270,7 @@ is_nh3: if( p_nh3 > 1 ) then
 !--------------------------------------------------
 ! .. Array Arguments ..
 !--------------------------------------------------
-        REAL, intent(out) :: vgtemp(nspec)
+        REAL, intent(inout) :: vgtemp(nspec)
 !--------------------------------------------------
 ! .. Local Scalars ..
 !--------------------------------------------------
@@ -1251,7 +1311,7 @@ is_nh3: if( p_nh3 > 1 ) then
 
       END SUBROUTINE cellvg
 
-      SUBROUTINE depvel( numgas, rmol, zr, z0, ustar, &
+      SUBROUTINE depvel( numgas, rmol, zr1, z01, ustar, &
                          depv, vgpart, aer_res )
 !--------------------------------------------------
 !     THIS FUNCTION HAS BEEN DESIGNED TO EVALUATE AN UPPER LIMIT
@@ -1293,16 +1353,17 @@ is_nh3: if( p_nh3 > 1 ) then
 ! .. Scalar Arguments ..
 !--------------------------------------------------
         INTEGER, intent(in) :: numgas
-        REAL, intent(in)    :: ustar, z0, zr
-        REAL, intent(out)   :: vgpart, aer_res
+        REAL, intent(in)    :: ustar, z01, zr1
+        REAL, intent(inout)   :: vgpart, aer_res
         REAL, intent(inout) :: rmol
 !--------------------------------------------------
 ! .. Array Arguments ..
 !--------------------------------------------------
-        REAL, intent(out) :: depv(numgas)
+        REAL, intent(inout) :: depv(numgas)
 !--------------------------------------------------
 ! .. Local Scalars ..
 !--------------------------------------------------
+        REAL   :: z0, zr
         INTEGER :: l
         REAL    :: ao, ar, polint, vk
 !--------------------------------------------------
@@ -1313,7 +1374,8 @@ is_nh3: if( p_nh3 > 1 ) then
 !     Set the von Karman constant
 !--------------------------------------------------
         vk = karman
-
+        z0 = z01
+        zr = zr1
 !--------------------------------------------------
 !     Calculate the diffusion correction factor
 !     SCPR23 is calculated as (Sc/Pr)**(2/3) using Sc= 1.15 and Pr= 1.0
@@ -1324,6 +1386,12 @@ is_nh3: if( p_nh3 > 1 ) then
 !             1/L = 0 NEUTRAL
 !             1/L > 0 STABLE
 !--------------------------------------------------
+        !czhao +++++++++++++ 
+        if (((zr/z0).lt.1.05).and.((zr/z0).gt.0.95)) then 
+          if (zr .gt. z0) zr=z0*1.05
+          if (zr .lt. z0) zr=z0*0.95
+        endif   
+        !czhao ------------- 
 
         if(abs(rmol) < 1.E-6 ) rmol = 0.
 

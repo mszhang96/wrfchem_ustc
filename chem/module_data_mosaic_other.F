@@ -23,7 +23,8 @@
 
 	integer, parameter :: imaxd=1, jmaxd=1, kmaxd=100
 
-	integer, parameter :: lmaxd=1200, l2maxd=1200 ! increased from 300 to 400 by Manish Shrivastava on 01/25/10 for additional soa gas species
+        integer, parameter :: lmaxd=1200, l2maxd=1200 ! increased from 300 to 400 by Manish Shrivastava on 01/25/10 for additional soa gas species
+!       integer, parameter :: lmaxd=1500, l2maxd=1500 ! for MOSAIC_8BIN_DMS_AQ + dust, czhao,2012/09/24 
 
 	integer, parameter :: nsubareamaxd = 1
 
@@ -36,6 +37,7 @@
 	integer, save :: kh2so4  = -999888777
 	integer, save :: knh3    = -999888777
 	integer, save :: khcl    = -999888777
+	integer, save :: kmsa    = -999888777
 	integer, save :: kn2o5   = -999888777
 	integer, save :: kclno2  = -999888777
 	integer, save :: ko3     = -999888777

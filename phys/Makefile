@@ -64,6 +64,7 @@ MODULES = \
 	module_cu_sas.o \
 	module_cu_mesosas.o \
 	module_cu_osas.o \
+	module_cu_kfcup.o \
 	module_mp_radar.o \
 	module_mp_kessler.o \
 	module_mp_lin.o  \
@@ -145,6 +146,7 @@ MODULES = \
 	module_shallowcu_driver.o \
 	module_microphysics_driver.o \
 	module_microphysics_zero_out.o \
+        module_icenucleation_bn.o \
 	module_mixactivate.o \
 	module_radiation_driver.o \
 	module_surface_driver.o \
@@ -169,7 +171,7 @@ FIRE_MODULES = \
         module_fr_fire_core.o \
         module_fr_fire_phys.o \
         module_fr_fire_util.o
-  
+
 OBJS    =
 
 NMM_MODULES =  

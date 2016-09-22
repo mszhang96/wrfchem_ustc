@@ -4,7 +4,7 @@ contains
 
         subroutine gocart_dmsemis(dt,config_flags,alt,t_phy,u_phy,  &
          v_phy,chem,rho_phy,dz8w,u10,v10,p8w,dms_0,tsk,                  &
-         ivgtyp,isltyp,xland,dx,g, &
+         ivgtyp,isltyp,xland,dx,g,dmsflux, &
          ids,ide, jds,jde, kds,kde,                                        &
          ims,ime, jms,jme, kms,kme,                                        &
          its,ite, jts,jte, kts,kte                                         )
@@ -22,6 +22,8 @@ contains
          INTENT(INOUT ) ::                                   chem
    REAL, DIMENSION( ims:ime, jms:jme),                                     &
          INTENT(IN ) ::    dms_0,tsk
+   REAL, DIMENSION( ims:ime, jms:jme),                                     &
+         INTENT(INOUT ) ::    dmsflux
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,               &
           INTENT(IN   ) ::                              alt,               &
                                                       t_phy,               &
@@ -44,6 +46,7 @@ contains
   integer :: i,j,k,ndt,imx,jmx,lmx,nmx
   integer,dimension (1,1) :: ilwi
   real*8, DIMENSION (1,1,1,1) :: tc
+  real*8, DIMENSION (1,1) :: dmsflux_kc
   real*8, DIMENSION (1,1,1) :: bems,airmas
   real*8, DIMENSION (1,1) :: emsdms
   real*8, dimension (1,1) :: w10m,gwet,airden,tskin,dmso
@@ -65,7 +68,7 @@ contains
      if(xland(i,j).gt.1.5)then
      ilwi(1,1)=0
 
-    tc(1,1,1,1)=chem(i,kts,j,p_dms)*1.d-6
+     tc(1,1,1,1)=chem(i,kts,j,p_dms)*1.d-6
     dmso(1,1)=dms_0(i,j)
      w10m(1,1)=sqrt(u10(i,j)*u10(i,j)+v10(i,j)*v10(i,j))
   !---bug fixing: modified by Qing.Yang@pnl.gov to delete a 0.01 factor -Aug,2010--
@@ -78,8 +81,9 @@ contains
      if(dz8w(i,kts,j).lt.12.)w10m=sqrt(u_phy(i,kts,j)*u_phy(i,kts,j)+v_phy(i,kts,j)*v_phy(i,kts,j))
 
     call  srcdms(imx, jmx, lmx, nmx, ndt, tc, mwdry,&
-                  tskin, ilwi, dmso, w10m, airmas, dxy, emsdms, bems)
+                  tskin, ilwi, dmso, w10m, airmas, dxy, emsdms, bems, dmsflux_kc)
     chem(i,kts,j,p_dms)=tc(1,1,1,1)*1.e6
+    dmsflux(i,j)=dmsflux_kc(1,1)
   endif
   enddo
   enddo
@@ -87,7 +91,7 @@ contains
 end subroutine gocart_dmsemis
 
 SUBROUTINE srcdms(imx, jmx, lmx, nmx, ndt1, tc,airmw, &
-                  tskin, ilwi, dmso, w10m, airmas, dxy, emsdms, bems)
+                  tskin, ilwi, dmso, w10m, airmas, dxy, emsdms, bems,dmsflux_kc)
  
   ! **************************************************************************
   ! **                                                                      **
@@ -106,6 +110,7 @@ SUBROUTINE srcdms(imx, jmx, lmx, nmx, ndt1, tc,airmw, &
   REAL,      INTENT(IN)    :: airmw
   REAL*8,    INTENT(IN)    :: airmas(imx,jmx,lmx)
   REAL*8,    INTENT(INOUT) :: tc(imx,jmx,lmx,nmx)
+  REAL*8,    INTENT(INOUT) :: dmsflux_kc(imx,jmx)
   REAL*8,    INTENT(INOUT) :: emsdms(imx,jmx)
   REAL*8,    INTENT(OUT)   :: bems(imx,jmx,nmx)
 
@@ -127,7 +132,13 @@ SUBROUTINE srcdms(imx, jmx, lmx, nmx, ndt1, tc,airmw, &
         if_water: IF (ilwi(i,j) == 0) THEN
            
            ! -- Schmidt number for DMS (Saltzman et al., 1993)
+           if (sst.gt.45) sst = 45
            sc = 2674.0 - 147.12*sst + 3.726*(sst**2) - 0.038*(sst**3)
+           if (sc.le.0) then 
+            write(0,*) 'found incorrect sc number in DMS',sc,sst
+            print*, 'found incorrect sc number in DMS',sc,sst
+            stop
+           endif  
 
 ! ****************************************************************************
 ! *  Calculate transfer velocity in cm/hr  (AKw)                             *
@@ -207,9 +218,12 @@ SUBROUTINE srcdms(imx, jmx, lmx, nmx, ndt1, tc,airmw, &
         !    ---------------------------------------------------------------
         !     Diagnostics:      DMS surface emission in kgS/timestep     
         !    ---------------------------------------------------------------
-        emsdms(i,j) = emsdms(i,j) + dmssrc * smw / tcmw(NDMS) ! kgS
+        !emsdms(i,j) = emsdms(i,j) + dmssrc * smw / tcmw(NDMS) ! kgS !czhao
+        emsdms(i,j) = dmssrc * smw / tcmw(NDMS) ! kgS
 !        bems(i,j,NDMS) = c * airmas(i,j,1) / airmw * smw ! kgS
         bems(i,j,NDMS) = dmssrc  ! kgDMS
+
+        dmsflux_kc(i,j)= dmssrc * smw / tcmw(NDMS)/REAL(ndt1)/dxy(j) ! kgS/m2/s 
 
      END DO lon_loop
   END DO lat_loop

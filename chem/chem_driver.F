@@ -1,3 +1,4 @@
+
 !
 !   WRF-chem V3.1 : Original version of chem_driver written by Georg Grell (ESRL/GSD)
 !                   Further developments, bugfixes and improvements  by
@@ -45,9 +46,11 @@
   USE module_gocart_so2so4
   USE module_aer_opt_out,only: aer_opt_out
   USE module_ctrans_grell
+  USE module_ctrans_kfeta
 ! USE module_aerosols_soa_vbs, only:
   USE module_data_soa_vbs, only: ldrog_vbs
 !
+  USE module_chem_cup, only: chem_cup_driver !BSINGH - For WRFCuP scheme
   USE module_dry_dep_driver
   USE module_emissions_driver
   USE module_input_tracer, only: set_tracer
@@ -72,24 +75,59 @@
   !BSINGH(PNNL)- Lahey compiler forces to declare the following interface
   interface
      SUBROUTINE sum_pm_driver ( config_flags,                            &
-          alt, chem, h2oaj, h2oai,                                   &
-          pm2_5_dry, pm2_5_water, pm2_5_dry_ec, pm10,                &
-          hoa_a01,hoa_a02,hoa_a03,hoa_a04,                          &
-          bboa_a01,bboa_a02,bboa_a03,bboa_a04,                      &
-          soa_a01,soa_a02,soa_a03,soa_a04,                          &
-          bbsoa_a01,bbsoa_a02,bbsoa_a03,bbsoa_a04,                  &
-          hsoa_a01,hsoa_a02,hsoa_a03,hsoa_a04,                      &
-          biog_a01,biog_a02,biog_a03,biog_a04,                      &
-          asmpsoa_a01,asmpsoa_a02,asmpsoa_a03,asmpsoa_a04,              &
-          arosoa_a01,arosoa_a02,arosoa_a03,arosoa_a04,              &
-          totoa_a01,totoa_a02,totoa_a03,totoa_a04,                  &
-          hsoa_c,hsoa_o,bbsoa_c,bbsoa_o,                            &
-          biog_v1,biog_v2,biog_v3,biog_v4,                          &
-          ant_v1,ant_v2,ant_v3,ant_v4,                              &
-          smpa_v1,smpbb_v1,                              &
-          ids,ide, jds,jde, kds,kde,                                &
-          ims,ime, jms,jme, kms,kme,                                &
-          its,ite, jts,jte, kts,kte                                  )
+          alt,         chem,        h2oaj,        h2oai, h2oac,                &
+            pm2_5_dry, pm2_5_water,                                    &
+            pm2_5_dry_dust,pm2_5_dry_oc,pm2_5_dry_ec,                  &
+            pm2_5_dry_seas,pm2_5_dry_so4f,pm2_5_dry_no3f,pm2_5_dry_nh4f,    &
+            pm10,                                                      &
+            !czhao
+            dgnuc,dgacc,dgcor,                                      & 
+          hoa_a01,     hoa_a02,     hoa_a03,      hoa_a04,               &
+          hoa_a05,     hoa_a06,     hoa_a07,      hoa_a08,               & !BSINGH Added 4 more bins for each species for SAPRC 8 bin version
+          bboa_a01,    bboa_a02,    bboa_a03,     bboa_a04,              &
+          bboa_a05,    bboa_a06,    bboa_a07,     bboa_a08,              &
+          soa_a01,     soa_a02,     soa_a03,      soa_a04,               &
+          soa_a05,     soa_a06,     soa_a07,      soa_a08,               &
+          bbsoa_a01,   bbsoa_a02,   bbsoa_a03,    bbsoa_a04,             &
+          bbsoa_a05,   bbsoa_a06,   bbsoa_a07,    bbsoa_a08,             &
+          hsoa_a01,    hsoa_a02,    hsoa_a03,     hsoa_a04,              &
+          hsoa_a05,    hsoa_a06,    hsoa_a07,     hsoa_a08,              &
+          biog_a01,    biog_a02,    biog_a03,     biog_a04,              &
+          biog_a05,    biog_a06,    biog_a07,     biog_a08,              &
+          asmpsoa_a01, asmpsoa_a02, asmpsoa_a03, asmpsoa_a04,            & !BSINGH - Not adding 5-8 bins for asmpsoa, as it is not req. for 8 bin SAPRC
+          arosoa_a01,  arosoa_a02,  arosoa_a03,  arosoa_a04,             &
+          arosoa_a05,  arosoa_a06,  arosoa_a07,  arosoa_a08,             &
+          totoa_a01,   totoa_a02,   totoa_a03,   totoa_a04,              &
+          totoa_a05,   totoa_a06,   totoa_a07,   totoa_a08,              &
+          hsoa_c,      hsoa_o,      bbsoa_c,     bbsoa_o,                &
+          biog_v1,     biog_v2,     biog_v3,     biog_v4,                &
+          ant_v1,      ant_v2,      ant_v3,      ant_v4,                 &
+          smpa_v1,     smpbb_v1,                                         &
+          !BSINGH - Added cw aerosols(for VBS)
+          hoa_cw01,    hoa_cw02,    hoa_cw03,    hoa_cw04,               &
+          hoa_cw05,    hoa_cw06,    hoa_cw07,    hoa_cw08,               &
+          bboa_cw01,   bboa_cw02,   bboa_cw03,   bboa_cw04,              &
+          bboa_cw05,   bboa_cw06,   bboa_cw07,   bboa_cw08,              &
+          soa_cw01,    soa_cw02,    soa_cw03,    soa_cw04,               &
+          soa_cw05,    soa_cw06,    soa_cw07,    soa_cw08,               &
+          bbsoa_cw01,  bbsoa_cw02,  bbsoa_cw03,  bbsoa_cw04,             &
+          bbsoa_cw05,  bbsoa_cw06,  bbsoa_cw07,  bbsoa_cw08,             &
+          biog_cw01,   biog_cw02,   biog_cw03,   biog_cw04,              &
+          biog_cw05,   biog_cw06,   biog_cw07,   biog_cw08,              &
+          hsoa_cw01,   hsoa_cw02,   hsoa_cw03,   hsoa_cw04,              &
+          hsoa_cw05,   hsoa_cw06,   hsoa_cw07,   hsoa_cw08,              &
+          arosoa_cw01, arosoa_cw02, arosoa_cw03, arosoa_cw04,            &
+          arosoa_cw05, arosoa_cw06, arosoa_cw07, arosoa_cw08,            &
+          totoa_cw01,  totoa_cw02,  totoa_cw03,  totoa_cw04,             &
+          totoa_cw05,  totoa_cw06,  totoa_cw07,  totoa_cw08,             &        
+          hsoa_cw_c,   hsoa_cw_o,   bbsoa_cw_c,  bbsoa_cw_o,             &
+          biog_cw_v1,                                                    &
+          ant_cw_v1,                                                     &
+          !BSINGH -ENDS
+          ids,ide, jds,jde, kds,kde,                                     &
+          ims,ime, jms,jme, kms,kme,                                     &
+          its,ite, jts,jte, kts,kte                                      )
+
        
        
        USE module_configure
@@ -107,35 +145,294 @@
        
        REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),             &
             INTENT(IN ) :: chem
+
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
+         INTENT(IN ) ::                                             &
+           dgnuc, dgacc,dgcor
        
        REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
             INTENT(IN ) :: alt
        REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
             OPTIONAL,                                                     &
-            INTENT(IN ) :: h2oaj,h2oai
+            INTENT(IN ) :: h2oaj,h2oai,h2oac
        
        REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
-            OPTIONAL,                                                     &
-            INTENT(OUT) :: pm2_5_dry,pm2_5_water,pm2_5_dry_ec,pm10,       &
-            hoa_a01,hoa_a02,hoa_a03,hoa_a04,                          &
-            bboa_a01,bboa_a02,bboa_a03,bboa_a04,                      &
-            soa_a01,soa_a02,soa_a03,soa_a04,                          &
-            bbsoa_a01,bbsoa_a02,bbsoa_a03,bbsoa_a04,                  &
-            hsoa_a01,hsoa_a02,hsoa_a03,hsoa_a04,                      &
-            biog_a01,biog_a02,biog_a03,biog_a04,                      &
-            arosoa_a01,arosoa_a02,arosoa_a03,arosoa_a04,              &
-            totoa_a01,totoa_a02,totoa_a03,totoa_a04,                  &
-            hsoa_c,hsoa_o,bbsoa_c,bbsoa_o,                            &
-            biog_v1,biog_v2,biog_v3,biog_v4,                          &
-            ant_v1,ant_v2,ant_v3,ant_v4,                         &
-            smpa_v1,                          &
-            smpbb_v1,                          &
-            asmpsoa_a01,asmpsoa_a02,asmpsoa_a03,asmpsoa_a04
-       
-       
+         OPTIONAL,                                                     &
+         INTENT(INOUT) :: &
+                        pm2_5_dry,pm2_5_water,pm2_5_dry_dust,pm2_5_dry_oc,&
+                        pm2_5_dry_ec,pm2_5_dry_seas,pm2_5_dry_so4f, &
+                        pm2_5_dry_no3f,pm2_5_dry_nh4f, pm10,           &             
+             hoa_a01,     hoa_a02,     hoa_a03,      hoa_a04,          &
+             hoa_a05,     hoa_a06,     hoa_a07,      hoa_a08,          &!BSINGH Added 4 more bins for each species for SAPRC 8 bin version             
+             bboa_a01,    bboa_a02,    bboa_a03,     bboa_a04,         &
+             bboa_a05,    bboa_a06,    bboa_a07,     bboa_a08,         &             
+             soa_a01,     soa_a02,     soa_a03,      soa_a04,          &
+             soa_a05,     soa_a06,     soa_a07,      soa_a08,          &            
+             bbsoa_a01,   bbsoa_a02,   bbsoa_a03,    bbsoa_a04,        &
+             bbsoa_a05,   bbsoa_a06,   bbsoa_a07,    bbsoa_a08,        &             
+             hsoa_a01,    hsoa_a02,    hsoa_a03,     hsoa_a04,         &
+             hsoa_a05,    hsoa_a06,    hsoa_a07,     hsoa_a08,         &             
+             biog_a01,    biog_a02,    biog_a03,     biog_a04,         &
+             biog_a05,    biog_a06,    biog_a07,     biog_a08,         &             
+             arosoa_a01,  arosoa_a02,  arosoa_a03,   arosoa_a04,       &
+             arosoa_a05,  arosoa_a06,  arosoa_a07,   arosoa_a08,       &             
+             totoa_a01,   totoa_a02,   totoa_a03,    totoa_a04,        &
+             totoa_a05,   totoa_a06,   totoa_a07,    totoa_a08,        &             
+             hsoa_c,      hsoa_o,      bbsoa_c,      bbsoa_o,          &
+             biog_v1,     biog_v2,     biog_v3,      biog_v4,          &
+             ant_v1,      ant_v2,      ant_v3,       ant_v4,           &
+             smpa_v1,                                                  &
+             smpbb_v1,                                                 &
+             asmpsoa_a01, asmpsoa_a02, asmpsoa_a03, asmpsoa_a04,       &!BSINGH - Not adding 5-8 bins for asmpsoa, as it is not req. for 8 bin SAPRC
+             !BSINGH - Added cw aerosols(for VBS)
+             hoa_cw01,    hoa_cw02,    hoa_cw03,    hoa_cw04,          &
+             hoa_cw05,    hoa_cw06,    hoa_cw07,    hoa_cw08,          &
+             bboa_cw01,   bboa_cw02,   bboa_cw03,   bboa_cw04,         &
+             bboa_cw05,   bboa_cw06,   bboa_cw07,   bboa_cw08,         &
+             soa_cw01,    soa_cw02,    soa_cw03,    soa_cw04,          &
+             soa_cw05,    soa_cw06,    soa_cw07,    soa_cw08,          &
+             bbsoa_cw01,  bbsoa_cw02,  bbsoa_cw03,  bbsoa_cw04,        &
+             bbsoa_cw05,  bbsoa_cw06,  bbsoa_cw07,  bbsoa_cw08,        &
+             biog_cw01,   biog_cw02,   biog_cw03,   biog_cw04,         &
+             biog_cw05,   biog_cw06,   biog_cw07,   biog_cw08,         &
+             hsoa_cw01,   hsoa_cw02,   hsoa_cw03,   hsoa_cw04,         &
+             hsoa_cw05,   hsoa_cw06,   hsoa_cw07,   hsoa_cw08,         &
+             arosoa_cw01, arosoa_cw02, arosoa_cw03, arosoa_cw04,       &
+             arosoa_cw05, arosoa_cw06, arosoa_cw07, arosoa_cw08,       &
+             totoa_cw01,  totoa_cw02,  totoa_cw03,  totoa_cw04,        &
+             totoa_cw05,  totoa_cw06,  totoa_cw07,  totoa_cw08,        &        
+             hsoa_cw_c,   hsoa_cw_o,   bbsoa_cw_c,  bbsoa_cw_o,        &
+             biog_cw_v1,                                               &
+             ant_cw_v1                                                 
+             !BSINGH -ENDS
+
        TYPE(grid_config_rec_type),  INTENT(IN   )    :: config_flags
-       
-     end SUBROUTINE sum_pm_driver
+end SUBROUTINE sum_pm_driver
+
+
+SUBROUTINE photolysis_driver (id,curr_secs,ktau,dtstep,            &
+               config_flags,haveaer,                                     &
+               gmt,julday,t_phy,moist,aerwrf,p8w,t8w,p_phy,              &
+               chem,rho_phy,dz8w,xlat,xlong,z_at_w,gd_cloud,gd_cloud2,   &
+               ph_macr,ph_o31d,ph_o33p,ph_no2,ph_no3o2,                  &
+               ph_no3o,ph_hno2,ph_hno3,ph_hno4,ph_h2o2,                  &
+               ph_ch2or,ph_ch2om,ph_ch3cho,ph_ch3coch3,                  &
+               ph_ch3coc2h5,ph_hcocho,ph_ch3cocho,                       &
+               ph_hcochest,ph_ch3o2h,ph_ch3coo2h,ph_ch3ono2,             &
+               ph_hcochob, ph_n2o5,ph_o2,ph_n2o,                         &
+               ph_pan,ph_mpan,ph_acetol,ph_gly,                          &
+               ph_bigald,ph_mek,ph_c2h5ooh,ph_c3h7ooh,ph_pooh,           &
+               ph_rooh,ph_xooh,ph_isopooh,ph_alkooh,                     &
+               ph_mekooh,ph_tolooh,ph_terpooh,ph_mvk,                    &
+               ph_glyald,ph_hyac,                                        &
+               nref0, nw0, tuv_jmax0,                                    &
+               ph_radfld, ph_adjcoe, ph_prate,                           &
+               wc, zref,                                                 &
+               tauaer1,tauaer2,tauaer3,tauaer4,                          &
+               gaer1,gaer2,gaer3,gaer4,                                  &
+               waer1,waer2,waer3,waer4,                                  &
+               bscoef1,bscoef2,bscoef3,bscoef4,                          &
+               l2aer,l3aer,l4aer,l5aer,l6aer,l7aer,                      &
+               pm2_5_dry,pm2_5_water,uvrad,ivgtyp,                       &
+               ids,ide, jds,jde, kds,kde,                                &
+               ims,ime, jms,jme, kms,kme,                                &
+               its,ite, jts,jte, kts,kte                                 )
+
+!------------------------------------------------------------------------
+   USE module_configure
+   USE module_state_description
+   USE module_model_constants
+   USE module_phot_mad
+   USE module_phot_fastj
+   USE module_ftuv_driver
+
+   INTEGER,      INTENT(IN   ) :: id,julday,                           &
+                                  ids,ide, jds,jde, kds,kde,           &
+                                  ims,ime, jms,jme, kms,kme,           &
+                                  its,ite, jts,jte, kts,kte
+   INTEGER,      INTENT(IN   ) :: ktau
+   REAL(KIND=8), INTENT(IN   ) :: curr_secs
+   REAL,         INTENT(IN   ) :: dtstep,gmt
+!
+! advected moisture variables
+!
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_moist ),            &
+         INTENT(IN ) ::                                   moist
+!
+!  aerosol interaction
+!
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
+         INTENT(INOUT ) ::                                             &
+               pm2_5_dry,pm2_5_water, aerwrf
+!
+! arrays that hold the photolysis rates
+!
+
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
+         INTENT(INOUT ) ::                                             &
+           ph_macr,ph_o31d,ph_o33p,ph_no2,ph_no3o2,ph_no3o,ph_hno2,    &
+           ph_hno3,ph_hno4,ph_h2o2,ph_ch2or,ph_ch2om,ph_ch3cho,        &
+           ph_ch3coch3,ph_ch3coc2h5,ph_hcocho,ph_ch3cocho,             &
+           ph_hcochest,ph_ch3o2h,ph_ch3coo2h,ph_ch3ono2,ph_hcochob,    &
+           ph_n2o5,ph_o2,ph_n2o,ph_pan,ph_mpan,ph_acetol,ph_gly,       &
+           ph_bigald,ph_mek,ph_c2h5ooh,ph_c3h7ooh,ph_pooh,ph_rooh,     &
+           ph_xooh,ph_isopooh,ph_alkooh,ph_mekooh,ph_tolooh,           &
+           ph_terpooh,ph_mvk,ph_glyald,ph_hyac
+
+   INTEGER,      INTENT(IN   ) :: nref0, nw0, tuv_jmax0 
+   real, dimension( ims:ime, nref0, jms:jme, nw0 ),                    &
+            intent(out  ) :: ph_radfld
+   real, dimension( ims:ime, nref0, jms:jme, tuv_jmax0 ),              &
+            intent(out  ) :: ph_adjcoe
+   real, dimension( ims:ime, nref0, jms:jme, tuv_jmax0 ),              &
+            intent(out  ) :: ph_prate
+   real, dimension(nw0),                                               &
+            intent(out  ) :: wc
+   real, dimension(nref0),                                             &
+            intent(out  ) :: zref
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &  
+         OPTIONAL,                                                     &
+         INTENT(INOUT ) ::                                             &
+           gd_cloud,gd_cloud2
+!
+! arrays that hold the aerosol optical properties
+!
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
+         INTENT(IN ) ::                                                &
+           tauaer1,tauaer2,tauaer3,tauaer4,                            &
+           gaer1,gaer2,gaer3,gaer4,                                    &
+           waer1,waer2,waer3,waer4,                                    &
+           bscoef1,bscoef2,bscoef3,bscoef4
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, 1:4 ),                  &
+         INTENT(IN ) ::                                                &
+           l2aer,l3aer,l4aer,l5aer,l6aer,l7aer
+!
+! array that holds all advected chemical species
+!
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),             &
+         INTENT(INOUT ) ::                                   chem
+!
+! on input from meteorological part of model
+!
+   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,           &
+          INTENT(IN   ) ::                                             &
+                                                      t_phy,           &
+                                                      p_phy,           &
+                                                      dz8w,            &
+                                              t8w,p8w,z_at_w ,         &
+                                                    rho_phy
+   REAL,  DIMENSION( ims:ime , jms:jme )                   ,           &
+          INTENT(INOUT   ) ::  uvrad
+   REAL,  DIMENSION( ims:ime , jms:jme )                   ,           &
+          INTENT(IN   ) ::                                             &
+                                                     xlat,             &
+                                                     xlong
+   TYPE(grid_config_rec_type),  INTENT(IN   )    :: config_flags
+
+   LOGICAL, INTENT(IN)  :: haveaer
+   integer, INTENT(IN ) :: ivgtyp(ims:ime,jms:jme)
+   character(len=132)   :: dbg_msg
+
+END SUBROUTINE photolysis_driver
+
+
+subroutine mechanism_driver(id,curr_secs,ktau,dtstep,ktauc,dtstepc,&
+               config_flags,gmt,julday,t_phy,moist,p8w,t8w,gd_cldfr,   &
+               p_phy,chem,rho_phy,dz8w,dx,g,z,z_at_w,xlat,xlong,vdrog3,&
+               vcsulf_old,vcso2_old,vch2o2_old,ttday,tcosz,            &
+               ph_macr,ph_o31d,ph_o33p,ph_no2,ph_no3o2,ph_no3o,ph_hno2,&
+               ph_hno3,ph_hno4,ph_h2o2,ph_ch2or,ph_ch2om,ph_ch3cho,    &
+               ph_ch3coch3,ph_ch3coc2h5,ph_hcocho,ph_ch3cocho,         &
+               ph_hcochest,ph_ch3o2h,ph_ch3coo2h,ph_ch3ono2,ph_hcochob,&
+               ph_n2o5,ph_o2,backg_oh,backg_h2o2,backg_no3,            &
+               addt,addx,addc,etep,oltp,olip,cslp,limp,hc5p,hc8p,tolp, &
+               xylp,apip,isop,hc3p,ethp,o3p,tco3,mo2,o1d,olnn,rpho,xo2,&
+               ketp,olnd,                                              &
+               ids,ide, jds,jde, kds,kde,                              &
+               ims,ime, jms,jme, kms,kme,                              &
+               its,ite, jts,jte, kts,kte                               )
+!----------------------------------------------------------------------
+  USE module_configure
+  USE module_state_description
+  USE module_data_radm2
+  USE module_data_sorgam
+  USE module_radm
+  USE module_gocart_chem
+  USE module_aerosols_sorgam
+  USE module_cbmz, only:        cbmz_driver
+   IMPLICIT NONE
+
+
+   INTEGER,      INTENT(IN   ) :: id,julday,                           &
+                                  ids,ide, jds,jde, kds,kde,           &
+                                  ims,ime, jms,jme, kms,kme,           &
+                                  its,ite, jts,jte, kts,kte
+   INTEGER,      INTENT(IN   ) :: ktau,ktauc
+   REAL(KIND=8), INTENT(IN   ) :: curr_secs
+   REAL,         INTENT(IN   ) :: dtstep,dtstepc,gmt,dx,g
+!
+! advected moisture variables
+!
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_moist ),            &
+         INTENT(IN ) ::                                   moist
+!
+! advected chemical species
+!
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),             &
+         INTENT(INOUT ) ::                                   chem
+   REAL, DIMENSION( ims:ime, jms:jme ),                       &
+         INTENT(IN ) ::                                             &
+          xlat,xlong,ttday,tcosz
+
+!
+! arrays that hold the photolysis rates
+!
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
+         INTENT(INOUT ) ::                                             &
+           ph_macr,ph_o31d,ph_o33p,ph_no2,ph_no3o2,ph_no3o,ph_hno2,    &
+           ph_hno3,ph_hno4,ph_h2o2,ph_ch2or,ph_ch2om,ph_ch3cho,        &
+           ph_ch3coch3,ph_ch3coc2h5,ph_hcocho,ph_ch3cocho,             &
+           ph_hcochest,ph_ch3o2h,ph_ch3coo2h,ph_ch3ono2,ph_hcochob,    &
+           ph_n2o5,ph_o2
+!
+! RACM radicals
+!
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
+         INTENT(INOUT ) ::                                             &
+               addt,addx,addc,etep,oltp,olip,cslp,limp,hc5p,hc8p,tolp, &
+               xylp,apip,isop,hc3p,ethp,o3p,tco3,mo2,o1d,olnn,rpho,xo2,&
+               ketp,olnd
+
+
+!
+! on input from meteorological model 
+!
+   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,           &
+          INTENT(IN   ) ::                                             &
+                                                      t_phy,           &
+                                                      p_phy,           &
+                                                    dz8w,              &
+                        z    ,backg_oh,backg_h2o2,backg_no3,           &
+                                              t8w,p8w,z_at_w ,         &
+                                                    rho_phy
+   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,           &
+          OPTIONAL,                                                    &
+          INTENT(IN   ) ::  gd_cldfr
+! ..
+   TYPE(grid_config_rec_type),  INTENT(IN   )    :: config_flags
+!
+! for interaction of aerosls/chemistry (MADE/SORGAM only)
+!
+      real ,      INTENT(INOUT   ) ::                                  &
+                      vdrog3(ims:ime,kms:kme-0,jms:jme,ldrog)
+      real ,      INTENT(INOUT   ) ::                                  &
+                      vcsulf_old(ims:ime,kms:kme,jms:jme),             &
+                      vcso2_old(ims:ime,kms:kme,jms:jme),              &
+                      vch2o2_old(ims:ime,kms:kme,jms:jme)
+
+END subroutine mechanism_driver
+
+
   end interface
   
   
@@ -239,6 +536,16 @@
       !Balwinder.Singh@pnnl.gov:dvmrdt_sv13d,dvmrcwdt_sv13d are the tendencies which are passsed on from the CAM-MAM cloud chemistry
       !to gasaerexch subroutine in cam_mam_aerchem_driver
       REAL, DIMENSION( grid%sm31:grid%em31, grid%sm32:grid%em32, grid%sm33:grid%em33,gas_pcnst_pos) :: dvmrdt_sv13d,dvmrcwdt_sv13d 
+
+      ! temporary for dry deposition budget -czhao
+      REAL, DIMENSION( grid%sm31:grid%em31, grid%sm33:grid%em33, 8,3) :: &
+      temporary,temporary_cw
+      REAL, DIMENSION( grid%sm31:grid%em31, grid%sm33:grid%em33, 8) :: &
+      deposition_dryrate
+
+      !for snow albedo
+      REAL, DIMENSION( grid%sm31:grid%em31, grid%sm33:grid%em33, 4,5) :: &
+      tend_rate_dep,snowchem_old
 
       LOGICAL :: haveaer
       CHARACTER (LEN=1000) :: msg !BSINGH:01/31/2013: For message string
@@ -546,6 +853,14 @@
      CASE (MOZART_MOSAIC_4BIN_VBS0_KPP) 
        CALL wrf_debug(15,'calling mozart_mosaic_4bin_vbs0_kpp from chem_driver')
        haveaer = .true.
+       !BSINGH -  Added case statement for SAPRC 8 bin
+     CASE (SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP)
+       CALL wrf_debug(15,'calling saprc99_mosaic_8bin_vbs2_aq_kpp from chem_driver')
+       haveaer = .false.
+    CASE (SAPRC99_MOSAIC_8BIN_VBS2_KPP) !BSINGH(04/04/2014)
+       CALL wrf_debug(15,'calling saprc99_mosaic_8bin_vbs2_kpp from chem_driver')
+       haveaer = .false.
+       !BSINGH - ENDS
 
      CASE (CBMZSORG)
        CALL wrf_debug(15,'calling cbmzsorg aerosols from chem_driver')
@@ -561,9 +876,17 @@
        haveaer = .false.
      CASE (CBMZ_BB_KPP)
        CALL wrf_debug(15,'calling cbmz_bb_kpp from chem_driver')
+     CASE (CBMZ_SORGAM_KPP)
+       CALL wrf_debug(15,'calling cbmz_sorgam_kpp from chem_driver')
        haveaer = .false.
      CASE (CBMZ_MOSAIC_KPP)
        CALL wrf_debug(15,'calling cbmz_mosaic_kpp from chem_driver')
+       haveaer = .false.
+     CASE (CBMZ_MOSAIC_8BIN_VBS9_KPP)
+       CALL wrf_debug(15,'calling cbmz_8bin_vbs9_kpp from chem_driver')
+       haveaer = .false.
+     CASE (CBMZ_MOSAIC_4BIN_VBS9_KPP)
+       CALL wrf_debug(15,'calling cbmz_4bin_vbs9_kpp from chem_driver')
        haveaer = .false.
      CASE (CBMZ_MOSAIC_4BIN)
        CALL wrf_debug(15,'calling cbmz_mosaic_4bin aerosols driver from chem_driver')
@@ -587,6 +910,12 @@
        CALL wrf_debug(15,'calling cbmz_mosaic_dms_4bin_aq aerosols driver from chem_driver')
        haveaer = .true.
      CASE (CBMZ_MOSAIC_DMS_8BIN_AQ)
+       CALL wrf_debug(15,'calling cbmz_mosaic_dms_8bin_aq aerosols driver from chem_driver')
+       haveaer = .true.
+     CASE (CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE)
+       CALL wrf_debug(15,'calling cbmz_mosaic_dms_4bin_aq aerosols driver from chem_driver')
+       haveaer = .true.
+     CASE (CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE)
        CALL wrf_debug(15,'calling cbmz_mosaic_dms_8bin_aq aerosols driver from chem_driver')
        haveaer = .true.
      CASE (CRI_MOSAIC_8BIN_AQ_KPP)
@@ -785,7 +1114,8 @@
          enddo
 
 ! Special treatment of CH4 in SAPRC99
-      case (CBMZ_MOSAIC_4BIN_VBS2_KPP, SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP)
+      case (CBMZ_MOSAIC_4BIN_VBS2_KPP, SAPRC99_MOSAIC_4BIN_VBS2_KPP,SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS9_KPP, &
+           SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_KPP) !BSINGH -  Added for SAPRC 8 bin and non-aq on (04/04/2014)
          CALL wrf_debug ( 15 , ' fixing ch4 conc using co conc' )
          do j=jps,jpe
             do k=kps,kpe
@@ -909,7 +1239,30 @@
 !   endif
 
 
+    !czhao-initialize for budget analysis
+    if(ktau==1)then
+     grid%tmp_budget(its:ite, kts:kte, jts:jte,:)=0.
+     grid%tend_tran(its:ite, kts:kte, jts:jte,:)=0.
+     grid%tend_dryd(its:ite, kts:kte, jts:jte,:)=0.
+     grid%tend_acti(its:ite, kts:kte, jts:jte,:)=0.
+     grid%tend_wetdcv(its:ite, kts:kte, jts:jte,:)=0.
+     grid%tend_wetdls(its:ite, kts:kte, jts:jte,:)=0.
+    end if  !ktau
+
+  snowchem_old(its:ite,jts:jte,:,:)=0.0
+  call budget_calc(1,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
+       grid%tmp_budget,grid%tend_tran,  &
+       tend_rate_dep,snowchem_old,  &
+       ims,ime, jms,jme, kms,kme,                              &
+       its,ite, jts,jte, kts,kte                                )
+
 !--- emissions
+
+! call budget_calc(0,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
+!      grid%tmp_budget,grid%tend_emis, &
+!      tend_rate_dep,snowchem_old,  &
+!      ims,ime, jms,jme, kms,kme,                              &
+!      its,ite, jts,jte, kts,kte                                )
 
     if(config_flags%emiss_inpt_opt > 0 .or. config_flags%dust_opt > 0)then
       call wrf_debug(15,'calling emissions driver')
@@ -926,7 +1279,7 @@
               grid%gmt,ijulian,rri,t_phy,moist,p8w,t8w,u_phy,v_phy,vvel,               &
 #endif
               grid%e_bio,p_phy,chem,rho,dz8w,grid%ne_area,emis_ant,emis_vol,grid%tsk,      &
-              grid%erod,g,emis_seas,emis_dust,tracer, &
+              grid%erod,g,emis_seas,emis_dust,tracer,grid%sst,  &
               ebu , ebu_in,grid%mean_fct_agtf,grid%mean_fct_agef,grid%mean_fct_agsv,       &
               grid%mean_fct_aggr,grid%firesize_agtf, &
               grid%firesize_agef,grid%firesize_agsv,grid%firesize_aggr,                    &
@@ -934,6 +1287,14 @@
               grid%ust,grid%znt,grid%dms_0,grid%erup_beg,grid%erup_end,                    &
               grid%xland,grid%xlat,grid%xlong,                                             &
               z_at_w,zmid,grid%smois,dustin,seasin,                                        &
+              !additional for DEAD dust emission scheme -czhao
+              grid%landusef,grid%soilctop,grid%num_land_cat,grid%num_soil_cat, &
+              grid%sh2o,grid%snowc,grid%lai,grid%watsat2d,    & 
+              !additional for DEAD dust emission scheme -czhao
+              !additional for subgrid winds -czhao
+              grid%hfx,grid%tke_pbl,grid%pblh,grid%psfc,grid%rainncv,grid%raincv,            &
+              grid%sigma_dry,grid%sigma_wet,grid%sigma_tke,grid%k_shape,grid%c_scale,           &
+              !additional for subgrid winds -czhao
               grid%sebio_iso,grid%sebio_oli,grid%sebio_api,grid%sebio_lim,                 &
               grid%sebio_xyl,grid%sebio_hc3,grid%sebio_ete,grid%sebio_olt,                 &
               grid%sebio_ket,grid%sebio_ald,grid%sebio_hcho,grid%sebio_eth,                &
@@ -976,7 +1337,7 @@
          ! stuff for LNOx emissions
              grid%ht, grid%refl_10cm, grid%ic_flashrate, grid%cg_flashrate,                 &
          ! stuff for aircraft emissions
-              emis_aircraft,                                                               &
+              emis_aircraft,grid%e_dust,grid%e_seasalt,grid%e_dms,                         &
          ! stuff for the GHG fluxes
               vprm_in,grid%rad_vprm,grid%lambda_vprm,                                      &
               grid%alpha_vprm,grid%resp_vprm,grid%xtime,                                   &
@@ -1011,9 +1372,23 @@
 #endif 
      endif
 
+! call budget_calc(1,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
+!      grid%tmp_budget,grid%tend_emis,  &
+!      tend_rate_dep,snowchem_old,  &
+!      ims,ime, jms,jme, kms,kme,                              &
+!      its,ite, jts,jte, kts,kte                                )
+
 !
 ! calculate aerosol optical properities
 !
+      !czhao initialize totoa
+      if (ktau==1.or.config_flags%restart) then 
+      grid%totoa_a01(its:ite,kts:kte,jts:jte)=0.0
+      grid%totoa_a02(its:ite,kts:kte,jts:jte)=0.0
+      grid%totoa_a03(its:ite,kts:kte,jts:jte)=0.0
+      grid%totoa_a04(its:ite,kts:kte,jts:jte)=0.0
+      endif
+
       if( do_photstep .and. &
            config_flags%chem_opt /= CHEM_TRACER .and. &
            config_flags%chem_opt /= CHEM_VASH .and. &
@@ -1026,23 +1401,21 @@
          call wrf_debug(15,'calling optical driver')
          call optical_driver (grid%id,curr_secs,grid%dt,config_flags,haveaer,         &
               chem,dz8w,rri,rh,                                                       &
-              grid%h2oai,grid%h2oaj,                                                  &
-              grid%tauaer1,grid%tauaer2,grid%tauaer3,grid%tauaer4,                    &
-             !czhao
-              grid%extaer1,grid%extaer2,grid%extaer3,grid%extaer4,                    &
-              grid%gaer1,grid%gaer2,grid%gaer3,grid%gaer4,                            &
-              grid%waer1,grid%waer2,grid%waer3,grid%waer4,                            &
+              grid%h2oai,grid%h2oaj,grid%h2oai_adjust,grid%h2oaj_adjust,grid%h2oac_adjust, &
+              !czhao
+              tauaersw,absaersw,extaersw,gaersw,waersw,     &
               grid%bscoef1,grid%bscoef2,grid%bscoef3,grid%bscoef4,                    &
               grid%l2aer,grid%l3aer,grid%l4aer,grid%l5aer,grid%l6aer,grid%l7aer,      &
               grid%totoa_a01,grid%totoa_a02,grid%totoa_a03,grid%totoa_a04,            &
-              grid%extaerlw1,grid%extaerlw2,grid%extaerlw3,grid%extaerlw4,grid%extaerlw5, &
-              grid%extaerlw6,grid%extaerlw7,grid%extaerlw8,grid%extaerlw9,grid%extaerlw10, &
-              grid%extaerlw11,grid%extaerlw12,grid%extaerlw13,grid%extaerlw14,grid%extaerlw15, &
-              grid%extaerlw16,    &
-              grid%tauaerlw1,grid%tauaerlw2,grid%tauaerlw3,grid%tauaerlw4,grid%tauaerlw5,  &
-              grid%tauaerlw6,grid%tauaerlw7,grid%tauaerlw8,grid%tauaerlw9,grid%tauaerlw10,  &
-              grid%tauaerlw11,grid%tauaerlw12,grid%tauaerlw13,grid%tauaerlw14,grid%tauaerlw15,  &
-              grid%tauaerlw16,    &
+              grid%totoa_a05,grid%totoa_a06,grid%totoa_a07,grid%totoa_a08,            &
+              tauaerlw,    & 
+              tauaersw_dust,absaersw_dust,gaersw_dust,waersw_dust,                    &
+              tauaersw_bc,absaersw_bc,gaersw_bc,waersw_bc,                    &
+              tauaersw_sulf,absaersw_sulf,gaersw_sulf,waersw_sulf,                    &
+              tauaersw_oc,absaersw_oc,gaersw_oc,waersw_oc,                    &
+              tauaersw_other,absaersw_other,gaersw_other,waersw_other,                    &
+              tauaerlw_dust,tauaerlw_bc,tauaerlw_sulf,tauaerlw_oc,tauaerlw_other,  &
+              !czhao
               ids,ide, jds,jde, kds,kde,                                              &
               ims,ime, jms,jme, kms,kme,                                              &
               its,ite, jts,jte, kts,kte)
@@ -1088,9 +1461,9 @@
               config_flags%track_tuv_num,                                             &
               grid%radfld,grid%adjcoe,grid%phrate,                                    &
               grid%track_wc,grid%track_zref,                                          &
-              grid%tauaer1,grid%tauaer2,grid%tauaer3,grid%tauaer4,                    &
-              grid%gaer1,grid%gaer2,grid%gaer3,grid%gaer4,                            &
-              grid%waer1,grid%waer2,grid%waer3,grid%waer4,                            &
+              tauaersw(:,:,:,2),tauaersw(:,:,:,3),tauaersw(:,:,:,4),tauaersw(:,:,:,5),&
+              gaersw(:,:,:,2),gaersw(:,:,:,3),gaersw(:,:,:,4),gaersw(:,:,:,5),        &
+              waersw(:,:,:,2),waersw(:,:,:,3),waersw(:,:,:,4),waersw(:,:,:,5),        &
               grid%bscoef1,grid%bscoef2,grid%bscoef3,grid%bscoef4,                    &
               grid%l2aer,grid%l3aer,grid%l4aer,grid%l5aer,grid%l6aer,grid%l7aer,      &
               grid%pm2_5_dry,grid%pm2_5_water,grid%uvrad,grid%ivgtyp,                 &
@@ -1120,6 +1493,7 @@
 #endif
       endif
 
+
 !
 ! do vertical mixing with dry deposition
 !
@@ -1129,6 +1503,14 @@
      chem_old(its:ite,kts:kte,jts:jte,nv) = chem(its:ite,kts:kte,jts:jte,chem_ct_indices(nv))
    ENDDO
 #endif
+
+!budget for dry deposition
+call budget_calc2(0,config_flags%chem_opt,chem,rho,  &
+     grid%tmp_budget,grid%tend_dryd,grid%tend_acti,temporary,temporary_cw, &
+     deposition_dryrate,dz8w,grid%dt,  &
+     grid%drydep_flux, &
+     ims,ime, jms,jme, kms,kme,                              &
+     its,ite, jts,jte, kts,kte                                )
 
       if (config_flags%vertmix_onoff>0) then
          if (ktau.gt.2) then
@@ -1149,14 +1531,24 @@
                  grid%h2oaj,grid%h2oai,grid%nu3,grid%ac3,grid%cor3,grid%asulf,        &
                  grid%ahno3,grid%anh3,grid%cvaro1,grid%cvaro2,grid%cvalk1,grid%cvole1,&
                  grid%cvapi1,grid%cvapi2,grid%cvlim1,grid%cvlim2,grid%dep_vel_o3,     &
-                 emis_ant,ebu_in,                                                     &
-                 config_flags%sf_urban_physics,numgas,current_month,dvel,grid%snowh,  &
-                 grid%is_CAMMGMP_used,                                                & !BSINGH:01/31/2013: Added is_CAMMGMP_used for MAM drydep
+                 !czhao 
+                 grid%dep_vel_nnuc,grid%dep_vel_mnuc,grid%dep_vel_nacc, &
+                 grid%dep_vel_macc,grid%dep_vel_ncor,grid%dep_vel_mcor,  &
+                 grid%dep_vel_a01,grid%dep_vel_a02,grid%dep_vel_a03,grid%dep_vel_a04, & 
+                 grid%dep_vel_a05,grid%dep_vel_a06,grid%dep_vel_a07,grid%dep_vel_a08, &
+                 emis_ant,ebu_in,                     &
+                 config_flags%sf_urban_physics,numgas,current_month,dvel,grid%snowh,grid%is_CAMMGMP_used,grid%f_ice_phy, grid%f_rain_phy,  & !BSINGH:01/31/2013: Added is_CAMMGMP_used for MAM drydep
+                 !czhao
+                 grid%nihf3d,grid%niimm3d,grid%nidep3d,grid%nimey3d,        &
+                 grid%rndst1,grid%rndst2,grid%rndst3,grid%rndst4,                     & 
+                 grid%nacon1,grid%nacon2,grid%nacon3,grid%nacon4,                     & 
+                 grid%dgnuc,grid%dgacc,grid%dgcor,                                    &
+                 grid%tke_pbl,grid%relhum3d,grid%wsub3d,    &
                  grid%dep_vel,grid%num_vert_mix,                                                   &
                  ids,ide, jds,jde, kds,kde,                                           &
                  ims,ime, jms,jme, kms,kme,                                           &
                  its,ite,jts,jte,kts,kte)
-                 
+
             if( config_flags%chem_opt == MOZART_KPP .or. &
                 config_flags%chem_opt == MOZCART_KPP .or. &
                 config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
@@ -1166,7 +1558,8 @@
             end if
 
          end if
-         
+
+
 ! accumulate vertical mixing tendencies
 #if (EM_CORE == 1)
    DO nv=PARAM_FIRST_SCALAR,num_chem_ct
@@ -1196,31 +1589,100 @@
                                                                                       )
        end if
 #endif
-
       end if
 
 
+!budget for dry deposition
+!assign dry deposition rate for budget 
+aer_budget_drydep1: SELECT CASE(config_flags%chem_opt)
+CASE (RADM2SORG,RADM2SORG_AQ,RADM2SORG_KPP, &
+      RACMSORG_AQ,RACMSORG_KPP,RACM_ESRLSORG_KPP,CBMZSORG,CBMZSORG_AQ)
+deposition_dryrate(its:ite,jts:jte,1)=grid%dep_vel_mnuc(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,2)=grid%dep_vel_macc(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,3)=grid%dep_vel_mcor(its:ite,jts:jte)
+do nv=1,3
+do j=jts,jte
+do i=its,ite
+if (deposition_dryrate(i,j,nv).lt.0) deposition_dryrate(i,j,nv)=0.0
+enddo
+enddo
+enddo
+CASE (CBMZ_MOSAIC_8BIN,  &
+      CBMZ_MOSAIC_8BIN_AQ,CBMZ_MOSAIC_DMS_8BIN, &
+      CBMZ_MOSAIC_DMS_8BIN_AQ,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE)
+deposition_dryrate(its:ite,jts:jte,1)=grid%dep_vel_a01(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,2)=grid%dep_vel_a02(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,3)=grid%dep_vel_a03(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,4)=grid%dep_vel_a04(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,5)=grid%dep_vel_a05(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,6)=grid%dep_vel_a06(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,7)=grid%dep_vel_a07(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,8)=grid%dep_vel_a08(its:ite,jts:jte)
+do nv=1,8
+do j=jts,jte
+do i=its,ite
+if (deposition_dryrate(i,j,nv).lt.0) deposition_dryrate(i,j,nv)=0.0
+enddo
+enddo
+enddo
+CASE (CBMZ_MOSAIC_4BIN,CBMZ_MOSAIC_4BIN_AQ,  &
+      CBMZ_MOSAIC_DMS_4BIN,CBMZ_MOSAIC_DMS_4BIN_AQ,CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE)
+deposition_dryrate(its:ite,jts:jte,1)=grid%dep_vel_a01(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,2)=grid%dep_vel_a02(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,3)=grid%dep_vel_a03(its:ite,jts:jte)
+deposition_dryrate(its:ite,jts:jte,4)=grid%dep_vel_a04(its:ite,jts:jte)
+do nv=1,4
+do j=jts,jte
+do i=its,ite
+if (deposition_dryrate(i,j,nv).lt.0) deposition_dryrate(i,j,nv)=0.0
+enddo
+enddo
+enddo
+CASE DEFAULT
+  call wrf_debug(15,'aerosol budget before drydep NOT CALLING')
+END SELECT aer_budget_drydep1
+
+grid%drydep_flux(its:ite,jts:jte,:,:)=0.0
+call budget_calc2(1,config_flags%chem_opt,chem,rho,  &
+     grid%tmp_budget,grid%tend_dryd,grid%tend_acti,temporary,temporary_cw, &
+     deposition_dryrate,dz8w,grid%dt,    &
+     grid%drydep_flux, &
+     ims,ime, jms,jme, kms,kme,                              &
+     its,ite, jts,jte, kts,kte                                )
 
 !
 !   convective transport/wet deposition
 !
-!
-     if( config_flags%cu_physics>0 .and. config_flags%chem_conv_tr>0)then
+
+call budget_calc(0,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
+     grid%tmp_budget,grid%tend_wetdcv,  &
+     tend_rate_dep,snowchem_old,  &
+     ims,ime, jms,jme, kms,kme,                              &
+     its,ite, jts,jte, kts,kte                                )
+
+     if( config_flags%cu_physics>0 .and. config_flags%chem_conv_tr>0 &
+          .and. config_flags%cu_physics/=kfcupscheme ) then            !BSINGH - For WRFCuP scheme
         call wrf_debug(15,'calling conv transport for chemical species')
         if(config_flags%chem_opt >0 )then
+
+           if (config_flags%chem_conv_tr==1) then ! original Grell convection, no wet scavenging
+             if (config_flags%cu_physics.ne.3.and.config_flags%cu_physics.ne.5) then 
+             call wrf_error_fatal("Convective transport is not consistent with Convective scheme used in physics!!!")
+             endif
+
         ! save old concentrations for convective tendencies
 #if (EM_CORE == 1)
         DO nv=PARAM_FIRST_SCALAR,num_chem_ct
            chem_old(its:ite,kts:kte,jts:jte,nv) = chem(its:ite,kts:kte,jts:jte,chem_ct_indices(nv))
         ENDDO
 #endif
-        call grelldrvct(grid%DT,ktau,grid%DX,                                         &
-             rho,grid%RAINCV_B,chem,                                                  &
+
+           call grelldrvct(grid%DT,ktau,grid%DX,rho,grid%RAINCV_B,chem,  &
 #if (NMM_CORE == 1)
-             U_phy,V_phy,t_phy,moist_trans,dz8w,                                      &
+           U_phy,V_phy,t_phy,moist_trans,dz8w,         &
 #endif
 #if (EM_CORE == 1)
-             U_phy,V_phy,t_phy,moist,dz8w,                                            &
+           U_phy,V_phy,t_phy,moist,dz8w,               &
 #endif
              p_phy,XLV,CP,G,r_v,                                                      &
              z_at_w,grid%cu_co_ten,                                                   &
@@ -1231,6 +1693,50 @@
              ids,ide, jds,jde, kds,kde,                                               &
              ims,ime, jms,jme, kms,kme,                                               &
              its,ite,jts,jte,kts,k_end)
+           endif 
+           if (config_flags%chem_conv_tr==2) then ! Grell convection, include wet scavenging
+             if (config_flags%cu_physics.ne.3) then 
+             call wrf_error_fatal("Convective transport is not consistent with Convective scheme used in physics!!!")
+             endif
+           !czhao
+!          call grell_cup_transport
+           endif
+           if (config_flags%chem_conv_tr==3) then ! GD3 convection, include wet scavenging
+             if (config_flags%cu_physics.ne.5) then 
+             call wrf_error_fatal("Convective transport is not consistent with Convective scheme used in physics!!!")
+             endif
+           !czhao
+!          call grell3_cup_transport
+           endif
+           if (config_flags%chem_conv_tr==4) then ! KF-eta convection, include wet scavenging
+             if (config_flags%cu_physics.ne.1) then 
+             call wrf_error_fatal("Convective transport is not consistent with Convective scheme used in physics!!!")
+             endif
+           !czhao
+           call kfeta_cup_transport(grid%DT,ktau,grid%DX,rho,grid%alt,chem,  &
+#if (NMM_CORE == 1)
+           U_phy,V_phy,t_phy,moist_trans,dz8w,         &
+#endif
+#if (EM_CORE == 1)
+           U_phy,V_phy,t_phy,moist,dz8w,               &
+#endif
+           p_phy,z_at_w,  &
+           grid%UMF_KFETA,grid%UER_KFETA,     &
+           grid%UDR_KFETA,grid%DMF_KFETA,     &
+           grid%DER_KFETA,grid%DDR_KFETA,     & 
+           grid%WU_KFETA,                     & 
+           grid%LDB_KFETA,grid%LET_KFETA,     & 
+           grid%KSL_KFETA,grid%LFS_KFETA,     &
+           grid%KLC_KFETA,grid%CUTOP_KFETA,   &
+           grid%CUBOT_KFETA,grid%NCA,         &
+           grid%ISHALL_KFETA,grid%CHECK_KFETA,  &
+           num_moist,numgas,num_chem,         &
+           config_flags%chem_opt,config_flags%chem_conv_scav, &
+           ids,ide, jds,jde, kds,kde,                           &
+           ims,ime, jms,jme, kms,kme,                           &
+           its,ite,jts,jte,kts,kte)
+           endif
+        
              if( config_flags%chem_opt == MOZART_KPP .or. &
                  config_flags%chem_opt == MOZCART_KPP .or. &
                  config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
@@ -1246,7 +1752,7 @@
                                                          chem_old(its:ite,kts:kte,jts:jte,nv))
         ENDDO
 #endif
-        endif
+        endif !chem_opt
         if (config_flags%tracer_opt > 0)then
         call wrf_debug(15,'calling conv transport for tracers')
         call grelldrvct(grid%DT,ktau,grid%DX,                    &
@@ -1268,8 +1774,9 @@
              its,ite,jts,jte,kts,k_end)
 
 
-          end if
-     end if
+          end if  ! tracer_opt
+     end if !chem_conv_tr
+
 !
 !
 !
@@ -1278,13 +1785,52 @@
 ! Calculate rate of n2o5 hydrolysis 
      call wrf_debug(15,'calling calc_het_n2o5')
 
-
+grid%wetdep_flux(its:ite,jts:jte,1:4,:)=0.0
+grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_bcphi)=0.0 !bcphi
+grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocphi)=0.0 !ocphi
+  call budget_calc(1,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
+       grid%tmp_budget,grid%tend_wetdcv, &
+       tend_rate_dep,snowchem_old,  &
+       ims,ime, jms,jme, kms,kme,                              &
+       its,ite, jts,jte, kts,kte                                )
+!add convective scavenging
+do nv=1,5 
+do n=1,4 
+do j=jts,jte
+do i=its,ite
+if (tend_rate_dep(i,j,n,nv).gt.0) tend_rate_dep(i,j,n,nv)=0.0
+enddo
+enddo
+enddo
+enddo
+!dust
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_dust)= &
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_dust)+ &
+(-1.)*tend_rate_dep(its:ite,jts:jte,1:4,1)
+!bcphi-wet from bccw-wet
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_bcphi)= &
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_bcphi)+ &
+(-1.)*tend_rate_dep(its:ite,jts:jte,1:4,3)
+!bcphi-dry from bc-wet
+grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_bcphi)= &
+grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_bcphi)+ &
+(-1.)*tend_rate_dep(its:ite,jts:jte,1:4,2)
+!ocphi-wet from occw-wet
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_ocphi)= &
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_ocphi)+ &
+(-1.)*tend_rate_dep(its:ite,jts:jte,1:4,5)
+!ocphi-dry from oc-wet
+grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocphi)= &
+grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocphi)+ &
+(-1.)*tend_rate_dep(its:ite,jts:jte,1:4,4)
 
 !
 ! For the chemistry tracer mode, only emissions and vertical mixing are done.
 ! So, finish any remaining tiles and then skip to the end of chem_driver.
 !
-     if( do_chemstep .and.                           &
+
+!Chemistry time step check!
+if( do_chemstep .and.                           &
           config_flags%chem_opt /= CHEM_TRACER .and. &
           config_flags%chem_opt /= CHEM_VASH .and. &
           config_flags%chem_opt /= CHEM_VOLC .and. &
@@ -1338,7 +1884,8 @@
 #ifdef WRF_KPP
 
          if( config_flags%chem_opt == CBMZ_MOSAIC_4BIN_VBS2_KPP .or. &
-             config_flags%chem_opt == SAPRC99_MOSAIC_4BIN_VBS2_KPP ) then
+             config_flags%chem_opt == SAPRC99_MOSAIC_4BIN_VBS2_KPP .or. &
+            config_flags%chem_opt ==SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP ) then
           do k=kts,kte
            do i=its,ite
             do j=jts,jte
@@ -1433,6 +1980,7 @@ CALL kpp_mechanism_driver (chem,                                                
 #endif
         endif !gaschem_onoff
 
+
 ! accumulate gas phase chemistry tendencies
 #if (EM_CORE == 1)
    DO nv=PARAM_FIRST_SCALAR,num_chem_ct
@@ -1482,11 +2030,83 @@ if ( cam_mam_aerosols ) &
                 its,ite, jts,jte, kts,kte                 )
            
         endif
+       
+        !BSINGH - For WRFCuP scheme
         
+        !
+        !   now do convective cloud processing for cup cumulus scheme
+        !
+        !   issues for future work
+        !      convective cloud processing should be done at same place (in the code)
+        !         and same time frequency for cup and grell schemes,
+        !         but doing it here is ok for initial testing
+        !      there should be a "convchem_driver" or "ctrans_driver" routine
+        !         to interface to the various options
+        !
+        if( config_flags%chem_conv_tr>0 .and. &
+             config_flags%cu_physics==kfcupscheme ) then
+           
+           call chem_cup_driver(                                                        &
+                grid%id, ktau, grid%ktauc, grid%dt, dtstepc, config_flags,              &
+                t_phy, p_phy, rho, rri, dz8w, zmid, z_at_w,                             &
+#if (NMM_CORE == 1)
+                moist_trans, grid%cldfra, grid%ph_no2,                                  &
+#endif
+#if (EM_CORE == 1)
+                moist, grid%cldfra, grid%ph_no2,                                        &
+#endif
+                chem, grid%chem_cupflag,                                                &
+                grid%cupflag, grid%shall, grid%tcloud_cup, grid%nca, grid%wact_cup,     &
+                grid%cldfra_cup, grid%updfra_cup, grid%qc_ic_cup, grid%qc_iu_cup,       &
+                grid%mfup_cup, grid%mfup_ent_cup, grid%mfdn_cup, grid%mfdn_ent_cup,     &
+                grid%fcvt_qc_to_pr_cup, grid%fcvt_qc_to_qi_cup, grid%fcvt_qi_to_pr_cup, &
+                !BSINGH(12/03/2013): Commenting out *_ams_* variables and replacing them with 
+                !*_ic_cup* variables
+                !grid%so4_a_ams_ic_cup, grid%so4_cw_ams_ic_cup,                         &
+                !grid%nh4_a_ams_ic_cup, grid%nh4_cw_ams_ic_cup,                         &
+                !grid%no3_a_ams_ic_cup, grid%no3_cw_ams_ic_cup,                         &
+                !grid%oa_a_ams_ic_cup,  grid%oa_cw_ams_ic_cup,                          &
+                grid%co_a_ic_cup,       grid%hno3_a_ic_cup,                             &
+                grid%so4_a_1to4_ic_cup, grid%so4_cw_1to4_ic_cup,                        &
+                grid%nh4_a_1to4_ic_cup, grid%nh4_cw_1to4_ic_cup,                        &
+                grid%no3_a_1to4_ic_cup, grid%no3_cw_1to4_ic_cup,                        &
+                grid%oa_a_1to4_ic_cup,  grid%oa_cw_1to4_ic_cup,                         &
+                grid%oin_a_1to4_ic_cup, grid%oin_cw_1to4_ic_cup,                        &
+                grid%bc_a_1to4_ic_cup,  grid%bc_cw_1to4_ic_cup,                         &
+                grid%na_a_1to4_ic_cup,  grid%na_cw_1to4_ic_cup,                         &
+                grid%cl_a_1to4_ic_cup,  grid%cl_cw_1to4_ic_cup,                         &
+                grid%water_1to4_ic_cup,                                                 &
+                grid%so4_a_5to6_ic_cup, grid%so4_cw_5to6_ic_cup,                        &
+                grid%nh4_a_5to6_ic_cup, grid%nh4_cw_5to6_ic_cup,                        &
+                grid%no3_a_5to6_ic_cup, grid%no3_cw_5to6_ic_cup,                        &
+                grid%oa_a_5to6_ic_cup,  grid%oa_cw_5to6_ic_cup,                         &
+                grid%oin_a_5to6_ic_cup, grid%oin_cw_5to6_ic_cup,                        &
+                grid%bc_a_5to6_ic_cup,  grid%bc_cw_5to6_ic_cup,                         &
+                grid%na_a_5to6_ic_cup,  grid%na_cw_5to6_ic_cup,                         &
+                grid%cl_a_5to6_ic_cup,  grid%cl_cw_5to6_ic_cup,                         &
+                grid%water_5to6_ic_cup,                                                 & 
+                ids,ide, jds,jde, kds,kde,                                              &
+                ims,ime, jms,jme, kms,kme,                                              &
+                its,ite, jts,jte, kts,kte                                               )
+           
+        else
+           grid%chem_cupflag = 0
+        endif
+        
+        
+        !BSINGH - Ends
+        
+
 
 !
 !   now do cloud chemistry
 !
+! call budget_calc(0,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
+!      grid%tmp_budget,grid%tend_cldchem,  &
+!      tend_rate_dep,snowchem_old,  &
+!      ims,ime, jms,jme, kms,kme,                              &
+!      its,ite, jts,jte, kts,kte                                )
+
         if (config_flags%cldchem_onoff > 0) then
 
         call cloudchem_driver(                                                        &
@@ -1507,10 +2127,23 @@ if ( cam_mam_aerosols ) &
 
        endif
 
+! call budget_calc(1,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
+!      grid%tmp_budget,grid%tend_cldchem,  &
+!      tend_rate_dep,snowchem_old,  &
+!      ims,ime, jms,jme, kms,kme,                              &
+!      its,ite, jts,jte, kts,kte                                )
 
-!
+
+!------------
 !   now do aerosols
 !
+! call budget_calc(0,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
+!      grid%tmp_budget,grid%tend_aerchem,  &
+!      tend_rate_dep,snowchem_old,  &
+!      ims,ime, jms,jme, kms,kme,                              &
+!      its,ite, jts,jte, kts,kte                                )
+
+
 	if(config_flags%aerchem_onoff>0)then
 
         call aerosols_driver (grid%id,curr_secs,ktau,grid%dt,grid%ktauc,              &
@@ -1523,7 +2156,8 @@ if ( cam_mam_aerosols ) &
 #endif
               p_phy,chem,rho,dz8w, rh,                                                & 
               zmid,z_at_w,pbl_h,grid%cldfra,grid%cldfra_mp_all,grid%vbs_nbin,                                              &
-              grid%h2oaj,grid%h2oai,grid%nu3,grid%ac3,grid%cor3,grid%asulf,           &
+              grid%h2oaj,grid%h2oai,grid%h2oaj_adjust,grid%h2oai_adjust,grid%h2oac_adjust,      &
+              grid%nu3,grid%ac3,grid%cor3,grid%asulf,           &
               grid%ahno3,grid%anh3,grid%cvaro1,grid%cvaro2,grid%cvalk1,grid%cvole1,   &
               grid%cvapi1,grid%cvapi2,grid%cvlim1,grid%cvlim2,vcsulf_old,             &
               vdrog3,vdrog3_vbs,grid%br_rto,grid%dgnum4d,grid%dgnumwet4d,wetdens_ap,  &
@@ -1531,7 +2165,9 @@ if ( cam_mam_aerosols ) &
               grid%is_CAMMGMP_used,                                                   &!BSINGH:01/31/2013: Added is_CAMMGMP_used for cam_mam_aerchem_driver
               ids,ide, jds,jde, kds,kde,                                              &
               ims,ime, jms,jme, kms,kme,                                              &
-              its,ite,jts,jte,kts,kte                                                 )
+              its,ite,jts,jte,kts,kte,                         & 
+              !czhao 
+              grid%dgnuc,grid%dgacc,grid%dgcor  )
 
 #if (defined(CHEM_DBG_I) && defined(CHEM_DBG_J) && defined(CHEM_DBG_K))
        if( (its <= CHEM_DBG_I .and. ite >= CHEM_DBG_I) .and.                          &
@@ -1556,6 +2192,21 @@ if ( cam_mam_aerosols ) &
        endif
 
 
+! call budget_calc(1,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
+!      grid%tmp_budget,grid%tend_aerchem,  &
+!      tend_rate_dep,snowchem_old,  &
+!      ims,ime, jms,jme, kms,kme,                              &
+!      its,ite, jts,jte, kts,kte                                )
+
+
+!
+!   now do wet removal
+call budget_calc(0,config_flags%chem_opt,chem,rho,dz8w,dtstepc, &
+     grid%tmp_budget,grid%tend_wetdls, &
+     tend_rate_dep,snowchem_old,  &
+     ims,ime, jms,jme, kms,kme,                              &
+     its,ite, jts,jte, kts,kte                                )
+
 	if (config_flags%wetscav_onoff > 0) then
         call wetscav_driver (grid%id,ktau,grid%dt,grid%ktauc,config_flags,dtstepc,    &
 #if (NMM_CORE == 1)
@@ -1567,7 +2218,9 @@ if ( cam_mam_aerosols ) &
               grid%dx, grid%dy,                                                       &
               p_phy,chem,rho,grid%cldfra,grid%cldfra2,                                &
               grid%rainprod,grid%evapprod,grid%hno3_col_mdel,                         &
-              grid%qlsink,grid%precr,grid%preci,grid%precs,grid%precg,                &
+!czhao              grid%qlsink,grid%precr,grid%preci,grid%precs,grid%precg,                &
+              grid%qlsink,grid%ilsink,grid%precr,grid%preci,grid%precs,grid%precg,                &
+              grid%r2evap3d,grid%i2evap3d,                &
               gas_aqfrac, numgas_mam,dz8w,                                         &
               grid%h2oaj,grid%h2oai,grid%nu3,grid%ac3,grid%cor3,                      &
               grid%asulf,grid%ahno3,grid%anh3,grid%cvaro1,grid%cvaro2,                &
@@ -1606,7 +2259,44 @@ if ( cam_mam_aerosols ) &
                its,ite, jts,jte, kts,kte)     
        endif
 
-end if !Chemistry time step check
+call budget_calc(1,config_flags%chem_opt,chem,rho,dz8w,dtstepc, &
+     grid%tmp_budget,grid%tend_wetdls, &
+     tend_rate_dep,snowchem_old,  &
+     ims,ime, jms,jme, kms,kme,                              &
+     its,ite, jts,jte, kts,kte                                )
+!add large-scale wet scavenging 
+do nv=1,5
+do n=1,4
+do j=jts,jte
+do i=its,ite
+if (tend_rate_dep(i,j,n,nv).gt.0) tend_rate_dep(i,j,n,nv)=0.0
+enddo
+enddo
+enddo
+enddo
+!dust
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_dust)= &
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_dust)+ &
+(-1.)*tend_rate_dep(its:ite,jts:jte,1:4,1)
+!bcphi-wet from bccw wet
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_bcphi)= &
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_bcphi)+ &
+(-1.)*tend_rate_dep(its:ite,jts:jte,1:4,3)
+!bcphi-dry from bc wet
+grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_bcphi)= &
+grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_bcphi)+ &
+(-1.)*tend_rate_dep(its:ite,jts:jte,1:4,2)
+!ocphi-wet from occw wet
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_ocphi)= &
+grid%wetdep_flux(its:ite,jts:jte,1:4,p_wetdep_ocphi)+ &
+(-1.)*tend_rate_dep(its:ite,jts:jte,1:4,5)
+!ocphi-dry from oc wet
+grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocphi)= &
+grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocphi)+ &
+(-1.)*tend_rate_dep(its:ite,jts:jte,1:4,4)
+
+!-----
+end if !Chemistry time step check!
 !
 ! do so2 to sulf conversion for full volc case
 ! since we do not have h2o2 as a variable, pass in p_h2o2 as zero
@@ -1637,26 +2327,65 @@ end if !Chemistry time step check
 ! aerosol_driver, which is called every dtchem, this must be done every
 ! time step because of emissions and deposition.
 !
-      call sum_pm_driver ( config_flags,                                              &
-           rri, chem, grid%h2oaj, grid%h2oai,                                         &
-           grid%pm2_5_dry, grid%pm2_5_water, grid%pm2_5_dry_ec, grid%pm10,            &
-           grid% hoa_a01,grid%hoa_a02,grid%hoa_a03,grid%hoa_a04,                      &
-           grid%bboa_a01,grid%bboa_a02,grid%bboa_a03,grid%bboa_a04,                   &
-           grid%soa_a01,grid%soa_a02,grid%soa_a03,grid%soa_a04,                       &
-           grid%bbsoa_a01,grid%bbsoa_a02,grid%bbsoa_a03,grid%bbsoa_a04,               &
-           grid%hsoa_a01,grid%hsoa_a02,grid%hsoa_a03,grid%hsoa_a04,                   &
-           grid%biog_a01,grid%biog_a02,grid%biog_a03,grid%biog_a04,                   &
-           grid%asmpsoa_a01,grid%asmpsoa_a02,grid%asmpsoa_a03,grid%asmpsoa_a04,                   &
-           grid%arosoa_a01,grid%arosoa_a02,grid%arosoa_a03,grid%arosoa_a04,           &
-           grid%totoa_a01,grid%totoa_a02,grid%totoa_a03,grid%totoa_a04,               &
-           grid%hsoa_c,grid%hsoa_o,grid%bbsoa_c,grid%bbsoa_o,                         &
-           grid%biog_v1,grid%biog_v2,grid%biog_v3,grid%biog_v4,                       &
-           grid%ant_v1,grid%ant_v2,grid%ant_v3,grid%ant_v4,                           &
-           grid%smpa_v1,grid%smpbb_v1,                           &
-             ids,ide, jds,jde, kds,kde,                                               &
-             ims,ime, jms,jme, kms,kme,                                               &
-             its,ite, jts,jte, kts,kte             )
+call budget_calc(0,config_flags%chem_opt,chem,rho,dz8w,grid%dt, &
+     grid%tmp_budget,grid%tend_tran, &
+     tend_rate_dep,snowchem_old,  &
+     ims,ime, jms,jme, kms,kme,                              &
+     its,ite, jts,jte, kts,kte                                )
 
+      call sum_pm_driver( config_flags,                                               &
+        rri,              chem,             grid%h2oaj,        grid%h2oai,  grid%h2oac_adjust,          &
+           grid%pm2_5_dry, grid%pm2_5_water,                                          &
+           grid%pm2_5_dry_dust,grid%pm2_5_dry_oc,grid%pm2_5_dry_ec,                   & 
+           grid%pm2_5_dry_seas,grid%pm2_5_dry_so4f,grid%pm2_5_dry_no3f,grid%pm2_5_dry_nh4f,   & 
+           grid%pm10,                                                                 &
+           !czhao 
+           grid%dgnuc,grid%dgacc,grid%dgcor,   & 
+        grid%hoa_a01,     grid%hoa_a02,     grid%hoa_a03,      grid%hoa_a04,          &
+        grid%hoa_a05,     grid%hoa_a06,     grid%hoa_a07,      grid%hoa_a08,          & !BSINGH(12/03/2013) Added 4 more bins for each species for SAPRC 8 bin version
+        grid%bboa_a01,    grid%bboa_a02,    grid%bboa_a03,     grid%bboa_a04,         &
+        grid%bboa_a05,    grid%bboa_a06,    grid%bboa_a07,     grid%bboa_a08,         &
+        grid%soa_a01,     grid%soa_a02,     grid%soa_a03,      grid%soa_a04,          &
+        grid%soa_a05,     grid%soa_a06,     grid%soa_a07,      grid%soa_a08,          &
+        grid%bbsoa_a01,   grid%bbsoa_a02,   grid%bbsoa_a03,    grid%bbsoa_a04,        &
+        grid%bbsoa_a05,   grid%bbsoa_a06,   grid%bbsoa_a07,    grid%bbsoa_a08,        &
+        grid%hsoa_a01,    grid%hsoa_a02,    grid%hsoa_a03,     grid%hsoa_a04,         &
+        grid%hsoa_a05,    grid%hsoa_a06,    grid%hsoa_a07,     grid%hsoa_a08,         &
+        grid%biog_a01,    grid%biog_a02,    grid%biog_a03,     grid%biog_a04,         &
+        grid%biog_a05,    grid%biog_a06,    grid%biog_a07,     grid%biog_a08,         &
+        grid%asmpsoa_a01, grid%asmpsoa_a02, grid%asmpsoa_a03,  grid%asmpsoa_a04,      & !BSINGH(12/03/2013) - Not adding 5-8 bins for asmpsoa, as it is not req. for 8 bin SAPRC
+        grid%arosoa_a01,  grid%arosoa_a02,  grid%arosoa_a03,   grid%arosoa_a04,       &
+        grid%arosoa_a05,  grid%arosoa_a06,  grid%arosoa_a07,   grid%arosoa_a08,       &
+        grid%totoa_a01,   grid%totoa_a02,   grid%totoa_a03,    grid%totoa_a04,        &
+        grid%totoa_a05,   grid%totoa_a06,   grid%totoa_a07,    grid%totoa_a08,        &
+        grid%hsoa_c,      grid%hsoa_o,      grid%bbsoa_c,      grid%bbsoa_o,          &
+        grid%biog_v1,     grid%biog_v2,     grid%biog_v3,      grid%biog_v4,          &
+        grid%ant_v1,      grid%ant_v2,      grid%ant_v3,       grid%ant_v4,           &
+        grid%smpa_v1,     grid%smpbb_v1,                                              &
+        !BSINGH(12/03/2013) - Added cw aerosols(for VBS)
+        grid%hoa_cw01,    grid%hoa_cw02,    grid%hoa_cw03,    grid%hoa_cw04,          &
+        grid%hoa_cw05,    grid%hoa_cw06,    grid%hoa_cw07,    grid%hoa_cw08,          &
+        grid%bboa_cw01,   grid%bboa_cw02,   grid%bboa_cw03,   grid%bboa_cw04,         &
+        grid%bboa_cw05,   grid%bboa_cw06,   grid%bboa_cw07,   grid%bboa_cw08,         &
+        grid%soa_cw01,    grid%soa_cw02,    grid%soa_cw03,    grid%soa_cw04,          &
+        grid%soa_cw05,    grid%soa_cw06,    grid%soa_cw07,    grid%soa_cw08,          &
+        grid%bbsoa_cw01,  grid%bbsoa_cw02,  grid%bbsoa_cw03,  grid%bbsoa_cw04,        &
+        grid%bbsoa_cw05,  grid%bbsoa_cw06,  grid%bbsoa_cw07,  grid%bbsoa_cw08,        &
+        grid%biog_cw01,   grid%biog_cw02,   grid%biog_cw03,   grid%biog_cw04,         &
+        grid%biog_cw05,   grid%biog_cw06,   grid%biog_cw07,   grid%biog_cw08,         &
+        grid%hsoa_cw01,   grid%hsoa_cw02,   grid%hsoa_cw03,   grid%hsoa_cw04,         &
+        grid%hsoa_cw05,   grid%hsoa_cw06,   grid%hsoa_cw07,   grid%hsoa_cw08,         &
+        grid%arosoa_cw01, grid%arosoa_cw02, grid%arosoa_cw03, grid%arosoa_cw04,       &
+        grid%arosoa_cw05, grid%arosoa_cw06, grid%arosoa_cw07, grid%arosoa_cw08,       &
+        grid%totoa_cw01,  grid%totoa_cw02,  grid%totoa_cw03,  grid%totoa_cw04,        &
+        grid%totoa_cw05,  grid%totoa_cw06,  grid%totoa_cw07,  grid%totoa_cw08,        &        
+        grid%hsoa_cw_c,   grid%hsoa_cw_o,   grid%bbsoa_cw_c,  grid%bbsoa_cw_o,        &
+        grid%biog_cw_v1,                                                              &
+        grid%ant_cw_v1,                                                               &
+        !BSINGH(12/03/2013) -ENDS
+        ids,ide, jds,jde, kds,kde,                                                    &
+        ims,ime, jms,jme, kms,kme,                                                    &
+        its,ite, jts,jte, kts,kte                                                     )
 
 ! Fill top level to prevent spurious interpolation results (no extrapolation)
       do nv=1,num_chem
@@ -1669,16 +2398,16 @@ end if !Chemistry time step check
       call wrf_debug(15,'done tileloop in chem_driver')
    if( grid%OPT_PARS_OUT == 1) then
       call wrf_debug(15,'calculate optical output stuff')
-    call aer_opt_out(TAUAER300=grid%tauaer1, TAUAER400=grid%tauaer2 & 
-     &        ,TAUAER600=grid%tauaer3, TAUAER999=grid%tauaer4 &
-     &        ,GAER300=grid%gaer1, GAER400=grid%gaer2, GAER600=grid%gaer3, GAER999=grid%gaer4 & 
-     &        ,WAER300=grid%waer1, WAER400=grid%waer2, WAER600=grid%waer3, WAER999=grid%waer4 & 
-              ,ext_coeff=grid%ext_coef,bscat_coeff=grid%bscat_coef,asym_par=grid%asym_par   &
-              ,num_ext_coef=num_ext_coef,num_bscat_coef=num_bscat_coef,num_asym_par=num_asym_par    &
-     &        ,dz8w=dz8w &
-     &        ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde          &
-     &        ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme          &
-     &        ,its=its,ite=ite,jts=jts,jte=jte,kts=kts, kte=kte)
+    call aer_opt_out(TAUAER300=tauaersw(:,:,:,2), TAUAER400=tauaersw(:,:,:,3) & 
+     &    ,TAUAER600=tauaersw(:,:,:,4), TAUAER999=tauaersw(:,:,:,5) &
+     &    ,GAER300=gaersw(:,:,:,2), GAER400=gaersw(:,:,:,3), GAER600=gaersw(:,:,:,4), GAER999=gaersw(:,:,:,5) & 
+     &    ,WAER300=waersw(:,:,:,2), WAER400=waersw(:,:,:,3), WAER600=waersw(:,:,:,4), WAER999=waersw(:,:,:,5) & 
+          ,ext_coeff=grid%ext_coef,bscat_coeff=grid%bscat_coef,asym_par=grid%asym_par   &
+          ,num_ext_coef=num_ext_coef,num_bscat_coef=num_bscat_coef,num_asym_par=num_asym_par    &
+     &    ,dz8w=dz8w &
+     &    ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde          &
+     &    ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme          &
+     &    ,its=its,ite=ite,jts=jts,jte=jte,kts=kts, kte=kte)
 
 
    endif
@@ -1736,4 +2465,1685 @@ end if !Chemistry time step check
 #endif
 
     END subroutine chem_driver
+
+
+!=================================================================================
+!budget calculation
+!=================================================================================
+subroutine budget_calc(iswitch,chem_opt,chem,rho_phy,dz8w,dt, &
+                       tmp_chem,tend_chem, &
+                       tend_rate_dep,snowchem_old, &
+                       ims,ime,jms,jme,kms,kme,                  &
+                       its,ite,jts,jte,kts,kte                                )
+
+USE module_state_description
+USE module_data_mosaic_asect, only: lptr_dust_aer,lptr_tr1r1_aer,lptr_tr1r2_aer,lptr_tr1r3_aer,lptr_tr1r4_aer,nsize_aer
+
+IMPLICIT NONE
+
+integer,intent(in) :: iswitch,chem_opt
+
+INTEGER,INTENT(IN) :: ims,ime, jms,jme, kms,kme,    &
+                      its,ite, jts,jte, kts,kte
+
+REAL,DIMENSION( ims:ime , kms:kme , jms:jme ),INTENT(IN   ) :: dz8w,rho_phy
+REAL,      INTENT(IN   ) :: dt
+
+REAL, DIMENSION( ims:ime,kms:kme,jms:jme,num_chem),INTENT(IN) :: chem
+REAL, DIMENSION( ims:ime,kms:kme,jms:jme,num_tmp_budget),INTENT(INOUT) :: tmp_chem
+REAL, DIMENSION( ims:ime,kms:kme,jms:jme,num_tend_tran),INTENT(INOUT) :: tend_chem
+!REAL, DIMENSION( ims:ime,jms:jme,4,3),INTENT(INOUT) :: tend_rate_dep,snowchem_old
+REAL, DIMENSION( ims:ime,jms:jme,4,5),INTENT(INOUT) :: tend_rate_dep,snowchem_old
+
+integer :: nv,kk,iphase,isize,itype,l,lcw,p1st,ibin,bsize,esize
+real :: massfrac
+
+itype=1
+p1st=param_first_scalar
+
+tend_rate_dep(its:ite,jts:jte,:,:)=0.0
+aer_budget_select: SELECT CASE(chem_opt)
+!tendency (as rain) needs to be accumulated since output is not as frequent as timestep (e.g., 1 h v.s. 150 s)
+
+CASE (RADM2SORG,RADM2SORG_AQ,RADM2SORG_KPP, &
+      RACMSORG_AQ,RACMSORG_KPP,RACM_ESRLSORG_KPP,CBMZSORG,CBMZSORG_AQ)
+
+if (iswitch.eq.0) then !before the process
+
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+    chem(its:ite, kts:kte, jts:jte,p_dustj)+chem(its:ite, kts:kte, jts:jte,p_soila)
+if (chem_opt.ne.RADM2SORG)  & 
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+    chem(its:ite, kts:kte, jts:jte,p_dustcwj)+chem(its:ite, kts:kte, jts:jte,p_soilcw)
+
+snowchem_old(its:ite,jts:jte,:,:)=0.0
+do kk=kts,kte 
+if (chem_opt.ne.RADM2SORG) then
+!dust
+snowchem_old(its:ite,jts:jte,1,1)=snowchem_old(its:ite,jts:jte,1,1)+&
+ (chem(its:ite, kk, jts:jte,p_dustj)+chem(its:ite, kk, jts:jte,p_dustcwj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2,1)=0.0
+snowchem_old(its:ite,jts:jte,3,1)=snowchem_old(its:ite,jts:jte,3,1)+&
+ (chem(its:ite, kk, jts:jte,p_soila)+chem(its:ite, kk, jts:jte,p_soilcw))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,4,1)=0.0
+!bc
+snowchem_old(its:ite,jts:jte,1,2)=snowchem_old(its:ite,jts:jte,1,2)+&
+ (chem(its:ite, kk, jts:jte,p_eci)+chem(its:ite, kk, jts:jte,p_ecj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,2)=0.0
+!bccw
+snowchem_old(its:ite,jts:jte,1,3)=snowchem_old(its:ite,jts:jte,1,3)+&
+ (chem(its:ite, kk, jts:jte,p_eccwi)+chem(its:ite, kk, jts:jte,p_eccwj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,3)=0.0
+!oc
+snowchem_old(its:ite,jts:jte,1,4)=snowchem_old(its:ite,jts:jte,1,4)+&
+ (chem(its:ite, kk, jts:jte,p_orgpai)+chem(its:ite, kk, jts:jte,p_orgpaj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,4)=0.0
+!occw
+snowchem_old(its:ite,jts:jte,1,5)=snowchem_old(its:ite,jts:jte,1,5)+&
+ (chem(its:ite, kk, jts:jte,p_orgpacwi)+chem(its:ite, kk, jts:jte,p_orgpacwj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,5)=0.0
+else 
+!dust
+snowchem_old(its:ite,jts:jte,1,1)=snowchem_old(its:ite,jts:jte,1,1)+&
+  chem(its:ite, kk, jts:jte,p_dustj)*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2,1)=0.0
+snowchem_old(its:ite,jts:jte,3,1)=snowchem_old(its:ite,jts:jte,3,1)+&
+  chem(its:ite, kk, jts:jte,p_soila)*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,4,1)=0.0
+!bc
+snowchem_old(its:ite,jts:jte,1,2)=snowchem_old(its:ite,jts:jte,1,2)+&
+  (chem(its:ite, kk, jts:jte,p_eci)+chem(its:ite, kk, jts:jte,p_ecj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,2)=0.0
+!bccw
+snowchem_old(its:ite,jts:jte,1:4,3)=0.0
+!oc
+snowchem_old(its:ite,jts:jte,1,4)=snowchem_old(its:ite,jts:jte,1,4)+&
+  (chem(its:ite, kk, jts:jte,p_orgpai)+chem(its:ite, kk, jts:jte,p_orgpaj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,4)=0.0
+!occw
+snowchem_old(its:ite,jts:jte,1:4,5)=0.0
+endif
+
+enddo
+
+endif
+
+if (iswitch.eq.1) then !after the process
+
+tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)=tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+    ((chem(its:ite, kts:kte, jts:jte,p_dustj)+chem(its:ite, kts:kte, jts:jte,p_soila))-&
+      tmp_chem(its:ite, kts:kte,jts:jte,p_tmp_dust))
+
+if (chem_opt.ne.RADM2SORG) then 
+tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)=tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+    ((chem(its:ite, kts:kte, jts:jte,p_dustcwj)+chem(its:ite, kts:kte, jts:jte,p_soilcw))-&
+      tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw))
+endif
+
+tend_rate_dep(its:ite,jts:jte,:,:)=0.0
+do kk=kts,kte
+
+if (chem_opt.ne.RADM2SORG) then
+!dust
+tend_rate_dep(its:ite,jts:jte,1,1)=tend_rate_dep(its:ite,jts:jte,1,1)+&
+ (chem(its:ite, kk, jts:jte,p_dustj)+chem(its:ite, kk, jts:jte,p_dustcwj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2,1)=0.0
+tend_rate_dep(its:ite,jts:jte,3,1)=tend_rate_dep(its:ite,jts:jte,3,1)+&
+ (chem(its:ite, kk, jts:jte,p_soila)+chem(its:ite, kk, jts:jte,p_soilcw))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,4,1)=0.0
+!bc
+tend_rate_dep(its:ite,jts:jte,1,2)=tend_rate_dep(its:ite,jts:jte,1,2)+&
+ (chem(its:ite, kk, jts:jte,p_eci)+chem(its:ite, kk, jts:jte,p_ecj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,2)=0.0
+!bccw
+tend_rate_dep(its:ite,jts:jte,1,3)=tend_rate_dep(its:ite,jts:jte,1,3)+&
+ (chem(its:ite, kk, jts:jte,p_eccwi)+chem(its:ite, kk, jts:jte,p_eccwj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,3)=0.0
+!oc
+tend_rate_dep(its:ite,jts:jte,1,4)=tend_rate_dep(its:ite,jts:jte,1,4)+&
+ (chem(its:ite, kk, jts:jte,p_orgpai)+chem(its:ite, kk, jts:jte,p_orgpacwi)+chem(its:ite, kk, jts:jte,p_orgpaj)+chem(its:ite, kk, jts:jte,p_orgpacwj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,4)=0.0
+!occw
+tend_rate_dep(its:ite,jts:jte,1,5)=tend_rate_dep(its:ite,jts:jte,1,5)+&
+ (chem(its:ite, kk, jts:jte,p_orgpacwi)+chem(its:ite, kk, jts:jte,p_orgpacwj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,5)=0.0
+else 
+!dust
+tend_rate_dep(its:ite,jts:jte,1,1)=tend_rate_dep(its:ite,jts:jte,1,1)+&
+  chem(its:ite, kk, jts:jte,p_dustj)*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2,1)=0.0
+tend_rate_dep(its:ite,jts:jte,3,1)=tend_rate_dep(its:ite,jts:jte,3,1)+&
+  chem(its:ite, kk, jts:jte,p_soila)*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,4,1)=0.0
+!bc
+tend_rate_dep(its:ite,jts:jte,1,2)=tend_rate_dep(its:ite,jts:jte,1,2)+&
+  (chem(its:ite, kk, jts:jte,p_eci)+chem(its:ite, kk, jts:jte,p_ecj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,2)=0.0
+!bccw
+tend_rate_dep(its:ite,jts:jte,1:4,3)=0.0
+!oc
+tend_rate_dep(its:ite,jts:jte,1,4)=tend_rate_dep(its:ite,jts:jte,1,4)+&
+  (chem(its:ite, kk, jts:jte,p_orgpai)+chem(its:ite, kk, jts:jte,p_orgpaj))*rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,4)=0.0
+!occw
+tend_rate_dep(its:ite,jts:jte,1:4,5)=0.0
+endif
+
+enddo
+tend_rate_dep(its:ite,jts:jte,:,:)=(tend_rate_dep(its:ite,jts:jte,:,:)-snowchem_old(its:ite,jts:jte,:,:))/dt
+endif
+
+CASE (CBMZ_MOSAIC_8BIN, &
+      CBMZ_MOSAIC_8BIN_AQ,CBMZ_MOSAIC_DMS_8BIN, &
+      CBMZ_MOSAIC_DMS_8BIN_AQ,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE)
+
+if (iswitch.eq.0) then !before the process
+
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)=0.0
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)=0.0
+do isize = 1, nsize_aer(itype) 
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then 
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then 
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= & 
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ & 
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+
+   l=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then 
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+enddo !isize 
+
+snowchem_old(its:ite,jts:jte,:,:)=0.0
+do kk=kts,kte
+!dust
+ do ibin=1,4
+  if (ibin.eq.1) then 
+   bsize=1
+   esize=4
+  endif
+  if (ibin.eq.2) then 
+   bsize=5
+   esize=6
+  endif
+  if (ibin.eq.3) then 
+   bsize=7
+   esize=7
+  endif
+  if (ibin.eq.4) then 
+   bsize=8
+   esize=8
+  endif
+  do isize = bsize, esize 
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   lcw=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   snowchem_old(its:ite,jts:jte,ibin,1)=snowchem_old(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   snowchem_old(its:ite,jts:jte,ibin,1)=snowchem_old(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif 
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   snowchem_old(its:ite,jts:jte,ibin,1)=snowchem_old(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif 
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   snowchem_old(its:ite,jts:jte,ibin,1)=snowchem_old(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif 
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   snowchem_old(its:ite,jts:jte,ibin,1)=snowchem_old(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif 
+  enddo !isize
+ enddo !ibin
+!bc
+snowchem_old(its:ite,jts:jte,1,2)=snowchem_old(its:ite,jts:jte,1,2)+&
+ (chem(its:ite, kk, jts:jte,p_bc_a01)+chem(its:ite, kk, jts:jte,p_bc_a02)+&
+  chem(its:ite, kk, jts:jte,p_bc_a03)+chem(its:ite, kk, jts:jte,p_bc_a04)+&
+  chem(its:ite, kk, jts:jte,p_bc_a05)+chem(its:ite, kk, jts:jte,p_bc_a06)+&
+  chem(its:ite, kk, jts:jte,p_bc_a07)+chem(its:ite, kk, jts:jte,p_bc_a08))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,2)=0.0
+!bccw
+snowchem_old(its:ite,jts:jte,1,3)=snowchem_old(its:ite,jts:jte,1,3)+&
+ (chem(its:ite, kk, jts:jte,p_bc_cw01)+chem(its:ite, kk, jts:jte,p_bc_cw02)+&
+  chem(its:ite, kk, jts:jte,p_bc_cw03)+chem(its:ite, kk, jts:jte,p_bc_cw04)+&
+  chem(its:ite, kk, jts:jte,p_bc_cw05)+chem(its:ite, kk, jts:jte,p_bc_cw06)+&
+  chem(its:ite, kk, jts:jte,p_bc_cw07)+chem(its:ite, kk, jts:jte,p_bc_cw08))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,3)=0.0
+!oc
+snowchem_old(its:ite,jts:jte,1,4)=snowchem_old(its:ite,jts:jte,1,4)+&
+ (chem(its:ite, kk, jts:jte,p_oc_a01)+chem(its:ite, kk, jts:jte,p_oc_a02)+&
+  chem(its:ite, kk, jts:jte,p_oc_a03)+chem(its:ite, kk, jts:jte,p_oc_a04)+&
+  chem(its:ite, kk, jts:jte,p_oc_a05)+chem(its:ite, kk, jts:jte,p_oc_a06)+&
+  chem(its:ite, kk, jts:jte,p_oc_a07)+chem(its:ite, kk, jts:jte,p_oc_a08))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,4)=0.0
+!occw
+snowchem_old(its:ite,jts:jte,1,5)=snowchem_old(its:ite,jts:jte,1,5)+&
+ (chem(its:ite, kk, jts:jte,p_oc_cw01)+chem(its:ite, kk, jts:jte,p_oc_cw02)+&
+  chem(its:ite, kk, jts:jte,p_oc_cw03)+chem(its:ite, kk, jts:jte,p_oc_cw04)+&
+  chem(its:ite, kk, jts:jte,p_oc_cw05)+chem(its:ite, kk, jts:jte,p_oc_cw06)+&
+  chem(its:ite, kk, jts:jte,p_oc_cw07)+chem(its:ite, kk, jts:jte,p_oc_cw08))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,5)=0.0
+enddo !kk
+
+endif !iswitch
+
+if (iswitch.eq.1) then !after the process
+
+do isize = 1, nsize_aer(itype) 
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then 
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then 
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+
+   l=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+enddo !isize
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)- &
+   tmp_chem(its:ite, kts:kte,jts:jte,p_tmp_dust)
+
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)- &
+   tmp_chem(its:ite, kts:kte,jts:jte,p_tmp_dustcw)
+
+tend_rate_dep(its:ite,jts:jte,:,:)=0.0
+do kk=kts,kte
+!dust
+ do ibin=1,4
+  if (ibin.eq.1) then
+   bsize=1
+   esize=4
+  endif
+  if (ibin.eq.2) then
+   bsize=5
+   esize=6
+  endif
+  if (ibin.eq.3) then
+   bsize=7
+   esize=7
+  endif
+  if (ibin.eq.4) then
+   bsize=8
+   esize=8
+  endif
+  do isize = bsize, esize
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   lcw=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_rate_dep(its:ite,jts:jte,ibin,1)=tend_rate_dep(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_rate_dep(its:ite,jts:jte,ibin,1)=tend_rate_dep(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_rate_dep(its:ite,jts:jte,ibin,1)=tend_rate_dep(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_rate_dep(its:ite,jts:jte,ibin,1)=tend_rate_dep(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_rate_dep(its:ite,jts:jte,ibin,1)=tend_rate_dep(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+  enddo !isize
+ enddo !ibin
+!bc
+tend_rate_dep(its:ite,jts:jte,1,2)=tend_rate_dep(its:ite,jts:jte,1,2)+&
+ (chem(its:ite, kk, jts:jte,p_bc_a01)+chem(its:ite, kk, jts:jte,p_bc_a02)+&
+  chem(its:ite, kk, jts:jte,p_bc_a03)+chem(its:ite, kk, jts:jte,p_bc_a04)+&
+  chem(its:ite, kk, jts:jte,p_bc_a05)+chem(its:ite, kk, jts:jte,p_bc_a06)+&
+  chem(its:ite, kk, jts:jte,p_bc_a07)+chem(its:ite, kk, jts:jte,p_bc_a08))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,2)=0.0
+!bccw
+tend_rate_dep(its:ite,jts:jte,1,3)=tend_rate_dep(its:ite,jts:jte,1,3)+&
+ (chem(its:ite, kk, jts:jte,p_bc_cw01)+chem(its:ite, kk, jts:jte,p_bc_cw02)+&
+  chem(its:ite, kk, jts:jte,p_bc_cw03)+chem(its:ite, kk, jts:jte,p_bc_cw04)+&
+  chem(its:ite, kk, jts:jte,p_bc_cw05)+chem(its:ite, kk, jts:jte,p_bc_cw06)+&
+  chem(its:ite, kk, jts:jte,p_bc_cw07)+chem(its:ite, kk, jts:jte,p_bc_cw08))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,3)=0.0
+!oc
+tend_rate_dep(its:ite,jts:jte,1,4)=tend_rate_dep(its:ite,jts:jte,1,4)+&
+ (chem(its:ite, kk, jts:jte,p_oc_a01)+chem(its:ite, kk, jts:jte,p_oc_a02)+&
+  chem(its:ite, kk, jts:jte,p_oc_a03)+chem(its:ite, kk, jts:jte,p_oc_a04)+&
+  chem(its:ite, kk, jts:jte,p_oc_a05)+chem(its:ite, kk, jts:jte,p_oc_a06)+&
+  chem(its:ite, kk, jts:jte,p_oc_a07)+chem(its:ite, kk, jts:jte,p_oc_a08))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,4)=0.0
+!occw
+tend_rate_dep(its:ite,jts:jte,1,5)=tend_rate_dep(its:ite,jts:jte,1,5)+&
+ (chem(its:ite, kk, jts:jte,p_oc_cw01)+chem(its:ite, kk, jts:jte,p_oc_cw02)+&
+  chem(its:ite, kk, jts:jte,p_oc_cw03)+chem(its:ite, kk, jts:jte,p_oc_cw04)+&
+  chem(its:ite, kk, jts:jte,p_oc_cw05)+chem(its:ite, kk, jts:jte,p_oc_cw06)+&
+  chem(its:ite, kk, jts:jte,p_oc_cw07)+chem(its:ite, kk, jts:jte,p_oc_cw08))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,5)=0.0
+enddo
+tend_rate_dep(its:ite,jts:jte,:,:)=(tend_rate_dep(its:ite,jts:jte,:,:)-snowchem_old(its:ite,jts:jte,:,:))/dt
+
+endif
+
+CASE (CBMZ_MOSAIC_4BIN,CBMZ_MOSAIC_4BIN_AQ,  &
+      CBMZ_MOSAIC_DMS_4BIN,CBMZ_MOSAIC_DMS_4BIN_AQ,CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE)
+
+if (iswitch.eq.0) then !before the process
+
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)=0.0
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)=0.0
+do isize = 1, nsize_aer(itype) 
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+
+   l=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+enddo !isize 
+
+snowchem_old(its:ite,jts:jte,:,:)=0.0
+do kk=kts,kte
+!dust
+ do ibin=1,4
+  if (ibin.eq.1) then
+   bsize=1
+   esize=2
+   massfrac=1.0
+  endif
+  if (ibin.eq.2) then
+   bsize=3
+   esize=3
+   massfrac=1.0
+  endif
+  if (ibin.eq.3) then
+   bsize=4
+   esize=4
+   massfrac=0.5
+  endif
+  if (ibin.eq.4) then
+   bsize=4
+   esize=4
+   massfrac=0.5
+  endif
+  do isize = bsize, esize
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   lcw=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   snowchem_old(its:ite,jts:jte,ibin,1)=snowchem_old(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))*massfrac* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   snowchem_old(its:ite,jts:jte,ibin,1)=snowchem_old(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))*massfrac* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   snowchem_old(its:ite,jts:jte,ibin,1)=snowchem_old(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))*massfrac* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   snowchem_old(its:ite,jts:jte,ibin,1)=snowchem_old(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))*massfrac* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   snowchem_old(its:ite,jts:jte,ibin,1)=snowchem_old(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))*massfrac* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+  enddo !isize
+ enddo !ibin
+!bc
+snowchem_old(its:ite,jts:jte,1,2)=snowchem_old(its:ite,jts:jte,1,2)+&
+ (chem(its:ite, kk, jts:jte,p_bc_a01)+chem(its:ite, kk, jts:jte,p_bc_a02)+&
+  chem(its:ite, kk, jts:jte,p_bc_a03)+chem(its:ite, kk, jts:jte,p_bc_a04))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,2)=0.0
+!bccw
+snowchem_old(its:ite,jts:jte,1,3)=snowchem_old(its:ite,jts:jte,1,3)+&
+ (chem(its:ite, kk, jts:jte,p_bc_cw01)+chem(its:ite, kk, jts:jte,p_bc_cw02)+&
+  chem(its:ite, kk, jts:jte,p_bc_cw03)+chem(its:ite, kk, jts:jte,p_bc_cw04))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,3)=0.0
+!oc
+snowchem_old(its:ite,jts:jte,1,4)=snowchem_old(its:ite,jts:jte,1,4)+&
+ (chem(its:ite, kk, jts:jte,p_oc_a01)+chem(its:ite, kk, jts:jte,p_oc_a02)+&
+  chem(its:ite, kk, jts:jte,p_oc_a03)+chem(its:ite, kk, jts:jte,p_oc_a04))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,4)=0.0
+!occw
+snowchem_old(its:ite,jts:jte,1,5)=snowchem_old(its:ite,jts:jte,1,5)+&
+ (chem(its:ite, kk, jts:jte,p_oc_cw01)+chem(its:ite, kk, jts:jte,p_oc_cw02)+&
+  chem(its:ite, kk, jts:jte,p_oc_cw03)+chem(its:ite, kk, jts:jte,p_oc_cw04))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+snowchem_old(its:ite,jts:jte,2:4,5)=0.0
+
+enddo !kk
+
+endif !iswitch
+
+if (iswitch.eq.1) then !after the process
+do isize = 1, nsize_aer(itype)
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+
+   l=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   endif
+enddo !isize
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)- &
+   tmp_chem(its:ite, kts:kte,jts:jte,p_tmp_dust)
+
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tend_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)- &
+   tmp_chem(its:ite, kts:kte,jts:jte,p_tmp_dustcw)
+
+tend_rate_dep(its:ite,jts:jte,:,:)=0.0
+do kk=kts,kte
+!dust
+ do ibin=1,4
+  if (ibin.eq.1) then
+   bsize=1
+   esize=2
+   massfrac=1.
+  endif
+  if (ibin.eq.2) then
+   bsize=3
+   esize=3
+   massfrac=1.
+  endif
+  if (ibin.eq.3) then
+   bsize=4
+   esize=4
+   massfrac=0.5
+  endif
+  if (ibin.eq.4) then
+   bsize=4
+   esize=4
+   massfrac=0.5
+  endif
+  do isize = bsize, esize
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   lcw=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_rate_dep(its:ite,jts:jte,ibin,1)=tend_rate_dep(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))*massfrac* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_rate_dep(its:ite,jts:jte,ibin,1)=tend_rate_dep(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))*massfrac* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_rate_dep(its:ite,jts:jte,ibin,1)=tend_rate_dep(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))*massfrac* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_rate_dep(its:ite,jts:jte,ibin,1)=tend_rate_dep(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))*massfrac* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tend_rate_dep(its:ite,jts:jte,ibin,1)=tend_rate_dep(its:ite,jts:jte,ibin,1)+ &
+   (chem(its:ite, kk, jts:jte,l)+chem(its:ite, kk, jts:jte,lcw))*massfrac* &
+   rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+   endif
+  enddo !isize
+ enddo !ibin
+!bc
+tend_rate_dep(its:ite,jts:jte,1,2)=tend_rate_dep(its:ite,jts:jte,1,2)+&
+ (chem(its:ite, kk, jts:jte,p_bc_a01)+chem(its:ite, kk, jts:jte,p_bc_a02)+&
+  chem(its:ite, kk, jts:jte,p_bc_a03)+chem(its:ite, kk, jts:jte,p_bc_a04))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,2)=0.0
+!bccw
+tend_rate_dep(its:ite,jts:jte,1,3)=tend_rate_dep(its:ite,jts:jte,1,3)+&
+ (chem(its:ite, kk, jts:jte,p_bc_cw01)+chem(its:ite, kk, jts:jte,p_bc_cw02)+&
+  chem(its:ite, kk, jts:jte,p_bc_cw03)+chem(its:ite, kk, jts:jte,p_bc_cw04))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,3)=0.0
+!oc
+tend_rate_dep(its:ite,jts:jte,1,4)=tend_rate_dep(its:ite,jts:jte,1,4)+&
+ (chem(its:ite, kk, jts:jte,p_oc_a01)+chem(its:ite, kk, jts:jte,p_oc_a02)+&
+  chem(its:ite, kk, jts:jte,p_oc_a03)+chem(its:ite, kk, jts:jte,p_oc_a04))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,4)=0.0
+tend_rate_dep(its:ite,jts:jte,1,5)=tend_rate_dep(its:ite,jts:jte,1,5)+&
+ (chem(its:ite, kk, jts:jte,p_oc_cw01)+chem(its:ite, kk, jts:jte,p_oc_cw02)+&
+  chem(its:ite, kk, jts:jte,p_oc_cw03)+chem(its:ite, kk, jts:jte,p_oc_cw04))*&
+  rho_phy(its:ite,kk,jts:jte)*1.e-9*dz8w(its:ite,kk,jts:jte)
+tend_rate_dep(its:ite,jts:jte,2:4,5)=0.0
+enddo
+tend_rate_dep(its:ite,jts:jte,:,:)=(tend_rate_dep(its:ite,jts:jte,:,:)-snowchem_old(its:ite,jts:jte,:,:))/dt
+
+endif
+
+
+CASE DEFAULT
+ !call wrf_debug(15,'aerosol budget NOT CALLING')
+END SELECT aer_budget_select
+
+END subroutine budget_calc
+
+!--------------------------------------------------------
+subroutine budget_calc2(iswitch,chem_opt,chem,rho_phy,   &
+                        tmp_chem,tend_dryd,tend_acti,temporary,temporary_cw, &
+                        deposition_dryrate,dz8w,dt,  &
+                        drydep_flux, &
+                       ims,ime,jms,jme,kms,kme,                  &
+                       its,ite,jts,jte,kts,kte                                )
+
+USE module_state_description
+USE module_data_mosaic_asect, only: lptr_dust_aer,lptr_tr1r1_aer,lptr_tr1r2_aer,lptr_tr1r3_aer,lptr_tr1r4_aer,nsize_aer
+use module_peg_util, only:  peg_message, peg_error_fatal
+
+IMPLICIT NONE
+
+integer,intent(in) :: iswitch,chem_opt
+
+INTEGER,INTENT(IN) :: ims,ime, jms,jme, kms,kme,    &
+                      its,ite, jts,jte, kts,kte
+
+REAL,DIMENSION( ims:ime , kms:kme , jms:jme ),INTENT(IN   ) :: dz8w,rho_phy
+REAL,      INTENT(IN   ) :: dt
+REAL, DIMENSION( ims:ime,jms:jme,8),INTENT(IN) :: deposition_dryrate 
+
+REAL, DIMENSION( ims:ime,kms:kme,jms:jme,num_chem),INTENT(IN) :: chem
+REAL, DIMENSION( ims:ime,kms:kme,jms:jme,num_tmp_budget),INTENT(INOUT) :: tmp_chem
+REAL, DIMENSION( ims:ime,kms:kme,jms:jme,num_tend_dryd),INTENT(INOUT) :: tend_dryd,tend_acti
+REAL, DIMENSION( ims:ime,jms:jme,4,num_drydep_flux),INTENT(INOUT) :: drydep_flux 
+REAL, DIMENSION( ims:ime,jms:jme,8,3),INTENT(INOUT) :: temporary,temporary_cw 
+
+integer :: i,j,nv,n,iphase,isize,itype,l,lcw,p1st,ibin,bsize,esize
+real :: massfrac,l2,l3,l4
+integer lunerr
+
+itype=1
+p1st=param_first_scalar
+
+aer_budget_select: SELECT CASE(chem_opt)
+!tendency (as rain) needs to be accumulated since output is not as frequent as timestep (e.g., 1 h v.s. 150 s)
+
+CASE (RADM2SORG,RADM2SORG_AQ,RADM2SORG_KPP, &
+      RACMSORG_AQ,RACMSORG_KPP,RACM_ESRLSORG_KPP,CBMZSORG,CBMZSORG_AQ)
+
+if (iswitch.eq.0) then !before the process
+
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+    chem(its:ite, kts:kte, jts:jte,p_dustj)+chem(its:ite, kts:kte, jts:jte,p_soila)
+if (chem_opt.ne.RADM2SORG) then
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+    chem(its:ite, kts:kte, jts:jte,p_dustcwj)+chem(its:ite, kts:kte, jts:jte,p_soilcw)
+endif
+
+!dust
+temporary(its:ite,  jts:jte,1,1)=0.0
+temporary(its:ite,  jts:jte,2,1)=chem(its:ite, kts, jts:jte,p_dustj)
+temporary(its:ite,  jts:jte,3,1)=chem(its:ite, kts, jts:jte,p_soila)
+if (chem_opt.ne.RADM2SORG) then
+temporary_cw(its:ite,  jts:jte,1,1)=0.0
+temporary_cw(its:ite,  jts:jte,2,1)=chem(its:ite, kts, jts:jte,p_dustj)
+temporary_cw(its:ite,  jts:jte,3,1)=chem(its:ite, kts, jts:jte,p_soilcw)
+endif
+!bc
+temporary(its:ite,  jts:jte,1,2)=chem(its:ite, kts, jts:jte,p_eci)
+temporary(its:ite,  jts:jte,2,2)=chem(its:ite, kts, jts:jte,p_ecj)
+temporary(its:ite,  jts:jte,3,2)=0.0
+if (chem_opt.ne.RADM2SORG) then
+temporary_cw(its:ite,  jts:jte,1,2)=chem(its:ite, kts, jts:jte,p_eccwi)
+temporary_cw(its:ite,  jts:jte,2,2)=chem(its:ite, kts, jts:jte,p_eccwj)
+temporary_cw(its:ite,  jts:jte,3,2)=0.0
+endif
+!oc
+temporary(its:ite,  jts:jte,1,3)=chem(its:ite, kts, jts:jte,p_orgpai)
+temporary(its:ite,  jts:jte,2,3)=chem(its:ite, kts, jts:jte,p_orgpaj)
+temporary(its:ite,  jts:jte,3,3)=0.0
+if (chem_opt.ne.RADM2SORG) then
+temporary_cw(its:ite,  jts:jte,1,3)=chem(its:ite, kts, jts:jte,p_orgpacwi)
+temporary_cw(its:ite,  jts:jte,2,3)=chem(its:ite, kts, jts:jte,p_orgpacwj)
+temporary_cw(its:ite,  jts:jte,3,3)=0.0
+endif
+    
+endif
+
+if (iswitch.eq.1) then !after the process
+
+tend_dryd(its:ite, kts, jts:jte, p_tend_dryd_dust)= &
+     tend_dryd(its:ite, kts, jts:jte, p_tend_dryd_dust)+ &
+(-1.)*(deposition_dryrate(its:ite,jts:jte,2)/dz8w(its:ite,kts,jts:jte)*dt*temporary(its:ite,jts:jte,2,1)+ &
+       deposition_dryrate(its:ite,jts:jte,3)/dz8w(its:ite,kts,jts:jte)*dt*temporary(its:ite,jts:jte,3,1))
+
+if (chem_opt.ne.RADM2SORG) then
+tend_dryd(its:ite, kts, jts:jte, p_tend_dryd_dustcw)= &
+     tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dustcw)+ &
+(-1.)*(0.1/dz8w(its:ite,kts,jts:jte)*dt*temporary_cw(its:ite,jts:jte,2,1)+ &
+       0.1/dz8w(its:ite,kts,jts:jte)*dt*temporary_cw(its:ite,jts:jte,3,1))
+endif
+
+tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+     tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+    ((chem(its:ite, kts:kte, jts:jte,p_dustj)+chem(its:ite, kts:kte, jts:jte,p_soila))-&
+      tmp_chem(its:ite, kts:kte,jts:jte,p_tmp_dust))
+
+if (chem_opt.ne.RADM2SORG) then
+tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+     tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+    ((chem(its:ite, kts:kte, jts:jte,p_dustj)+chem(its:ite, kts:kte, jts:jte,p_soilcw))-&
+      tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw))
+endif
+
+!tendency for activation should be added by the loss due to dry depostion at the surface layer
+tend_acti(its:ite, kts, jts:jte,p_tend_acti_dust)=&
+     tend_acti(its:ite, kts, jts:jte,p_tend_acti_dust)+&
+    (deposition_dryrate(its:ite,jts:jte,2)/dz8w(its:ite,kts,jts:jte)*dt*temporary(its:ite,jts:jte,2,1)+ &
+     deposition_dryrate(its:ite,jts:jte,3)/dz8w(its:ite,kts,jts:jte)*dt*temporary(its:ite,jts:jte,3,1))
+
+if (chem_opt.ne.RADM2SORG) then
+tend_acti(its:ite, kts, jts:jte,p_tend_acti_dustcw)=&
+     tend_acti(its:ite, kts, jts:jte,p_tend_acti_dustcw)+&
+    (0.1/dz8w(its:ite,kts,jts:jte)*dt*temporary_cw(its:ite,jts:jte,2,1)+ &
+     0.1/dz8w(its:ite,kts,jts:jte)*dt*temporary_cw(its:ite,jts:jte,3,1))
+endif
+
+!calculate the instaneous dry deposition fluxes(positive) (kg/m2/s)
+if (chem_opt.ne.RADM2SORG) then
+!dust
+drydep_flux(its:ite,jts:jte,1,p_drydep_dust)= deposition_dryrate(its:ite,jts:jte,2)*temporary(its:ite,jts:jte,2,1)*rho_phy(its:ite,kts,jts:jte)*1.e-9+0.1*temporary_cw(its:ite,jts:jte,2,1)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+drydep_flux(its:ite,jts:jte,2,p_drydep_dust)= 0.0 
+drydep_flux(its:ite,jts:jte,3,p_drydep_dust)= deposition_dryrate(its:ite,jts:jte,3)*temporary(its:ite,jts:jte,3,1)*rho_phy(its:ite,kts,jts:jte)*1.e-9+0.1*temporary_cw(its:ite,jts:jte,3,1)*rho_phy(its:ite,kts,jts:jte)*1.e-9 
+drydep_flux(its:ite,jts:jte,4,p_drydep_dust)= 0.0 
+!bc
+drydep_flux(its:ite,jts:jte,1:4,p_drydep_bcpho)=0.0
+do n=1,2 
+drydep_flux(its:ite,jts:jte,1,p_drydep_bcpho)=drydep_flux(its:ite,jts:jte,1,p_drydep_bcpho)+&
+ deposition_dryrate(its:ite,jts:jte,n)*temporary(its:ite,jts:jte,n,2)*rho_phy(its:ite,kts,jts:jte)*1.e-9+0.1*temporary_cw(its:ite,jts:jte,n,2)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+enddo
+!oc
+drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocpho)=0.0
+do n=1,2 
+drydep_flux(its:ite,jts:jte,1,p_drydep_ocpho)=drydep_flux(its:ite,jts:jte,1,p_drydep_ocpho)+&
+ deposition_dryrate(its:ite,jts:jte,n)*temporary(its:ite,jts:jte,n,3)*rho_phy(its:ite,kts,jts:jte)*1.e-9+0.1*temporary_cw(its:ite,jts:jte,n,3)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+enddo
+else 
+!dust
+drydep_flux(its:ite,jts:jte,1,p_drydep_dust)= deposition_dryrate(its:ite,jts:jte,2)*temporary(its:ite,jts:jte,2,1)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+drydep_flux(its:ite,jts:jte,2,p_drydep_dust)= 0.0
+drydep_flux(its:ite,jts:jte,3,p_drydep_dust)= deposition_dryrate(its:ite,jts:jte,3)*temporary(its:ite,jts:jte,3,1)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+drydep_flux(its:ite,jts:jte,4,p_drydep_dust)= 0.0
+!bc
+drydep_flux(its:ite,jts:jte,1:4,p_drydep_bcpho)=0.0
+do n=1,2
+drydep_flux(its:ite,jts:jte,1,p_drydep_bcpho)=drydep_flux(its:ite,jts:jte,1,p_drydep_bcpho)+&
+ deposition_dryrate(its:ite,jts:jte,n)*temporary(its:ite,jts:jte,n,2)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+enddo
+!oc
+drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocpho)=0.0
+do n=1,2
+drydep_flux(its:ite,jts:jte,1,p_drydep_ocpho)=drydep_flux(its:ite,jts:jte,1,p_drydep_ocpho)+&
+ deposition_dryrate(its:ite,jts:jte,n)*temporary(its:ite,jts:jte,n,3)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+enddo
+
+endif
+
+
+endif
+
+CASE (CBMZ_MOSAIC_8BIN, &
+      CBMZ_MOSAIC_8BIN_AQ,CBMZ_MOSAIC_DMS_8BIN, &
+      CBMZ_MOSAIC_DMS_8BIN_AQ,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE)
+
+if (iswitch.eq.0) then !before the process
+
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)=0.0
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)=0.0
+temporary(its:ite,jts:jte,:,:)=0.0
+temporary_cw(its:ite,jts:jte,:,:)=0.0
+do isize = 1, nsize_aer(itype)
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary(its:ite,jts:jte,isize,1)= &
+   temporary(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary(its:ite,jts:jte,isize,1)= &
+   temporary(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary(its:ite,jts:jte,isize,1)= &
+   temporary(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary(its:ite,jts:jte,isize,1)= &
+   temporary(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary(its:ite,jts:jte,isize,1)= &
+   temporary(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+
+   l=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary_cw(its:ite,jts:jte,isize,1)= &
+   temporary_cw(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary_cw(its:ite,jts:jte,isize,1)= &
+   temporary_cw(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary_cw(its:ite,jts:jte,isize,1)= &
+   temporary_cw(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary_cw(its:ite,jts:jte,isize,1)= &
+   temporary_cw(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary_cw(its:ite,jts:jte,isize,1)= &
+   temporary_cw(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+enddo !isize 
+
+!dust
+!bc
+temporary(its:ite,  jts:jte,1,2)=chem(its:ite,kts,jts:jte,p_bc_a01)
+temporary(its:ite,  jts:jte,2,2)=chem(its:ite,kts,jts:jte,p_bc_a02)
+temporary(its:ite,  jts:jte,3,2)=chem(its:ite,kts,jts:jte,p_bc_a03)
+temporary(its:ite,  jts:jte,4,2)=chem(its:ite,kts,jts:jte,p_bc_a04)
+temporary(its:ite,  jts:jte,5,2)=chem(its:ite,kts,jts:jte,p_bc_a05)
+temporary(its:ite,  jts:jte,6,2)=chem(its:ite,kts,jts:jte,p_bc_a06)
+temporary(its:ite,  jts:jte,7,2)=chem(its:ite,kts,jts:jte,p_bc_a07)
+temporary(its:ite,  jts:jte,8,2)=chem(its:ite,kts,jts:jte,p_bc_a08)
+temporary_cw(its:ite,  jts:jte,1,2)=chem(its:ite,kts,jts:jte,p_bc_cw01)
+temporary_cw(its:ite,  jts:jte,2,2)=chem(its:ite,kts,jts:jte,p_bc_cw02)
+temporary_cw(its:ite,  jts:jte,3,2)=chem(its:ite,kts,jts:jte,p_bc_cw03)
+temporary_cw(its:ite,  jts:jte,4,2)=chem(its:ite,kts,jts:jte,p_bc_cw04)
+temporary_cw(its:ite,  jts:jte,5,2)=chem(its:ite,kts,jts:jte,p_bc_cw05)
+temporary_cw(its:ite,  jts:jte,6,2)=chem(its:ite,kts,jts:jte,p_bc_cw06)
+temporary_cw(its:ite,  jts:jte,7,2)=chem(its:ite,kts,jts:jte,p_bc_cw07)
+temporary_cw(its:ite,  jts:jte,8,2)=chem(its:ite,kts,jts:jte,p_bc_cw08)
+!oc
+temporary(its:ite,  jts:jte,1,3)=chem(its:ite,kts,jts:jte,p_oc_a01)
+temporary(its:ite,  jts:jte,2,3)=chem(its:ite,kts,jts:jte,p_oc_a02)
+temporary(its:ite,  jts:jte,3,3)=chem(its:ite,kts,jts:jte,p_oc_a03)
+temporary(its:ite,  jts:jte,4,3)=chem(its:ite,kts,jts:jte,p_oc_a04)
+temporary(its:ite,  jts:jte,5,3)=chem(its:ite,kts,jts:jte,p_oc_a05)
+temporary(its:ite,  jts:jte,6,3)=chem(its:ite,kts,jts:jte,p_oc_a06)
+temporary(its:ite,  jts:jte,7,3)=chem(its:ite,kts,jts:jte,p_oc_a07)
+temporary(its:ite,  jts:jte,8,3)=chem(its:ite,kts,jts:jte,p_oc_a08)
+temporary_cw(its:ite,  jts:jte,1,3)=chem(its:ite,kts,jts:jte,p_oc_cw01)
+temporary_cw(its:ite,  jts:jte,2,3)=chem(its:ite,kts,jts:jte,p_oc_cw02)
+temporary_cw(its:ite,  jts:jte,3,3)=chem(its:ite,kts,jts:jte,p_oc_cw03)
+temporary_cw(its:ite,  jts:jte,4,3)=chem(its:ite,kts,jts:jte,p_oc_cw04)
+temporary_cw(its:ite,  jts:jte,5,3)=chem(its:ite,kts,jts:jte,p_oc_cw05)
+temporary_cw(its:ite,  jts:jte,6,3)=chem(its:ite,kts,jts:jte,p_oc_cw06)
+temporary_cw(its:ite,  jts:jte,7,3)=chem(its:ite,kts,jts:jte,p_oc_cw07)
+temporary_cw(its:ite,  jts:jte,8,3)=chem(its:ite,kts,jts:jte,p_oc_cw08)
+
+endif
+
+if (iswitch.eq.1) then !after the process
+
+do isize = 1, nsize_aer(itype)
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dust)= &
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dust)+ &
+(-1.)*deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)* &
+      dt/dz8w(its:ite,kts,jts:jte)
+
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   l2=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   l3=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   l4=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+     if (l2.le.p1st) call peg_error_fatal(lunerr, 'only one region??')
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dust)= &
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dust)+ &
+(-1.)*deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)* &
+      dt/dz8w(its:ite,kts,jts:jte)
+
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+
+   l=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dustcw)= &
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dustcw)+ &
+(-1.)*0.1*temporary_cw(its:ite,jts:jte,isize,1)* &
+      dt/dz8w(its:ite,kts,jts:jte)
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   l2=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   l3=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   l4=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+      if (l2.le.p1st) call peg_error_fatal(lunerr, 'only one region??')
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dustcw)= &
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dustcw)+ &
+(-1.)*0.1*temporary_cw(its:ite,jts:jte,isize,1)* &
+      dt/dz8w(its:ite,kts,jts:jte)
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+enddo !isize
+
+!activation tendency
+tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)- &
+tmp_chem(its:ite, kts:kte,jts:jte,p_tmp_dust)
+
+tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)- &
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)
+
+!tendency for activation should be added by the loss due to dry depostion at the surface layer
+do isize = 1, nsize_aer(itype)
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dust)=&
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dust)+&
+    deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)* &
+    dt/dz8w(its:ite,kts,jts:jte)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   l2=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   l3=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   l4=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+    if (l2.le.p1st) call peg_error_fatal(lunerr, 'only one region??')
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dust)=&
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dust)+&
+    deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)* &
+    dt/dz8w(its:ite,kts,jts:jte)
+   endif
+ 
+   l=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dustcw)=&
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dustcw)+&
+    0.1*temporary_cw(its:ite,jts:jte,isize,1)*&
+    dt/dz8w(its:ite,kts,jts:jte)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   l2=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   l3=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   l4=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+    if (l2.le.p1st) call peg_error_fatal(lunerr, 'only one region??')
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dustcw)=&
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dustcw)+&
+    0.1*temporary_cw(its:ite,jts:jte,isize,1)* &
+    dt/dz8w(its:ite,kts,jts:jte)
+   endif
+enddo !isize
+
+!calculate the instaneous dry deposition fluxes(positive) (kg/m2/s)
+!dust
+drydep_flux(its:ite,jts:jte,:,p_drydep_dust)=0.0
+do ibin=1,4
+  if (ibin.eq.1) then
+   bsize=1
+   esize=4
+   massfrac=1.
+  endif
+  if (ibin.eq.2) then
+   bsize=5
+   esize=6
+   massfrac=1.
+  endif
+  if (ibin.eq.3) then
+   bsize=7
+   esize=7
+   massfrac=1.0
+  endif
+  if (ibin.eq.4) then
+   bsize=8
+   esize=8
+   massfrac=1.0
+  endif
+  do isize = bsize, esize
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   lcw=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   drydep_flux(its:ite,jts:jte,ibin,p_drydep_dust)= &
+   drydep_flux(its:ite,jts:jte,ibin,p_drydep_dust)+ &
+   deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)*rho_phy(its:ite,kts,jts:jte)*1.e-9 + &
+   0.1*temporary_cw(its:ite,jts:jte,isize,1)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   l2=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   l3=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   l4=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+    if (l2.le.p1st) call peg_error_fatal(lunerr, 'only one region??')
+   drydep_flux(its:ite,jts:jte,ibin,p_drydep_dust)= &
+   drydep_flux(its:ite,jts:jte,ibin,p_drydep_dust)+ &
+   deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)*rho_phy(its:ite,kts,jts:jte)*1.e-9 + &
+   0.1*temporary_cw(its:ite,jts:jte,isize,1)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+   endif
+  enddo !isize
+enddo !ibin
+!bc
+drydep_flux(its:ite,jts:jte,1:4,p_drydep_bcpho)=0.0
+do n=1,8 
+drydep_flux(its:ite,jts:jte,1,p_drydep_bcpho)=drydep_flux(its:ite,jts:jte,1,p_drydep_bcpho)+ &
+deposition_dryrate(its:ite,jts:jte,n)*temporary(its:ite,jts:jte,n,2)*rho_phy(its:ite,kts,jts:jte)*1.e-9+&
+0.1*temporary_cw(its:ite,jts:jte,n,2)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+enddo
+!oc
+drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocpho)=0.0
+do n=1,8
+drydep_flux(its:ite,jts:jte,1,p_drydep_ocpho)=drydep_flux(its:ite,jts:jte,1,p_drydep_ocpho)+ &
+deposition_dryrate(its:ite,jts:jte,n)*temporary(its:ite,jts:jte,n,3)*rho_phy(its:ite,kts,jts:jte)*1.e-9+&
+0.1*temporary_cw(its:ite,jts:jte,n,3)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+enddo
+
+endif
+
+CASE (CBMZ_MOSAIC_4BIN,CBMZ_MOSAIC_4BIN_AQ,  &
+      CBMZ_MOSAIC_DMS_4BIN,CBMZ_MOSAIC_DMS_4BIN_AQ,CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE)
+
+if (iswitch.eq.0) then !before the process
+
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)=0.0
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)=0.0
+temporary(its:ite,jts:jte,:,:)=0.0 
+temporary_cw(its:ite,jts:jte,:,:)=0.0
+do isize = 1, nsize_aer(itype)
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary(its:ite,jts:jte,isize,1)= &
+   temporary(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary(its:ite,jts:jte,isize,1)= &
+   temporary(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary(its:ite,jts:jte,isize,1)= &
+   temporary(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary(its:ite,jts:jte,isize,1)= &
+   temporary(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dust)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary(its:ite,jts:jte,isize,1)= &
+   temporary(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+
+   l=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary_cw(its:ite,jts:jte,isize,1)= &
+   temporary_cw(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary_cw(its:ite,jts:jte,isize,1)= &
+   temporary_cw(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary_cw(its:ite,jts:jte,isize,1)= &
+   temporary_cw(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary_cw(its:ite,jts:jte,isize,1)= &
+   temporary_cw(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)= &
+   tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)+ &
+   chem(its:ite,kts:kte,jts:jte,l)
+   temporary_cw(its:ite,jts:jte,isize,1)= &
+   temporary_cw(its:ite,jts:jte,isize,1)+ &
+   chem(its:ite,kts,jts:jte,l)
+   endif
+enddo !isize 
+
+!dust
+!bc
+temporary(its:ite,  jts:jte,1,2)=chem(its:ite,kts,jts:jte,p_bc_a01)
+temporary(its:ite,  jts:jte,2,2)=chem(its:ite,kts,jts:jte,p_bc_a02)
+temporary(its:ite,  jts:jte,3,2)=chem(its:ite,kts,jts:jte,p_bc_a03)
+temporary(its:ite,  jts:jte,4,2)=chem(its:ite,kts,jts:jte,p_bc_a04)
+temporary_cw(its:ite,  jts:jte,1,2)=chem(its:ite,kts,jts:jte,p_bc_cw01)
+temporary_cw(its:ite,  jts:jte,2,2)=chem(its:ite,kts,jts:jte,p_bc_cw02)
+temporary_cw(its:ite,  jts:jte,3,2)=chem(its:ite,kts,jts:jte,p_bc_cw03)
+temporary_cw(its:ite,  jts:jte,4,2)=chem(its:ite,kts,jts:jte,p_bc_cw04)
+!oc
+temporary(its:ite,  jts:jte,1,3)=chem(its:ite,kts,jts:jte,p_oc_a01)
+temporary(its:ite,  jts:jte,2,3)=chem(its:ite,kts,jts:jte,p_oc_a02)
+temporary(its:ite,  jts:jte,3,3)=chem(its:ite,kts,jts:jte,p_oc_a03)
+temporary(its:ite,  jts:jte,4,3)=chem(its:ite,kts,jts:jte,p_oc_a04)
+temporary_cw(its:ite,  jts:jte,1,3)=chem(its:ite,kts,jts:jte,p_oc_cw01)
+temporary_cw(its:ite,  jts:jte,2,3)=chem(its:ite,kts,jts:jte,p_oc_cw02)
+temporary_cw(its:ite,  jts:jte,3,3)=chem(its:ite,kts,jts:jte,p_oc_cw03)
+temporary_cw(its:ite,  jts:jte,4,3)=chem(its:ite,kts,jts:jte,p_oc_cw04)
+
+endif
+
+if (iswitch.eq.1) then !after the process
+
+do isize = 1, nsize_aer(itype)
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dust)= &
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dust)+ &
+(-1.)*deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)* &
+      dt/dz8w(its:ite,kts,jts:jte)
+
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   l2=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   l3=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   l4=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+     if (l2.le.p1st) call peg_error_fatal(lunerr, 'only one region??')
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dust)= &
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dust)+ &
+(-1.)*deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)* &
+      dt/dz8w(its:ite,kts,jts:jte)
+
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+
+   l=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dustcw)= &
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dustcw)+ &
+(-1.)*0.1*temporary_cw(its:ite,jts:jte,isize,1)* &
+      dt/dz8w(its:ite,kts,jts:jte)
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   l2=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   l3=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   l4=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+      if (l2.le.p1st) call peg_error_fatal(lunerr, 'only one region??')
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dustcw)= &
+      tend_dryd(its:ite, kts, jts:jte,p_tend_dryd_dustcw)+ &
+(-1.)*0.1*temporary_cw(its:ite,jts:jte,isize,1)* &
+      dt/dz8w(its:ite,kts,jts:jte)
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+   l=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+      tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)+ &
+      chem(its:ite,kts:kte,jts:jte,l)
+   endif
+enddo !isize
+
+!activation tendency
+tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)= &
+tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dust)- &
+tmp_chem(its:ite, kts:kte,jts:jte,p_tmp_dust)
+
+tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)= &
+tend_acti(its:ite, kts:kte, jts:jte,p_tend_acti_dustcw)- &
+tmp_chem(its:ite, kts:kte, jts:jte,p_tmp_dustcw)
+
+!tendency for activation should be added by the loss due to dry depostion at the surface layer
+do isize = 1, nsize_aer(itype)
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dust)=&
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dust)+&
+    deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)* &
+    dt/dz8w(its:ite,kts,jts:jte)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   l2=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   l3=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   l4=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   if (l.ge.p1st) then
+    if (l2.le.p1st) call peg_error_fatal(lunerr, 'only one region??')
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dust)=&
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dust)+&
+    deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)* &
+    dt/dz8w(its:ite,kts,jts:jte)
+   endif
+
+   l=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dustcw)=&
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dustcw)+&
+    0.1*temporary_cw(its:ite,jts:jte,isize,1)*&
+    dt/dz8w(its:ite,kts,jts:jte)
+   endif
+   l=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   l2=lptr_tr1r2_aer(isize,itype,2) !cloud phase
+   l3=lptr_tr1r3_aer(isize,itype,2) !cloud phase
+   l4=lptr_tr1r4_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+    if (l2.le.p1st) call peg_error_fatal(lunerr, 'only one region??')
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dustcw)=&
+    tend_acti(its:ite, kts, jts:jte,p_tend_acti_dustcw)+&
+    0.1*temporary_cw(its:ite,jts:jte,isize,1)* &
+    dt/dz8w(its:ite,kts,jts:jte)
+   endif
+enddo !isize
+
+!calculate the instaneous dry deposition fluxes(positive) (kg/m2/s)
+!dust
+drydep_flux(its:ite,jts:jte,:,p_drydep_dust)=0.0
+do ibin=1,4
+  if (ibin.eq.1) then
+   bsize=1
+   esize=2
+   massfrac=1.
+  endif
+  if (ibin.eq.2) then
+   bsize=3
+   esize=3
+   massfrac=1.
+  endif
+  if (ibin.eq.3) then
+   bsize=4
+   esize=4
+   massfrac=0.5
+  endif
+  if (ibin.eq.4) then
+   bsize=4
+   esize=4
+   massfrac=0.5
+  endif
+  do isize = bsize, esize
+   l=lptr_dust_aer(isize,itype,1) !dry phase
+   lcw=lptr_dust_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+   drydep_flux(its:ite,jts:jte,ibin,p_drydep_dust)= &
+   drydep_flux(its:ite,jts:jte,ibin,p_drydep_dust)+ &
+   deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)*massfrac*rho_phy(its:ite,kts,jts:jte)*1.e-9 + &
+   0.1*temporary_cw(its:ite,jts:jte,isize,1)*massfrac*rho_phy(its:ite,kts,jts:jte)*1.e-9
+   endif
+   l=lptr_tr1r1_aer(isize,itype,1) !dry phase
+   l2=lptr_tr1r2_aer(isize,itype,1) !dry phase
+   l3=lptr_tr1r3_aer(isize,itype,1) !dry phase
+   l4=lptr_tr1r4_aer(isize,itype,1) !dry phase
+   lcw=lptr_tr1r1_aer(isize,itype,2) !cloud phase
+   if (l.ge.p1st) then
+    if (l2.le.p1st) call peg_error_fatal(lunerr, 'only one region??')
+   drydep_flux(its:ite,jts:jte,ibin,p_drydep_dust)= &
+   drydep_flux(its:ite,jts:jte,ibin,p_drydep_dust)+ &
+   deposition_dryrate(its:ite,jts:jte,isize)*temporary(its:ite,jts:jte,isize,1)*massfrac*rho_phy(its:ite,kts,jts:jte)*1.e-9 + &
+   0.1*temporary_cw(its:ite,jts:jte,isize,1)*massfrac*rho_phy(its:ite,kts,jts:jte)*1.e-9
+   endif
+  enddo !isize
+enddo !ibin
+!bc
+drydep_flux(its:ite,jts:jte,1:4,p_drydep_bcpho)=0.0
+do n=1,4
+drydep_flux(its:ite,jts:jte,1,p_drydep_bcpho)=drydep_flux(its:ite,jts:jte,1,p_drydep_bcpho)+ &
+deposition_dryrate(its:ite,jts:jte,n)*temporary(its:ite,jts:jte,n,2)*rho_phy(its:ite,kts,jts:jte)*1.e-9+&
+0.1*temporary_cw(its:ite,jts:jte,n,2)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+enddo
+!oc
+drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocpho)=0.0
+do n=1,4
+drydep_flux(its:ite,jts:jte,1,p_drydep_ocpho)=drydep_flux(its:ite,jts:jte,1,p_drydep_ocpho)+ &
+deposition_dryrate(its:ite,jts:jte,n)*temporary(its:ite,jts:jte,n,3)*rho_phy(its:ite,kts,jts:jte)*1.e-9+&
+0.1*temporary_cw(its:ite,jts:jte,n,3)*rho_phy(its:ite,kts,jts:jte)*1.e-9
+enddo
+
+endif
+
+
+CASE DEFAULT
+ !call wrf_debug(15,'aerosol budget NOT CALLING')
+END SELECT aer_budget_select
+
+END subroutine budget_calc2
 

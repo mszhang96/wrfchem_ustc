@@ -173,7 +173,6 @@ CONTAINS
 	allocate( wetdens_add(  nbin_add ) )
 	allocate( yextra_add(   nbin_add, 10 ) )
 
-
 main_j_loop:   &
 	do j = jts, jte
 main_i_loop:   &
@@ -388,6 +387,7 @@ main_i_loop:   &
 		ids,ide, jds,jde, kds,kde,                                 &
 		ims,ime, jms,jme, kms,kme,                                 &
 		its,ite, jts,jte, kts,kte                                  )
+
         else if (aer_mech_id == 4) then
             call cam_mam_aer_drydep_load_ddvel(                            &
                 id, ktau, dtstep, config_flags, aer_mech_id,               &
@@ -417,7 +417,6 @@ main_i_loop:   &
 	deallocate( yextra_add   )
 
 
-80000	continue
 	return
 	end subroutine aer_drydep_driver
 
@@ -656,7 +655,7 @@ main_i_loop:   &
 		dimension( 1:nbin_add ) :: &
 		depvel0_add, depvel3_add
 
-	real, intent(out),   &
+	real, intent(inout),   &
 		dimension( its:ite, jts:jte, 1:num_chem ) :: &
 		ddvel
 
@@ -762,7 +761,7 @@ main_i_loop:   &
 	    temp, airdens, ustar, depresist_a
 	real, intent(inout) ::   &
 	    airkinvisc, freepath, depresist_unstabpblfact
-	real, intent(out) ::   &
+	real, intent(inout) ::   &
 	    depvel_0, depvel_3,   &
 	    depresist_d0, depresist_d3,   &
 	    vsettl_0, vsettl_3
@@ -1056,6 +1055,9 @@ main_i_loop:   &
       cblk(1,veci     ) =   max( epsilc, chem(i,k,j,p_eci)*convfac2 )
       cblk(1,vp25aj   ) =   max( epsilc, chem(i,k,j,p_p25j)*convfac2 )
       cblk(1,vp25ai   ) =   max( epsilc, chem(i,k,j,p_p25i)*convfac2 )
+      cblk(1,vdustaj  ) =   max( epsilc, chem(i,k,j,p_dustj)*convfac2 )
+      cblk(1,vdustai  ) =   max( epsilc, chem(i,k,j,p_dusti)*convfac2 )
+      cblk(1,vantha   ) =   max( epsilc, chem(i,k,j,p_antha)*convfac2 )
       cblk(1,vantha   ) =   max( epsilc, chem(i,k,j,p_antha)*convfac2 )
       cblk(1,vseas    ) =   max( epsilc, chem(i,k,j,p_seas)*convfac2 )
       cblk(1,vsoila   ) =   max( epsilc, chem(i,k,j,p_soila)*convfac2 )
@@ -1154,7 +1156,7 @@ main_i_loop:   &
 		dimension( 1:nbin_add ) :: &
 		depvel0_add, depvel3_add
 
-	real, intent(out),   &
+	real, intent(inout),   &
 		dimension( its:ite, jts:jte, 1:num_chem ) :: &
 		ddvel
 
@@ -1216,6 +1218,8 @@ main_i_loop:   &
         vgsa( veci     )  =  vgsa( vso4ai )
         vgsa( vp25aj   )  =  vgsa( vso4aj )
         vgsa( vp25ai   )  =  vgsa( vso4ai )
+        vgsa( vdustaj  )  =  vgsa( vso4aj )
+        vgsa( vdustai  )  =  vgsa( vso4ai )
 
 !       vgsa( vantha   )  =  vdep(1, vdmcor )
         vgsa( vantha   )  =  depvel3_add( 3 )
@@ -1285,7 +1289,7 @@ main_i_loop:   &
 	    temp, pres, airdens, ustar, wstar, depresist_a
 	real, intent(inout) ::   &
 	    airkinvisc, freepath
-	real, intent(out) ::   &
+	real, intent(inout) ::   &
 	    depvel_0, depvel_3,   &
 	    depresist_d0, depresist_d3,   &
 	    vsettl_0, vsettl_3
@@ -1465,7 +1469,7 @@ main_i_loop:   &
 	    temp, pres, airdens, ustar, depresist_a, pblh, zntt, rmolm
 	real, intent(inout) ::   &
 	    airkinvisc, freepath
-	real, intent(out) ::   &
+	real, intent(inout) ::   &
 	    depvel_0, depvel_3,   &
 	    depresist_d0, depresist_d3,   &
 	    vsettl_0, vsettl_3
@@ -1601,6 +1605,8 @@ main_i_loop:   &
         if (iflag_coarse > 0) then
            eff_int = min(1.,eff_int)
            rbcor=exp(-2.0*(stq**0.5)) ! rebound correction factor used in slinn (1982)
+           !czhao add limit
+           rbcor=max(rbcor,1.e-10)
         else
            rbcor = 1. ! rebound correction factor
         endif
@@ -2167,7 +2173,7 @@ main_i_loop:   &
                 dimension( 1:nbin_add ) :: &
                 depvel0_add, depvel3_add
 
-        real, intent(out),   &
+        real, intent(inout),   &
                 dimension( its:ite, jts:jte, 1:num_chem ) :: &
                 ddvel
 

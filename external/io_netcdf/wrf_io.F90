@@ -38,13 +38,16 @@ module wrf_data
 
   integer                , parameter      :: FATAL            = 1
   integer                , parameter      :: WARN             = 1
-  integer                , parameter      :: WrfDataHandleMax = 99
-  integer                , parameter      :: MaxDims          = 2000 ! = NF_MAX_VARS
-#ifdef WRF_CHEM
+  integer                , parameter      :: WrfDataHandleMax = 99 
+  integer                , parameter      :: MaxDims          = 2000
+
+  !BSINGH - MaxVars variable decides maximum number of variables to be
+  !included in wrfbdy file. Presently set to 8000 to accomodate some of 
+  !chemistry packages which have a lot of species. Please note that
+  !WRF_CHEM CPP directive doesn't work here (may be Makefile needs to be
+  !modified to accomodate WRF_CHEM)
+
   integer                , parameter      :: MaxVars          = 8000
-#else
-  integer                , parameter      :: MaxVars          = 3000
-#endif
   integer                , parameter      :: MaxTimes         = 10000
   integer                , parameter      :: DateStrLen       = 19
   integer                , parameter      :: VarNameLen       = 31

@@ -33,8 +33,14 @@ CONTAINS
                          RUBLTEN,RVBLTEN,RTHBLTEN,               &
                          RQVBLTEN,RQCBLTEN,RQIBLTEN,             &
                          RTHRATEN,RTHRATENLW,RTHRATENSW,         &
+                         !BSINGH - For WRFCuP scheme(11/12/2013)
+                         cupflag,cldfra_cup,cldfratend_cup,      & !wig, 18-Sep-2006
+                         shall,                                  & !wig, 18-Sep-2006
+                         tcloud_cup,                             & !rce, 18-apr-2012
+                         !BSINGH - ENDS
                          STEPBL,STEPRA,STEPCU,                   &
-                         W0AVG, RAINNC, RAINC, RAINCV, RAINNCV,  &
+                         W0AVG, RAINC, RAINNC, RAINSH,           &
+                         RAINCV, RAINNCV, RAINSHV,               &
                          SNOWNC, SNOWNCV, GRAUPELNC, GRAUPELNCV, &
                          re_cloud, re_ice, re_snow,              & ! G. Thompson
                          has_reqc, has_reqi, has_reqs,           & ! G. Thompson
@@ -42,6 +48,10 @@ CONTAINS
                          CLDEFI,LOWLYR,                          &
                          MASS_FLUX,                              &
                          RTHFTEN, RQVFTEN,                       &
+#ifdef WRF_USE_CLM
+                         megan_specifier, megan_factors_file,    &
+                         megan_mapped_emisfctrs,                 &
+#endif
                          CLDFRA,CLDFRA_OLD,GLW,GSW,EMISS,EMBCK,  & !EMBCK new
                          LU_INDEX,                               &
                          landuse_ISICE, landuse_LUCATS,          &
@@ -255,6 +265,11 @@ CONTAINS
    INTEGER, DIMENSION( ims:ime, jms:jme )                     , &
             INTENT(INOUT)    ::                         IVGTYP, &
                                                         ISLTYP
+   !BSINGH - For WRFCuP scheme
+   REAL, DIMENSION( ims:ime, jms:jme )                        , &
+            INTENT(INOUT)    ::                          shall, & !CuP, wig 18-Sep-2006
+                                                    tcloud_cup    !CuP, rce 18-apr-2012
+   !BSINGH - ENDS
 
 ! rad
 
@@ -286,6 +301,13 @@ CONTAINS
              RQSCUTEN, RQICUTEN,                                       &
              RUSHTEN, RVSHTEN, RTHSHTEN, RQVSHTEN, RQRSHTEN, RQCSHTEN, &
              RQSSHTEN, RQISHTEN, RQGSHTEN
+   !BSINGH - For WRFCuP scheme
+   REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(INOUT) :: &                                           
+             cldfra_cup,cldfratend_cup                              !CuP, wig 18-Sep-2006
+
+   LOGICAL,  DIMENSION( ims:ime , jms:jme ) , INTENT(OUT) :: cupflag !CuP, wig 9-Oct-2006
+   !BSINGH -ENDS
+
    REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(INOUT), OPTIONAL :: RQCNCUTEN, RQINCUTEN 
 
    REAL,     DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(OUT) :: W0AVG
@@ -298,7 +320,7 @@ CONTAINS
              RTHFTEN, RQVFTEN
 
    REAL,     DIMENSION( ims:ime , jms:jme ) , INTENT(OUT) ::           &
-             RAINNC, RAINC, RAINCV, RAINNCV,  &
+             RAINC, RAINNC, RAINSH, RAINCV, RAINNCV, RAINSHV,          &
              SNOWNC, SNOWNCV, GRAUPELNC, GRAUPELNCV
 
    REAL,     DIMENSION( ims:ime , jms:jme ) , INTENT(OUT) :: CLDEFI, NCA
@@ -516,6 +538,11 @@ CONTAINS
                 ALBEDOsubgrid,LHsubgrid,HFXsubgrid,LWUPsubgrid,     &
                 Q2subgrid,SABVsubgrid,SABGsubgrid,NRAsubgrid,       &
                 SWUPsubgrid,lhsoi,lhtran,lhveg
+#ifdef WRF_USE_CLM
+   LOGICAL, INTENT(IN)          :: megan_mapped_emisfctrs
+   CHARACTER(LEN=*), INTENT(IN) :: megan_factors_file
+   CHARACTER(LEN=*), INTENT(IN) :: megan_specifier(:)
+#endif
 
 !obs fdda
    INTEGER, OPTIONAL, INTENT(IN) :: itimestep
@@ -555,7 +582,6 @@ CONTAINS
    INTEGER :: mfshconv
 
    INTEGER :: i, j, k, itf, jtf, ktf, n
-integer myproc
 
 !-----------------------------------------------------------------
 
@@ -854,10 +880,10 @@ integer myproc
                 RQVBLTEN,RQCBLTEN,RQIBLTEN,TSK,TMN,             &
                 config_flags,restart,UST,LOWLYR,TSLB,ZS,DZS,    &
                 num_soil_layers,TKE_PBL,mfshconv,               &
-                massflux_EDKF, entr_EDKF, detr_EDKF, & 
-                thl_up, thv_up, rt_up,       &
-                rv_up, rc_up, u_up, v_up,    &
-                frac_up, &
+                massflux_EDKF, entr_EDKF, detr_EDKF,            & 
+                thl_up, thv_up, rt_up,                          &
+                rv_up, rc_up, u_up, v_up,                       &
+                frac_up, itimestep,id,                          &
                 EXCH_H,VEGFRA,                                  &
                 SNOW,SNOWC, CANWAT,SMSTAV,                      &
                 SMSTOT, SFCRUNOFF,UDRUNOFF,ACSNOW,ACSNOM,       &
@@ -945,6 +971,10 @@ integer myproc
                 Q2subgrid,SABVsubgrid,SABGsubgrid,NRAsubgrid,       &
                 SWUPsubgrid,lhsoi,lhveg,lhtran                      &
 ! end of CLM vraiables 
+#ifdef WRF_USE_CLM
+                ,megan_specifier, megan_factors_file                &
+                ,megan_mapped_emisfctrs                             &
+#endif
                ) 
 
    CALL wrf_debug ( 200 , 'module_start: phy_init: Before call to cu_init' )
@@ -954,6 +984,11 @@ integer myproc
                 NCA,RAINC,RAINCV,W0AVG,config_flags,restart,    &
                 CLDEFI,LOWLYR,MASS_FLUX,                        &
                 RTHFTEN, RQVFTEN,                               &
+                !BSINGH - For WRFCuP Scheme
+                cupflag,cldfra_cup,cldfratend_cup,              & !CuP, wig 18-Sep-2006
+                shall,                                          & !CuP, wig 18-Sep-2006
+                tcloud_cup,                                     & !CuP, rce 18-apr-2012
+                !BSINGH -ENDS
                 APR_GR,APR_W,APR_MC,APR_ST,APR_AS,              &
                 APR_CAPMA,APR_CAPME,APR_CAPMI,                  &
                 cugd_tten,cugd_ttens,cugd_qvten,                &
@@ -969,7 +1004,7 @@ integer myproc
    CALL shcu_init(STEPCU,CUDT,DT,RUSHTEN,RVSHTEN,RTHSHTEN,      &
                 RQVSHTEN,RQRSHTEN,RQCSHTEN,                     &
                 RQSSHTEN,RQISHTEN,RQGSHTEN,                     &
-                NCA,RAINC,RAINCV,config_flags,restart,          &
+                NCA,RAINSH,RAINSHV,config_flags,restart,        &
                 allowed_to_read, start_of_simulation,           &
                 ids, ide, jds, jde, kds, kde,                   &
                 ims, ime, jms, jme, kms, kme,                   &
@@ -1671,10 +1706,10 @@ integer myproc
                 RQVBLTEN,RQCBLTEN,RQIBLTEN,TSK,TMN,             &
                 config_flags,restart,UST,LOWLYR,TSLB,ZS,DZS,    &
                 num_soil_layers,TKE_PBL,mfshconv,               &
-                massflux_EDKF, entr_EDKF, detr_EDKF, & 
-                thl_up, thv_up, rt_up,       &
-                rv_up, rc_up, u_up, v_up,    &
-                frac_up, &
+                massflux_EDKF, entr_EDKF, detr_EDKF,            & 
+                thl_up, thv_up, rt_up,                          &
+                rv_up, rc_up, u_up, v_up,                       &
+                frac_up, itimestep,id,                          &
                 EXCH_H,VEGFRA,                                  &
                 SNOW,SNOWC, CANWAT,SMSTAV,                      &
                 SMSTOT, SFCRUNOFF,UDRUNOFF,ACSNOW,ACSNOM,       &
@@ -1762,7 +1797,11 @@ integer myproc
                 ALBEDOsubgrid,LHsubgrid,HFXsubgrid,LWUPsubgrid,     &
                 Q2subgrid,SABVsubgrid,SABGsubgrid,NRAsubgrid,       &
                 SWUPsubgrid,lhsoi,lhveg,lhtran                      &
-! end of CLM vraiables 
+! end of CLM variables 
+#ifdef WRF_USE_CLM
+                ,megan_specifier, megan_factors_file     &
+                ,megan_mapped_emisfctrs                  &
+#endif
                                                                 ) !Optional oml
 !--------------------------------------------------------------------
    USE module_sf_sfclay
@@ -1814,11 +1853,13 @@ integer myproc
    LOGICAL, INTENT(IN)         ::   RDMAXALB
    LOGICAL, INTENT(IN)         :: is_CAMMGMP_used !BSINGH:02/01/2013: For CAMUWPBL scheme
 
+   INTEGER , INTENT(IN)        ::     id
    INTEGER , INTENT(IN)        ::     ids, ide, jds, jde, kds, kde, &
                                       ims, ime, jms, jme, kms, kme, &
                                       its, ite, jts, jte, kts, kte
    INTEGER , INTENT(IN)        ::     num_soil_layers
    INTEGER , INTENT(IN)        ::     SF_URBAN_PHYSICS 
+   INTEGER , INTENT(IN)        ::     itimestep
 
    REAL ,    INTENT(IN)        ::     DT, BLDT
    INTEGER , INTENT(INOUT)     ::     STEPBL
@@ -2011,7 +2052,7 @@ integer myproc
    REAL,  DIMENSION( ims:ime , jms:jme ) , OPTIONAL, INTENT(INOUT) ::    &
                                         TSK_SAVE
    LOGICAL,  INTENT(IN) :: start_of_simulation
-   INTEGER :: i,j
+   INTEGER :: i, j, patch
 
 ! CLM varaibles
    INTEGER , INTENT(IN)        ::     maxpatch
@@ -2046,6 +2087,11 @@ integer myproc
                 ALBEDOsubgrid,LHsubgrid,HFXsubgrid,LWUPsubgrid,     &
                 Q2subgrid,SABVsubgrid,SABGsubgrid,NRAsubgrid,       &
                 SWUPsubgrid,lhsoi,lhtran,lhveg
+#ifdef WRF_USE_CLM
+   LOGICAL, INTENT(IN)          :: megan_mapped_emisfctrs
+   CHARACTER(LEN=*), INTENT(IN) :: megan_factors_file
+   CHARACTER(LEN=*), INTENT(IN) :: megan_specifier(:)
+#endif
 
 #if ( EM_CORE == 1 )
 !local mynn 
@@ -2329,15 +2375,18 @@ integer myproc
                      ACSNOM,IVGTYP,ISLTYP,TSLB,SMOIS,SH2O,ZS,DZS,  &
                      FNDSOILW, FNDSNOWH,                           &
                      num_soil_layers, restart,                     &
-                     allowed_to_read ,                             &
+                     allowed_to_read, id, config_flags%bio_emiss_opt, &
                      ids,ide, jds,jde, kds,kde,                    &
                      ims,ime, jms,jme, kms,kme,                    &
-                     its,ite, jts,jte, kts,kte                     &
-                    ,maxpatch                                            &
-                    ,numc,nump,snl,                                      &
-                     snowdp,wtc,wtp,h2osno,t_grnd,t_veg,         &
+                     its,ite, jts,jte, kts,kte,                    &
+                     megan_specifier,                              &
+                     megan_mapped_emisfctrs,                       &
+                     megan_factors_file,                           &
+                     dt, maxpatch,                                       &
+                     numc,nump,snl,                                      &
+                     snowdp,wtc,wtp,h2osno,t_grnd,t_veg,                 &
                      h2ocan,h2ocan_col,t2m_max,t2m_min,t_ref2m,          &
-                     h2osoi_liq_s1,              &
+                     h2osoi_liq_s1,                                      &
                      h2osoi_liq_s2,h2osoi_liq_s3,h2osoi_liq_s4,          &
                      h2osoi_liq_s5,h2osoi_liq1,h2osoi_liq2,              &
                      h2osoi_liq3,h2osoi_liq4,h2osoi_liq5,h2osoi_liq6,    &
@@ -2362,11 +2411,24 @@ integer myproc
                      ht,XLAND,XICE                                       &
                     ,ALBEDOsubgrid,LHsubgrid,HFXsubgrid,LWUPsubgrid,     &
                      Q2subgrid,SABVsubgrid,SABGsubgrid,NRAsubgrid,       &
-                     SWUPsubgrid,lhsoi,lhveg,lhtran                      &
-                    )
+                     SWUPsubgrid,lhsoi,lhveg,lhtran,config_flags%chem_opt                      &
+                   )
         ELSE
                 CALL wrf_error_fatal ( 'arguments not present for calling CLM' )
         ENDIF
+
+!--------------------------------------------------------------
+!   check that t_veg /= 0
+!--------------------------------------------------------------
+        if( itimestep == 0 ) then
+          do patch = 1,maxpatch
+            do j = jts,jte
+              where( t_veg(its:ite,patch,j) == 0.)
+                t_veg(its:ite,patch,j) = tslb(its:ite,1,j)
+              endwhere
+            end do
+          end do
+        endif
 #else
         CALL wrf_error_fatal ( "SF CLM CURRENTLY ifdef'ed out, set -DWRF_USE_CLM in configure.wrf in ARCH_LOCAL" )
 #endif
@@ -2611,6 +2673,11 @@ integer myproc
                       NCA,RAINC,RAINCV,W0AVG,config_flags,restart, &
                       CLDEFI,LOWLYR,MASS_FLUX,                     &
                       RTHFTEN, RQVFTEN,                            &
+                      !BSINGH - For WRFCuP Scheme
+                      cupflag,cldfra_cup,cldfratend_cup,          & !CuP, wig 18-Sep-2006
+                      shall,                                      & !CuP, wig 18-Sep-2006
+                      tcloud_cup,                                 & !CuP, rce 18-apr-2012
+                      !BSINGH -ENDS
                       APR_GR,APR_W,APR_MC,APR_ST,APR_AS,           &
                       APR_CAPMA,APR_CAPME,APR_CAPMI,               &
                       cugd_tten,cugd_ttens,cugd_qvten,             &
@@ -2632,6 +2699,7 @@ integer myproc
    USE module_cu_camzm_driver, ONLY : zm_conv_init
    USE module_cu_nsas
    USE module_cu_tiedtke
+   USE module_cu_kfcup !BSINGH - For WRFCuP Scheme
 !------------------------------------------------------------------
    IMPLICIT NONE
 !------------------------------------------------------------------
@@ -2643,7 +2711,7 @@ integer myproc
                                   ims, ime, jms, jme, kms, kme,   &
                                   its, ite, jts, jte, kts, kte
 
-   REAL ,    INTENT(IN)        :: DT, CUDT, DX
+   REAL ,    INTENT(IN)        :: DT, DX, CUDT
    LOGICAL , INTENT(IN)        :: start_of_simulation
    LOGICAL , INTENT(IN)        :: allowed_to_read
    INTEGER , INTENT(INOUT)     :: STEPCU
@@ -2651,6 +2719,11 @@ integer myproc
    REAL ,   DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(INOUT) ::    &
             RUCUTEN, RVCUTEN, RTHCUTEN, &
             RQVCUTEN, RQCCUTEN, RQRCUTEN, RQICUTEN, RQSCUTEN
+   !BSINGH - For WRFCuP Scheme
+   REAL ,   DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(INOUT) ::    &
+            cldfra_cup,cldfratend_cup                               !CuP, wig 18-Sep-2006
+   !BSINGH -ENDS
+
    REAL ,   DIMENSION( ims:ime , kms:kme , jms:jme ) , OPTIONAL, INTENT(INOUT) ::    &
                         cugd_tten,cugd_ttens,cugd_qvten,            &
                         cugd_qvtens,cugd_qcten, RQCNCUTEN, RQINCUTEN
@@ -2663,12 +2736,17 @@ integer myproc
    REAL ,   DIMENSION( ims:ime , jms:jme ), INTENT(OUT):: RAINC, RAINCV
 
    REAL ,   DIMENSION( ims:ime , jms:jme ), INTENT(OUT):: CLDEFI
+   !BSINGH - For WRFCuP Scheme
+   REAL ,   DIMENSION( ims:ime , jms:jme ), INTENT(OUT):: shall, & !CuP, wig 18-Sep-2006
+                                                     tcloud_cup    !CuP, rce 18-apr-2012
+   !BSINGH -ENDS
 
    REAL ,   DIMENSION( ims:ime , jms:jme ), INTENT(INOUT):: NCA
 
    REAL ,   DIMENSION( ims:ime , jms:jme ), INTENT(INOUT):: MASS_FLUX,   &
                                    APR_GR,APR_W,APR_MC,APR_ST,APR_AS,    &
                                    APR_CAPMA,APR_CAPME,APR_CAPMI
+   LOGICAL, DIMENSION( ims:ime , jms:jme ), INTENT(OUT):: cupflag  !CuP, wig 9-Oct-2006 !BSINGH - For WRFCuP Scheme
 
    INTEGER, DIMENSION( ims:ime , jms:jme ), INTENT(INOUT):: LOWLYR
 
@@ -2770,6 +2848,22 @@ integer myproc
                       ims, ime, jms, jme, kms, kme,               &
                       its, ite, jts, jte, kts, kte                )
 
+    !BSINGH - For WRFCuP Scheme
+    CASE (KFCUPSCHEME)  !wig: 18-Sep-2006
+       CALL kf_cup_init(RTHCUTEN,RQVCUTEN,RQCCUTEN,RQRCUTEN,   &
+                      RQICUTEN,RQSCUTEN,NCA,W0AVG,P_QI,P_QS,      &
+                      SVP1,SVP2,SVP3,SVPT0,                       &
+                      cupflag,cldfra_cup,cldfratend_cup,          &
+                      shall,                                      &
+                      tcloud_cup,                                 &
+                      PARAM_FIRST_SCALAR,restart,                 &
+                      allowed_to_read ,                           &
+                      ids, ide, jds, jde, kds, kde,               &
+                      ims, ime, jms, jme, kms, kme,               &
+                      its, ite, jts, jte, kts, kte                )
+       
+    !BSINGH - ENDS      
+       
      CASE (MESO_SAS)   !Kwon
           CALL msasinit(RTHCUTEN,RQVCUTEN,RQCCUTEN,RQICUTEN,       &
                       RUCUTEN,RVCUTEN,                            &   ! gopal's doing for SAS
@@ -2821,7 +2915,7 @@ integer myproc
    SUBROUTINE shcu_init(STEPCU,CUDT,DT,RUSHTEN,RVSHTEN,RTHSHTEN,   &
                       RQVSHTEN,RQRSHTEN,RQCSHTEN,                  &
                       RQSSHTEN,RQISHTEN,RQGSHTEN,                  &
-                      NCA,RAINC,RAINCV,config_flags,restart,       &
+                      NCA,RAINSH,RAINSHV,config_flags,restart,     &
                       allowed_to_read, start_of_simulation,        &
                       ids, ide, jds, jde, kds, kde,                &
                       ims, ime, jms, jme, kms, kme,                &
@@ -2853,7 +2947,7 @@ integer myproc
             RUSHTEN, RVSHTEN, RTHSHTEN, &
             RQVSHTEN, RQCSHTEN, RQRSHTEN, RQISHTEN, RQSSHTEN, RQGSHTEN
 
-   REAL ,   DIMENSION( ims:ime , jms:jme ), INTENT(OUT):: RAINC, RAINCV
+   REAL ,   DIMENSION( ims:ime , jms:jme ), INTENT(OUT):: RAINSH, RAINSHV
 
    REAL ,   DIMENSION( ims:ime , jms:jme ), INTENT(INOUT):: NCA
 
@@ -2879,8 +2973,8 @@ integer myproc
    IF(start_of_simulation)THEN
      DO j=jts,jtf
      DO i=its,itf
-        RAINC(i,j)=0.
-        RAINCV(i,j)=0.
+        RAINSH(i,j)=0.
+        RAINSHV(i,j)=0.
      ENDDO
      ENDDO
    ENDIF
@@ -3449,8 +3543,9 @@ integer myproc
 
 #ifdef WRF_CHEM
      !If CAM MAM package is selected
+     !BSINGH (01/23/2014):Please make sure pcnst is equal to cam_mam_nspec in chem/module_cam_mam_init.F and registry.chem
      IF(config_flags%chem_opt == CBMZ_CAM_MAM3_NOAQ .OR. config_flags%chem_opt==CBMZ_CAM_MAM3_AQ) then
-        pcnst = 74 !For 3 modes of aerosols
+        pcnst = 85 !For 3 modes of aerosols [adjusted for DMS species-BSINGH (01/20/2014) suggested by PMA]
      else if(config_flags%chem_opt == CBMZ_CAM_MAM7_NOAQ .OR. config_flags%chem_opt == CBMZ_CAM_MAM7_AQ) then
         pcnst = 90 !For 7 modes of aerosols
      endif

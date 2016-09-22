@@ -204,8 +204,8 @@
      &                                    ,RTHRATENLW,RTHRATENSW
       REAL,ALLOCATABLE,DIMENSION(:,:) :: EMISS,EMTEMP,GLW,HFX           &
      &                                  ,NCA                            &
-     &                                  ,QFX,RAINBL,RAINC,RAINNC        &
-     &                                  ,RAINNCV                        &
+     &                                  ,QFX,RAINBL,RAINC,RAINNC,RAINSH &
+     &                                  ,RAINNCV,RAINSHV                &
      &                                  ,SNOWNC,SNOWNCV                 &
      &                                  ,GRAUPELNC,GRAUPELNCV           &
      &                                  ,SNOWC,THC,TMN,TSFC
@@ -1748,7 +1748,9 @@
       ALLOCATE(RAINBL(IMS:IME,JMS:JME),STAT=I)  ; RAINBL   = 0.
       ALLOCATE(RAINC(IMS:IME,JMS:JME),STAT=I)   ; RAINC    = 0.
       ALLOCATE(RAINNC(IMS:IME,JMS:JME),STAT=I)  ; RAINNC   = 0.
+      ALLOCATE(RAINSH(IMS:IME,JMS:JME),STAT=I)  ; RAINSH   = 0.
       ALLOCATE(RAINNCV(IMS:IME,JMS:JME),STAT=I) ; RAINNCV  = 0.
+      ALLOCATE(RAINSHV(IMS:IME,JMS:JME),STAT=I) ; RAINSHV  = 0.
       ALLOCATE(SNOWNC(IMS:IME,JMS:JME),STAT=I)  ; SNOWNC   = 0.
       ALLOCATE(SNOWNCV(IMS:IME,JMS:JME),STAT=I) ; SNOWNCV  = 0.
       ALLOCATE(GRAUPELNC(IMS:IME,JMS:JME),STAT=I)  ; GRAUPELNC   = 0.
@@ -1959,7 +1961,8 @@
      &             ,RQVBLTEN,RQCBLTEN,RQIBLTEN                          &
      &             ,RTHRATEN,RTHRATENLW,RTHRATENSW                      &
      &             ,STEPBL,STEPRA,STEPCU                                &
-     &             ,grid%w0avg, RAINNC, RAINC, grid%raincv, RAINNCV               &
+     &             ,grid%w0avg, RAINC, RAINNC, RAINSH                   &
+     &             ,grid%raincv, RAINNCV, RAINSHV                       &
      &             ,SNOWNC, SNOWNCV, GRAUPELNC, GRAUPELNCV              &
      &             ,grid%re_cloud, grid%re_ice, grid%re_snow            & ! G. Thompson
      &             ,grid%has_reqc,grid%has_reqi,grid%has_reqs           & ! G. Thompson
@@ -2277,7 +2280,7 @@
                GAER1,GAER2,GAER3,GAER4,                              &
                WAER1,WAER2,WAER3,WAER4,                              &
                l2AER,l3AER,l4AER,l5AER,l6aer,l7aer,                 &
-               PM2_5_DRY,PM2_5_WATER,PM2_5_DRY_EC,                  &
+               PM2_5_DRY,PM2_5_WATER,PM2_5_DRY_EC,H2OAJ,H2OAI,                  &
                grid%last_chem_time_year,grid%last_chem_time_month,               &
                grid%last_chem_time_day,grid%last_chem_time_hour,                 &
                grid%last_chem_time_minute,grid%last_chem_time_second,            &
@@ -2301,7 +2304,7 @@
               RACM_ESRLSORG_AQCHEM_KPP,RACMSORG_KPP)
 !!!       write(0,*)'sum pm '
            CALL SUM_PM_SORGAM (                                             &
-                RRI, CHEM, H2OAJ, H2OAI,                              &
+                RRI, CHEM, H2OAJ_ADJUST, H2OAI_ADJUST, H2OAC_ADJUST,           &
                 PM2_5_DRY, PM2_5_WATER, PM2_5_DRY_EC, PM10,                 &
                 IDS,IDE, JDS,JDE, KDS,KDE,                                  &
                 IMS,IME, JMS,JME, KMS,KME,                                  &
@@ -2344,7 +2347,9 @@
       DEALLOCATE(RAINBL)
       DEALLOCATE(RAINC)
       DEALLOCATE(RAINNC)
+      DEALLOCATE(RAINSH)
       DEALLOCATE(RAINNCV)
+      DEALLOCATE(RAINSHV)
       DEALLOCATE(RQCBLTEN)
       DEALLOCATE(RQIBLTEN)
       DEALLOCATE(RQVBLTEN)

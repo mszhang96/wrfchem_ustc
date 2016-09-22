@@ -222,11 +222,17 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
                      RADT,DEGRAD,n_cldadv,                                  &
                      abstot_3d, absnxt_3d, emstot_3d,              &
                      doabsems,                                     &
+                     !BSINGH - For WRFCuP scheme
+                     cu_physics,shallowcu_forced_ra,shall,cubot,cutop, & !wig, CuP 4-Feb-2008i
+                     cldfra_cup,                                    &  ! ED Aug-2011  
+                     !BSINGH -ENDS
                      ids,ide, jds,jde, kds,kde,                    &
                      ims,ime, jms,jme, kms,kme,                    &
                      its,ite, jts,jte, kts,kte                     )
 
 !ccc To use CLWRF time-varying trace gases
+   USE module_state_description, ONLY : KFCUPSCHEME, KFETASCHEME     !wig, CuP 4-Fb-2008  !BSINGH - For WRFCuP scheme
+
    USE MODULE_RA_CLWRF_SUPPORT, ONLY : read_CAMgases
    USE module_wrf_error
    USE module_state_description, ONLY : SSIBSCHEME, CLMSCHEME          !ssib & clm
@@ -238,6 +244,11 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
    INTEGER,    INTENT(IN   ) ::        ids,ide, jds,jde, kds,kde, &
                                        ims,ime, jms,jme, kms,kme, &
                                        its,ite, jts,jte, kts,kte
+   !BSINGH - For WRFCuP scheme
+   INTEGER,    INTENT(IN   ) ::        cu_physics                   !wig, CuP 4-Feb-2008
+   LOGICAL,    INTENT(IN   ) ::        shallowcu_forced_ra          !wig, CuP
+   !BSINGH -ENDS
+
    LOGICAL,    INTENT(IN   ) ::        F_QV,F_QC,F_QR,F_QI,F_QS,F_QG
    LOGICAL,    INTENT(INout) ::        doabsems
    LOGICAL,    INTENT(IN   ) ::        dolw,dosw
@@ -285,6 +296,17 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
                                                            EMISS, &
                                                              TSK, &
                                                              ALBEDO
+   !BSINGH - For WRFCuP scheme
+   REAL, DIMENSION( ims:ime, jms:jme ),                           &
+        INTENT(IN   )  ::                                  shall, & !wig, CuP 4-Feb-2008
+                                                           cubot, & !wig, CuP 4-Feb-2008
+                                                           cutop    !wig, CuP 4-Feb-2008
+
+   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         , &
+        INTENT(IN   ) ::                                     &
+                                                      cldfra_cup   !ED, Aug-2011
+   !BSINGH - ENDS
+
 
    REAL,  DIMENSION( ims:ime, levsiz, jms:jme, num_months ),      &
           INTENT(IN   ) ::                                  OZMIXM
@@ -436,6 +458,11 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
 
 !ccc
 
+   !BSINGH - For WRFCuP scheme
+   tauxcl = 0.0  ! rce 2012/05/10 - needs initializing for scm
+   tauxci = 0.0  ! rce 2012/05/10 - needs initializing for scm
+   !BSINGH - ENDS
+
 #if !defined(MAC_KLUDGE)
    lchnk = 1
    begchunk = ims
@@ -571,6 +598,25 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
       q(ii,kk,ixcldice) = 0.
      ENDIF
       cld(ii,kk) = CLDFRA(I,K,J)
+      
+      !BS
+      
+      ! Begin: wig, 4-Feb-2008
+      !
+      ! Override the cloud condensate values if shallow convection triggered.
+      ! For shallow convection, use a representative condensate value based on
+      ! observations from CHAPS (Oklahoma area) and Florida (Blyth et al. 2005)
+      ! or the predicted value if it is greater.
+      !
+      select case (cu_physics)
+      case (KFCUPSCHEME, KFETASCHEME)
+         if( shall(i,j) == 1           &  ! 1=Shallow Cu
+              .AND. k >= int(cubot(i,j))    &
+              .AND. k <= int(cutop(i,j))  )  q(ii,kk,ixcldliq) = max( 1.0e-3*cldfra_cup(i,k,j), q(ii,kk,ixcldliq) )!DE+LB 2012-Feb
+      end select
+
+      ! End: wig, 4-Feb-2008
+      !BSINGH -ENDS
       enddo
       enddo
 
@@ -666,7 +712,7 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
 ! Compute cloud water/ice paths and optical properties for input to radiation
 
       call param_cldoptics_calc(ncol, pcols, pver, pverp, pverr, pverrp, ppcnst, q, cld, landfrac, landm,icefrac, &
-                                pdel, t, ps, pmid, pint, cicewp, cliqwp, emis, rel, rei, pmxrgn, nmxrgn, snowh)
+                                pdel, t, ps, pmid, pint, cicewp, cliqwp, emis, rel, rei, pmxrgn, nmxrgn, snowh, shall)!BSINGH - Added "shall" argument for WRFCuP
 
 !-----fds (06/2010)----------------------------
    SELECT CASE(sf_surface_physics)
@@ -811,7 +857,7 @@ subroutine camrad(RTHRATENLW,RTHRATENSW,                           &
          swdntc(i,j)    = fsdnc(ii,kk)
        endif
        if(k.eq.kts)then
-         swupb(i,j)     = fsup(ii,kk)
+         swupb(i,j)     = fsup(ii,kk)!**BALLI- this is repeated in the WRFCuP code...ask Larry
          swupbc(i,j)    = fsupc(ii,kk)
          swdnb(i,j)     = fsdn(ii,kk)
          swdnbc(i,j)    = fsdnc(ii,kk)
@@ -2054,7 +2100,7 @@ subroutine radctl(j, lchnk   ,ncol    , pcols, pver, pverp, pverr, pverrp, ppcns
 end subroutine radctl
   subroutine param_cldoptics_calc(ncol, pcols, pver, pverp, pverr, pverrp, ppcnst, &
                                   q, cldn, landfrac, landm,icefrac, &
-        pdel,  t, ps, pmid, pint, cicewp, cliqwp, emis, rel, rei, pmxrgn, nmxrgn, snowh )
+        pdel,  t, ps, pmid, pint, cicewp, cliqwp, emis, rel, rei, pmxrgn, nmxrgn, snowh,shall )!BSINGH - Added "shall" as an argument for WRFCuP scheme **BALLI, shall is NEVER USED** ask LARRY
 !
 ! Compute (liquid+ice) water path and cloud water/ice diagnostics
 ! *** soon this code will compute liquid and ice paths from input liquid and ice mixing ratios
@@ -2080,7 +2126,7 @@ end subroutine radctl
     real(r8), intent(in)  :: icefrac(pcols)          ! Ice fraction
     real(r8), intent(in)  :: landm(pcols)            ! Land fraction ramped
     real(r8), intent(in) :: snowh(pcols)         ! Snow depth over land, water equivalent (m)
-
+    real, intent(in) :: shall(pcols,pver)                                                      !BSINGH - For WRFCuP scheme
 !!$    real(r8), intent(out) :: cwp   (pcols,pver)      ! in-cloud cloud (total) water path
     real(r8), intent(out) :: cicewp(pcols,pver)      ! in-cloud cloud ice water path
     real(r8), intent(out) :: cliqwp(pcols,pver)      ! in-cloud cloud liquid water path

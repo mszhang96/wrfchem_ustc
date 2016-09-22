@@ -6,8 +6,9 @@ CONTAINS
 !===========================================================================
    subroutine wetscav_cbmz_mosaic (id,ktau,dtstep,ktauc,config_flags,      &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
-	       qlsink,precr,preci,precs,precg,qsrflx,                      &
+	       qlsink,ilsink,r2evap,i2evap,precr,preci,precs,precg,        &
 	       gas_aqfrac, numgas_aqfrac,                                  &
+               qv,qc,qi,qs,   &
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -52,21 +53,25 @@ CONTAINS
                                                       t_phy,        &
                                                       p_phy,        &
                                                    t8w,p8w,         &
-	                            qlsink,precr,preci,precs,precg, &
+                            qlsink,ilsink,precr,preci,precs,precg, &
+                            r2evap,i2evap, &
                                                     rho_phy,cldfra
-   REAL, DIMENSION( ims:ime, jms:jme, num_chem ),          &
-         INTENT(OUT ) ::                                qsrflx ! column change due to scavening
+        real, intent(in),   &
+                dimension( ims:ime, kms:kme, jms:jme ) :: &
+                qv, qc, qi,qs
 
    call wetscav (id,ktau,dtstep,ktauc,config_flags,                      &
         dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,             &
-        qlsink,precr,preci,precs,precg,qsrflx,                           &
+        qlsink,ilsink,precr,preci,precs,precg,                   &
+        r2evap,i2evap,                                                   &
         gas_aqfrac, numgas_aqfrac,                                       &
         ntype_aer, nsize_aer, ncomp_aer,                                 &
-        massptr_aer, dens_aer, numptr_aer,                               &
+        massptr_aer, dens_aer, numptr_aer,hygro_aer,                     &
         maxd_acomp, maxd_asize,maxd_atype, maxd_aphase, ai_phase, cw_phase, &
         volumcen_sect, volumlo_sect, volumhi_sect,                       &
         waterptr_aer, dens_water_aer,                                    &
         scavimptblvol, scavimptblnum, nimptblgrow_mind, nimptblgrow_maxd, dlndg_nimptblgrow, &
+        qv,qc,qi,qs,   &
         ids,ide, jds,jde, kds,kde,                                       &
         ims,ime, jms,jme, kms,kme,                                       &
         its,ite, jts,jte, kts,kte                                        )
@@ -79,14 +84,16 @@ CONTAINS
 !===========================================================================
    subroutine wetscav (id,ktau,dtstep,ktauc,config_flags,                &
         dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,             &
-        qlsink,precr,preci,precs,precg,qsrflx,                           &
+        qlsink,ilsink,precr,preci,precs,precg,                    &
+        r2evap,i2evap,                             &
         gas_aqfrac, numgas_aqfrac,                                       &
         ntype_aer, nsize_aer, ncomp_aer,                                 &
-        massptr_aer, dens_aer, numptr_aer,                               &
+        massptr_aer, dens_aer, numptr_aer,hygro_aer,                     &
         maxd_acomp, maxd_asize,maxd_atype, maxd_aphase, ai_phase, cw_phase, &
         volumcen_sect, volumlo_sect, volumhi_sect,                       &
         waterptr_aer, dens_water_aer,                                    &
         scavimptblvol, scavimptblnum, nimptblgrow_mind, nimptblgrow_maxd, dlndg_nimptblgrow, &
+        qv,qc,qi,qs,   &
         ids,ide, jds,jde, kds,kde,                                       &
         ims,ime, jms,jme, kms,kme,                                       &
         its,ite, jts,jte, kts,kte                                        )
@@ -95,6 +102,14 @@ CONTAINS
 !  scavenging of cloud-phase aerosols and gases by collection, freezing, ...
 !  scavenging of interstitial-phase aerosols by impaction
 !  scavenging of gas-phase gases by mass transfer and reaction
+
+!----------------------------------------------------------------------
+!Updates and Notes by Chun Zhao,PNNL
+!1. update the current scheme working without aerosol-cloud-interaction/cloud-born-aerosol, only change the in-cloud scavenging part.
+!2. Now the below cloud scavenging only accounts for large-scale rain
+!3. The convective updraft scavening is dealt during the convective transport
+!4. adding the new wet-scavenging scheme following GEOS-CHEM for in-cloud (rainout) scavenging and below-cloud (washout) scavenging in the cases without online aerosol-cloud interaction/aerosol activation
+!----------------------------------------------------------------------
 
 !----------------------------------------------------------------------
    USE module_configure, only: grid_config_rec_type
@@ -133,7 +148,8 @@ CONTAINS
                                                       t_phy,        &
                                                       p_phy,        &
                                                     t8w,p8w,        &
-                             qlsink,precr,preci,precs,precg,        &
+                             qlsink,ilsink,precr,preci,precs,precg,        &
+                             r2evap,i2evap,        &
                                              rho_phy,cldfra
    integer, intent(in) :: maxd_atype, maxd_asize, maxd_acomp, maxd_aphase
    integer, intent(in) :: ai_phase, cw_phase
@@ -144,7 +160,8 @@ CONTAINS
       	  waterptr_aer( maxd_asize, maxd_atype ), & ! index for aerosol water
       	  numptr_aer( maxd_asize, maxd_atype, maxd_aphase ) ! index for the number mixing ratio
    real, intent(in) :: dens_aer( maxd_acomp, maxd_atype ),   & ! material density (g/cm3)
-	  dens_water_aer ! water density (g/m3)
+	  dens_water_aer, &  ! water density (g/m3)
+          hygro_aer( maxd_acomp, maxd_atype )
    real, intent(in) :: volumcen_sect( maxd_asize, maxd_atype ),   & ! single-particle volumes (cm3)
                         volumlo_sect( maxd_asize, maxd_atype ),   & ! at section center, lower boundary,
                         volumhi_sect( maxd_asize, maxd_atype )      ! upper boundary
@@ -153,15 +170,17 @@ CONTAINS
    integer, intent(in) :: nimptblgrow_mind, nimptblgrow_maxd
    real, intent(in) :: scavimptblnum(4, nimptblgrow_mind:nimptblgrow_maxd, maxd_asize, maxd_atype), &
      	     scavimptblvol(4, nimptblgrow_mind:nimptblgrow_maxd, maxd_asize, maxd_atype)
-   REAL, DIMENSION( ims:ime, jms:jme, num_chem ),          &
-         INTENT(OUT ) ::                                qsrflx ! column change due to scavening
+        real, intent(in),   &
+                dimension( ims:ime, kms:kme, jms:jme ) :: &
+                qv, qc, qi,qs
+
 
 !
 ! LOCAL  VAR
 !
      integer :: i,j,k,l,m,n
      integer :: lmasscw,lnumcw
-     real scale
+     real scale,scale1,scale2
    logical :: isprx(ims:ime,kms:kme,jms:jme)
 
    real :: pdel(ims:ime,kms:kme,jms:jme)
@@ -185,18 +204,46 @@ CONTAINS
    REAL :: dqdt( ims:ime, kms:kme, jms:jme, num_chem )
    logical dotend(num_chem)
 
-   dotend(:) = .false.
-   dqdt(:,:,:,:) = 0.0
-   qsrflx(:,:,:) = 0.0
 
+   dotend(1:num_chem) = .false.
+   do j=jts,jte
+   do i=its,ite
+   do k=kts,kte
+     dqdt(i,k,j,1:num_chem)=0.0
+   enddo
+   end do
+   end do
 
-! scavenging cloud-phase aerosol assuming precip falls to surface
+!******************************************
+!1. in-cloud scavenging
+!******************************************
+
+   !scavenging cloud-phase aerosol assuming precip falls to surface
+   incloud_select: SELECT CASE(config_flags%chem_opt)   
+
+   !-----------------------------------------
+   !1.1 in-cloud scavenging for cases with cloud-born aerosol and 
+   !    aqueous phase chemistry
+   !-----------------------------------------
+   CASE (RADM2SORG_AQ,RACMSORG_AQ,CBMZSORG_AQ, & 
+         CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
+         CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, &
+         CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
+         CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE, CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE )
+
+    if (config_flags%progn == 0 .or. config_flags%cldchem_onoff == 0) then 
+      CALL wrf_error_fatal('Wet scavenging with cloud-born-aerosol must work with aerosol-indirect effect/online aerosol activation and cloud chemistry')
+    endif
+
+   !-----------------------------------------
+   !1.1.1 in-cloud scavenging of aerosols 
+   !-----------------------------------------
       do 100 j=jts,jte
-      do k=kts,kte
+        do k=kts,kte
          do i=its,ite
             pdel(i,k,j)=p8w(i,k,j)-p8w(i,k+1,j)
          end do
-      end do
+        end do
 
       do 100 k=kts,kte
       do 100 i=its,ite
@@ -209,20 +256,21 @@ CONTAINS
                   do l=1,ncomp_aer(n)
                      lmasscw=massptr_aer(l,m,n,cw_phase)
                      if (lmasscw < param_first_scalar) cycle
-                     qsrflx(i,j,lmasscw)=qsrflx(i,j,lmasscw)+chem(i,k,j,lmasscw)*(scale-1.)*pdel_fac ! aerosol mass (ug/m2)
+!czhao                     qsrflx(i,j,lmasscw)=qsrflx(i,j,lmasscw)+chem(i,k,j,lmasscw)*(scale-1.)*pdel_fac ! aerosol mass (ug/m2)
                      chem(i,k,j,lmasscw)=chem(i,k,j,lmasscw)*scale
                   end do ! comp
                   lnumcw=numptr_aer(m,n,cw_phase)
                   if (lnumcw < param_first_scalar) cycle
-                  qsrflx(i,j,lnumcw)=qsrflx(i,j,lnumcw)+chem(i,k,j,lnumcw)*(scale-1.)*pdel_fac ! aerosol number (1/m2)
+!czhao                  qsrflx(i,j,lnumcw)=qsrflx(i,j,lnumcw)+chem(i,k,j,lnumcw)*(scale-1.)*pdel_fac ! aerosol number (1/m2)
                   chem(i,k,j,lnumcw)=chem(i,k,j,lnumcw)*scale
                end do ! size
             end do ! type
          end if    ! qlsink > 0
   100 continue
 
-
-! scavenging of gases in cloud-water
+   !-----------------------------------------
+   !1.1.2 in-cloud scavenging of gases 
+   !-----------------------------------------
       do 290 l = param_first_scalar, min( num_chem, numgas_aqfrac )
       if ( is_aerosol(l) ) goto 290
       do 270 j = jts,jte
@@ -233,14 +281,61 @@ CONTAINS
             fracscav = min(1.0,fracscav) ! make sure fracscav <= 1
             scale = 1.0 - fracscav
             pdel_fac = pdel(i,k,j)/(g*mwdry)
-            qsrflx(i,j,l) = qsrflx(i,j,l)+chem(i,k,j,l)*(scale-1.)*pdel_fac ! mmol/m2
+!czhao            qsrflx(i,j,l) = qsrflx(i,j,l)+chem(i,k,j,l)*(scale-1.)*pdel_fac ! mmol/m2
             chem(i,k,j,l) = chem(i,k,j,l)*scale
          end if
-270   continue
-290   continue
+ 270   continue
+ 290   continue
+
+   !-----------------------------------------
+   !1.2 in-cloud scavenging for cases without cloud-born aerosol and
+   !    aqueous phase chemistry
+   !    in this case, we should still call cloud phase gas chemistry
+   !    to get the scavenging coefficient (gas_aqfrac). 
+   !    This should be done, but not yet, now gas_aqfrac is re-calculated for soluble gases
+   !-----------------------------------------
+   CASE (RADM2SORG,CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN)
+
+    if (config_flags%progn == 1.or.config_flags%cldchem_onoff == 1) then
+      CALL wrf_error_fatal('Wet scavenging without cloud-born-aerosol must work without aerosol-indirect effect/online aerosol activation and cloud chemistry')
+    endif
+
+    if (config_flags%mp_physics/=MORR_TWO_MOMENT) then 
+     CALL wrf_error_fatal('In-cloud wet scavenging without cloud-born-aerosol is currently only coupled with morrison mp_physics scheme')
+    endif
+
+        do j=jts,jte
+        do k=kts,kte
+        do i=its,ite
+            pdel(i,k,j)=p8w(i,k,j)-p8w(i,k+1,j)
+        enddo
+        enddo
+        enddo
+
+    call wetscav_incloud(id,ktau,dtstep,ktauc,config_flags,           &
+        dtstepc,pdel,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,             &
+        qlsink,ilsink,                    &
+        r2evap,i2evap,                    &
+        gas_aqfrac, numgas_aqfrac,                                       &
+        ntype_aer, nsize_aer, ncomp_aer,                                 &
+        massptr_aer, dens_aer, numptr_aer, hygro_aer,                    &
+        maxd_acomp, maxd_asize,maxd_atype, maxd_aphase, ai_phase,        &
+        volumcen_sect, volumlo_sect, volumhi_sect,                       &
+        waterptr_aer, dens_water_aer,                                    &
+        qv,qc,qi,qs,      &
+        ids,ide, jds,jde, kds,kde,                                       &
+        ims,ime, jms,jme, kms,kme,                                       &
+        its,ite, jts,jte, kts,kte                                        )
 
 
-! below-cloud scavenging
+   CASE DEFAULT
+
+   END SELECT incloud_select
+
+
+!******************************************
+!2. below-cloud scavenging
+!******************************************
 
 ! precip rates -- 1.0 kgwtr/m2/s = 1.0e-3 m3wtr/m2/s = 1.0e-3 m/s
 !     7.06e-5 kg/m2/s = 7.06e-8 m/s = 0.01 inch/h
@@ -250,23 +345,25 @@ CONTAINS
    fapmin_ls = 1.0e-3
    pfsmall_ls = 1.0e-7
 
-   isprx(:,:,:) = .false.
-   pfx(:,:,:) = 0.0
-   pfx_inrain(:,:,:) = 0.0
-   fapx(:,:,:) = 0.0
+    do 5900 j=jts,jte
+    do 5900 i=its,ite
 
+      do k = kts,kte
+        isprx(i,k,j) = .false.
+        pfx(i,k,j) = 0.0
+        pfx_inrain(i,k,j) = 0.0
+        fapx(i,k,j) = 0.0
+      enddo
 
-      do 5900 j=jts,jte
-      do 5900 i=its,ite
-
-!----------------------------------------------------------------------
-! compute l-s precip rates
-!
+!----------------------------------------
+!2.1 compute l-s precip rates
+!----------------------------------------
 ! pf_ls(k) = precip flux at center of level
       pf_below = 0.0
       do k = kte,kts,-1
          pf_above = pf_below
-         pf_below = precr(i,k,j) + preci(i,k,j) + precs(i,k,j) + precg(i,k,j) ! total precip rate
+         !pf_below = precr(i,k,j) + preci(i,k,j) + precs(i,k,j) + precg(i,k,j) ! total precip rate
+         pf_below = precr(i,k,j) + preci(i,k,j) + precs(i,k,j) !problem with precg values,not used for now
          if (pf_below < pfsmall_ls) pf_below = 0.0
          delpf(k) = pf_below - pf_above
          pf_ls(k) = 0.5*(pf_below + pf_above)
@@ -315,17 +412,8 @@ CONTAINS
 	 end if
       end do
 
-
-!----------------------------------------------------------------------
-!----------------------------------------------------------------------
-! do the scavenging
-!
-!----------------------------------------------------------------------
 ! loop through levels
-!
       do 4900 k = kte, kts,-1
-
-
 !----------------------------------------------------------------------
 ! for each cloud/precip type (ls, dp, sh), compute
 !   fapx = fractional area with precip
@@ -349,11 +437,22 @@ CONTAINS
          fapincld = min( faptot, cldfra(i,k,j) )
          fapoutcld = max( 0.0, faptot-fapincld )
          pfoutcld = pf_ls(k)*(fapoutcld/faptot)
+
          if (pfoutcld >= pfsmall_ls) then
             isprx(i,k,j) = .true.
             pfx(i,k,j) = pfoutcld
             fapx(i,k,j) = fapoutcld
+            if (faptot.le.0.or.faptot.ge.1.e10) then
+             write(0,*) 'check faptot ',k,faptot
+             print*, 'check faptot ',k,faptot
+             stop
+            endif
             pfx_inrain(i,k,j) = pf_ls(k)/faptot
+            if (pfx_inrain(i,k,j).ge.1.e20) then
+             write(0,*) 'check pfx_inrain ',i,j,k,pfx_inrain(i,k,j),pf_ls(k),faptot
+             print*, 'check pfx_inrain ',i,j,k,pfx_inrain(i,k,j),pf_ls(k),faptot
+             stop
+            endif
             sumpf = sumpf + pfx(i,k,j)
             sumfa = sumfa + fapx(i,k,j)
          end if
@@ -361,43 +460,728 @@ CONTAINS
 
 4900 continue  ! "k = 1, pver"
 
-5900 continue  ! "i = 1, ncol"
+5900 continue  ! "i = 1, ncol", j
 
-
+!----------------------------------------
+!2.2 do below cloud scavenging
+!----------------------------------------
       call aerimpactscav (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte, num_chem,       &
-              ntype_aer, nsize_aer, ncomp_aer, massptr_aer, dens_aer, numptr_aer,  &
-		      maxd_acomp, maxd_asize,maxd_atype, maxd_aphase, ai_phase,          &
-		      volumcen_sect, volumlo_sect, volumhi_sect, &
-		      waterptr_aer, dens_water_aer,                &
-		      scavimptblvol, scavimptblnum,      &
-		      nimptblgrow_mind, nimptblgrow_maxd, dlndg_nimptblgrow,     &
-              dtstepc, t_phy, p_phy, pdel, chem,          &
-              isprx, fapx, pfx, pfx_inrain,           &
-              dqdt, dotend, qsrflx      )
+           ntype_aer, nsize_aer, ncomp_aer, massptr_aer, dens_aer, numptr_aer,  &
+           maxd_acomp, maxd_asize,maxd_atype, maxd_aphase, ai_phase,          &
+           volumcen_sect, volumlo_sect, volumhi_sect, &
+           waterptr_aer, dens_water_aer,                &
+           scavimptblvol, scavimptblnum,      &
+           nimptblgrow_mind, nimptblgrow_maxd, dlndg_nimptblgrow,     &
+           dtstepc, t_phy, p_phy, pdel, chem,          &
+           isprx, fapx, pfx, pfx_inrain,           &
+           dqdt, dotend      )
 
       call gasrainscav (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte, num_chem,     &
                       config_flags,      &
                       dtstepc,    t_phy,      p_phy,      pdel,  chem,      &
                       isprx,      fapx,       pfx,        pfx_inrain, &
-                      dqdt,       dotend,     qsrflx      )
+                      dqdt,       dotend      )
 
-!  update chem
-
+!----------------------------------------
+!2.3 update chemistry for below-cloud scavenging 
+!----------------------------------------
    do n=1,num_chem
       if(dotend(n))then
          do 6000 j=jts,jte
          do 6000 k=kts,kte
          do 6000 i=its,ite
-	    chem(i,k,j,n) = chem(i,k,j,n) + dqdt(i,k,j,n)*dtstepc
+            !czhao found dqdt(1,1,1,2) undefined
+            chem(i,k,j,n) = chem(i,k,j,n) + dqdt(i,k,j,n)*dtstepc
  6000    continue
       end if
    end do
 
-   end subroutine wetscav
-
-
 
 !===========================================================================
+!additional option of large scale wet scavenging following GEOS-CHEM
+!     call wetscav_largescale (
+!       ids,ide, jds,jde, kds,kde,                                       &
+!       ims,ime, jms,jme, kms,kme,                                       &
+!       its,ite, jts,jte, kts,kte                                        )
+!===========================================================================
+
+   end subroutine wetscav
+
+!===========================================================================
+ subroutine wetscav_incloud (id,ktau,dtstep,ktauc,config_flags,           &
+        dtstepc,pdel,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,             &
+        qlsink,ilsink,                    &
+        r2evap,i2evap,                    &
+        gas_aqfrac, numgas_aqfrac,                                       &
+        ntype_aer, nsize_aer, ncomp_aer,                                 &
+        massptr_aer, dens_aer, numptr_aer, hygro_aer,                    &
+        maxd_acomp, maxd_asize,maxd_atype, maxd_aphase, ai_phase,        &
+        volumcen_sect, volumlo_sect, volumhi_sect,                       &
+        waterptr_aer, dens_water_aer,                                    &
+        qv,qc,qi,qs,      &
+        ids,ide, jds,jde, kds,kde,                                       &
+        ims,ime, jms,jme, kms,kme,                                       &
+        its,ite, jts,jte, kts,kte                                        )
+
+!-----------------------------------------------------------------------
+! Purpose:
+! Does in-cloud scavenging of aerosols without cloud-born aerosol 
+!
+! Authors: Chun Zhao, PNNL 
+!-----------------------------------------------------------------------
+  USE module_configure, only: grid_config_rec_type
+  USE module_model_constants, only: g,rhowater, mwdry
+  USE module_state_description
+  USE module_dep_simple, only: is_aerosol
+
+! USE module_radiation_driver, only: cal_cldfra,cal_cldfra2
+
+
+   implicit none
+
+   TYPE(grid_config_rec_type),  INTENT(IN   )    :: config_flags
+
+   INTEGER,      INTENT(IN   )    ::                                &
+                                      ids,ide, jds,jde, kds,kde,    &
+                                      ims,ime, jms,jme, kms,kme,    &
+                                      its,ite, jts,jte, kts,kte,    &
+                                      id, ktau, ktauc, numgas_aqfrac
+      REAL,      INTENT(IN   ) :: dtstep,dtstepc
+!
+! all advected chemical species
+!
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),          &
+         INTENT(INOUT ) ::                                chem
+
+! fraction of gas species in cloud water
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, numgas_aqfrac ),     &
+         INTENT(IN ) ::                                   gas_aqfrac
+
+!
+! input from meteorology
+!
+   REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,        &
+          INTENT(IN   ) ::                                          &
+                                                        alt,        &
+                                                      t_phy,        &
+                                                      p_phy,        &
+                                                    t8w,p8w,        &
+                             qlsink,ilsink,        &
+                             r2evap,i2evap,        &
+                                             rho_phy,cldfra
+   integer, intent(in) :: maxd_atype, maxd_asize, maxd_acomp, maxd_aphase
+   integer, intent(in) :: ai_phase
+
+   integer, intent(in) :: ntype_aer 
+   integer, intent(in) :: nsize_aer( maxd_atype ),   & ! number of size bins
+          ncomp_aer( maxd_atype ),   & ! number of chemical components
+          massptr_aer( maxd_acomp, maxd_asize, maxd_atype, maxd_aphase), & ! index for mixing ratio 
+          waterptr_aer( maxd_asize, maxd_atype ), & ! index for aerosol water
+          numptr_aer( maxd_asize, maxd_atype, maxd_aphase ) ! index for the number mixing ratio
+   real, intent(in) :: dens_aer( maxd_acomp, maxd_atype ),   & ! material density (g/cm3)
+          dens_water_aer, hygro_aer( maxd_acomp, maxd_atype) ! water density (g/m3)
+   real, intent(in) :: volumcen_sect( maxd_asize, maxd_atype ),   & ! single-particle volumes (cm3)
+                        volumlo_sect( maxd_asize, maxd_atype ),   & ! at section center, lower boundary,
+                        volumhi_sect( maxd_asize, maxd_atype )      ! upper boundary
+
+   real, intent(in), dimension( ims:ime, kms:kme, jms:jme ) :: &
+                qv, qc, qi,qs
+   real, intent(in), dimension( ims:ime, kms:kme, jms:jme ) :: &
+                pdel 
+
+
+! LOCAL  VAR
+!
+   real :: pdel_fac
+   real :: qcld,lcldfra,icldfra
+   real :: scale,scale1,scale2
+   real :: fracscav
+
+   integer :: i,j,k,l,m,n,lmod
+   integer :: lmass,lnum
+
+   real, parameter :: tmelt = 273.15     ! freezing T of fresh water (K)
+
+
+!Prescribed scavenging ratios for cases without online aerosol-activation:
+!--- stratifrom cloud water in water and mixed clouds (T>238.5K):
+   REAL :: csr_strat_wat(3) ! for three modes
+!--- stratifrom cloud ice in mixed clouds (T>238.5K):
+   REAL :: csr_strat_mix(3) ! for three modes
+!--- stratifrom cloud ice in ice clouds (T<238.5K):
+   REAL :: csr_strat_ice(3) ! for three modes
+!--- convective clouds: 
+!  REAL :: csr_conv(3) ! is not used for now
+
+   !aerosol in-cloud scavenging coefficent
+   real :: lscav_coef(3)  !3 modes
+   real :: iscav_coef(3)  !3 modes
+   !gas in-cloud scavenging coefficent
+   real :: gasscav_coef(numgas_aqfrac) 
+   real :: totprep,sumclcp,sump
+   real,dimension( ims:ime, kms:kme, jms:jme ) :: feffpr
+   real, parameter :: minp = 1.e-20  
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme, num_chem ) ::wdep_mass
+   real :: sumhygro,sumvol,hygro,sol_f
+   real,parameter :: chem_minv=1.e-20
+
+
+   wdep_mass=0.0
+
+!--- 1. Pre-set parameters
+   
+   !--- 1.1 Pre-set scavenging ratios following ECHAM5:
+   !reference: based on the Thesis of Stier
+   !since we don't have soluble and insoluble modes, all is assumed to be 
+   !soluble for now
+   !--- Stratiform:
+   csr_strat_wat = (/0.25, 0.85, 0.99/)
+   csr_strat_mix = (/0.40, 0.75, 0.75/)
+   csr_strat_ice = (/0.10, 0.10, 0.10/)
+   !--- Convective:
+   !csr_conv      = (/0.60, 0.99, 0.99/) ! not used for now
+
+   !--- 1.2 Calculate the effective grid-box fraction 
+   !   affected by precipitation (feffpr):
+   do j=jts,jte
+   do i=its,ite
+      totprep=0.0
+      sumclcp=0.0
+      sump=0.0
+   do k=kte,kts,-1  ! from top to bottom
+      !--- Preciptiation formation:
+      totprep=qlsink(i,k,j)+ilsink(i,k,j)
+      !--- Precipitaion-formation weighted averaging:
+      sumclcp=sumclcp+cldfra(i,k,j)*totprep
+      sump=sump+totprep
+      IF(sump.GT.minp) THEN
+         feffpr(i,k,j)=sumclcp/sump
+      ELSE
+         feffpr(i,k,j)=0.
+      ENDIF
+   enddo
+   enddo
+   enddo
+
+ do 100 j=jts,jte
+ do 100 k=kts,kte
+ do 100 i=its,ite
+
+   !--- 1.3 Calculate cloud fraction for liquid and ice 
+      if(f_qi)then
+        qcld=qc(i,k,j)+qi(i,k,j)
+      else
+        qcld=qc(i,k,j)
+      endif
+      if(qcld.lt.-1..or.qcld.gt.1.)then
+        write(6,'(a,g12.2,a,3i5)')'qcld=',qcld,' for i,k,j=',i,k,j
+        call wrf_error_fatal("1")
+      endif
+      if(qcld.gt.1.e-20)then
+        lcldfra=cldfra(i,k,j)*qc(i,k,j)/qcld
+        icldfra=1.0-lcldfra
+      else
+        lcldfra=0.
+        icldfra=0.
+      endif
+
+   !--- 1.4 Assign scavenging ratios for different modes of aerosols and types of clouds 
+      !--- water clouds:
+      if (t_phy(i,k,j)> tmelt) then 
+        lscav_coef(:) = csr_strat_wat
+        iscav_coef(:) = csr_strat_wat
+
+      !--- mixing clouds:
+      else if (t_phy(i,k,j)>238.15) then 
+        lscav_coef(:) = csr_strat_mix
+        iscav_coef(:) = csr_strat_mix
+
+      !--- cold clouds:
+      else 
+        lscav_coef(:) = csr_strat_wat
+        iscav_coef(:) = csr_strat_ice
+      endif
+
+
+!--- 2. Wet scavenging 
+
+   !--- 2.1 Wet scavenging of aerosol in liquid and ice cloud 
+      if (qlsink(i,k,j) >  0.0 .or. ilsink(i,k,j) >  0.0) then
+
+         pdel_fac = pdel(i,k,j)/(g*mwdry)
+         do n=1,ntype_aer
+          do m=1,nsize_aer(n)
+
+            !calculate volume-weighted bulk hygroscopicity
+            sumhygro=0.
+            sumvol=0. 
+            do l=1,ncomp_aer(n)
+              lmass=massptr_aer(l,m,n,ai_phase)
+              chem(i,k,j,lmass)=max(chem(i,k,j,lmass),chem_minv)
+              sumhygro = sumhygro+hygro_aer(l,n)*chem(i,k,j,lmass)/dens_aer(l,n)
+              sumvol = sumvol+chem(i,k,j,lmass)/dens_aer(l,n)
+              if (sumvol.le.0) then 
+                write(0,*) 'incorrect vol ',n,m,l,sumvol,chem(i,k,j,lmass)
+                print*, 'incorrect vol ',n,m,l,sumvol,chem(i,k,j,lmass)
+              endif
+            enddo ! comp
+            hygro=sumhygro/sumvol
+            !calculate the soluble fraction of the internal-mixing aerosol based on hygroscopicity
+            !this is not accurate, just for temporary application !!!!
+            sol_f=min(max(hygro/1.0,0.0),1.0)
+           
+           if (ntype_aer.gt.1) then ! modal approach 
+            if (n==1.and.m==1) lmod = 1 !Aitken mode
+            if (n==1.and.m==2) lmod = 2 !Accumulation mode
+            if (n==2.and.m==1) lmod = 3 !Coarse mode
+           else   ! bin approach,now only support 1 type, i.e., ntype_aer=1 
+            if (nsize_aer(1).le.4) then  ! 4-bin
+             if (m==1) lmod = 1 !Aitken mode
+             if (m==2) lmod = 2 !Accumulation mode
+             if (m==3) lmod = 2 !Accumulation mode
+             if (m==4) lmod = 3 !Coarse mode
+            else    ! 8-bin
+             if (m==1) lmod = 1 !Aitken mode
+             if (m==2) lmod = 1 !Aitken mode
+             if (m==3) lmod = 2 !Accumulation mode
+             if (m==4) lmod = 2 !Accumulation mode
+             if (m==5) lmod = 2 !Accumulation mode
+             if (m==6) lmod = 3 !Coarse mode
+             if (m==7) lmod = 3 !Coarse mode
+             if (m==8) lmod = 3 !Coarse mode
+            endif
+           endif
+ 
+           do l=1,ncomp_aer(n)
+
+             scale1=max(dtstepc*qlsink(i,k,j)*lcldfra*lscav_coef(lmod)*sol_f,0.)
+             if(scale1.gt.1.)then
+              write(0,*)'qlsink,scale1=',qlsink(i,k,j),scale1,' i,k,j=',i,k,j
+              print *,'qlsink,scale1=',qlsink(i,k,j),scale1,' i,k,j=',i,k,j
+              scale1=1.
+             endif
+
+             !scale2=max(dtstepc*ilsink(i,k,j)*icldfra*iscav_coef(lmod)*sol_f,0.)
+             scale2=max(dtstepc*ilsink(i,k,j)*icldfra*iscav_coef(lmod),0.)
+             if(scale2.gt.1.)then
+              write(0,*)'ilsink,scale2=',ilsink(i,k,j),scale2,' i,k,j=',i,k,j
+              print *,'ilsink,scale2=',ilsink(i,k,j),scale2,' i,k,j=',i,k,j
+              scale2=1.
+             endif
+             !turn off the ice-cloud scavenging for now.   
+             !The auto-conversion rate should be correctly treated in microphysics in future.
+             scale2=0.0
+
+             scale=max(1.0-scale1-scale2,0.)
+             if(scale.gt.1.)then
+              write(0,*)'scale=',scale,' i,k,j=',i,k,j
+              print *,'scale=',scale,' i,k,j=',i,k,j
+              scale=1.
+             endif
+ 
+             lmass=massptr_aer(l,m,n,ai_phase)
+             if (lmass < param_first_scalar) cycle
+!            qsrflx(i,j,lmass)=qsrflx(i,j,lmass)+chem(i,k,j,lmass)*(scale-1.)*pdel_fac
+             wdep_mass(i,k,j,lmass)=chem(i,k,j,lmass)*(1.0-scale)
+             chem(i,k,j,lmass)=chem(i,k,j,lmass)*scale
+           enddo ! comp
+             lnum=numptr_aer(m,n,ai_phase)
+             if (lnum < param_first_scalar) cycle
+!            qsrflx(i,j,lnum)=qsrflx(i,j,lnum)+chem(i,k,j,lnum)*(scale-1.)*pdel_fac
+             wdep_mass(i,k,j,lnum)=chem(i,k,j,lnum)*(1.0-scale)
+             chem(i,k,j,lnum)=chem(i,k,j,lnum)*scale
+          enddo ! size
+         enddo ! type
+      endif   ! qlsink > 0 or ilsink > 0
+
+   !--- 2.2 Wet scavenging of gases in liquid cloud 
+
+      gasscav_coef(1:numgas_aqfrac) = gas_aqfrac(i,k,j,1:numgas_aqfrac)
+      !The coefficient should be calculated in cloud-chemistry,
+      !but now,it's not available, i.e., gas_aqfrac==0.0, 
+      !so the coefficient is calculated following GEOS-CHEM 
+      call gascloudscav_coef(numgas_aqfrac,config_flags,dtstepc,  & 
+                 t_phy(i,k,j),p_phy(i,k,j),gasscav_coef,   &
+                 qlsink(i,k,j),ilsink(i,k,j),lcldfra,icldfra,feffpr(i,k,j), &
+                 qc(i,k,j),qi(i,k,j),rho_phy(i,k,j),num_chem,chem(i,k,j,:), &
+                             ims,ime,kms,kme,jms,jme,              &
+                             its,ite,kts,kte,jts,jte)
+             
+      do 101 l = param_first_scalar, min(num_chem,numgas_aqfrac)
+        if ( is_aerosol(l) ) goto 101
+        fracscav = gasscav_coef(l)
+        if (fracscav > 0.0) then
+           fracscav = max( 0.0, min( 1.0, fracscav ) )
+           scale = 1.0 - fracscav
+           pdel_fac = pdel(i,k,j)/(g*mwdry)
+!          qsrflx(i,j,l) = qsrflx(i,j,l)+chem(i,k,j,l)*(scale-1.)*pdel_fac
+           wdep_mass(i,k,j,l)=chem(i,k,j,l)*(1.0-scale)
+           chem(i,k,j,l) = chem(i,k,j,l)*scale
+        endif
+ 101  continue
+
+ 100 continue
+
+   !--- 2.3 Re-evaporation  
+   !The evaporation rates (r2evap,i2evap) are outputed, but not treated for RAINOUT for now 
+
+
+ end subroutine wetscav_incloud
+!===========================================================================
+
+subroutine gascloudscav_coef (numgas_aqfrac, config_flags,deltat,  &
+                             t,pmid,gasscav_coef,  &
+                             qlsink,ilsink,lcldfra,icldfra,feffpr,  &
+                             qc,qi,airdens,num_chem,chem0,  &
+                             ims,ime,kms,kme,jms,jme,        &
+                             its,ite,kts,kte,jts,jte)
+
+!-----------------------------------------------------------------------
+!
+! Purpose:
+! Calculate the gas scavenging coefficient in cloud water 
+!
+! Authors: Chun Zhao, PNNL 
+!
+!-----------------------------------------------------------------------
+
+  use module_configure, only:  grid_config_rec_type,   &
+                param_first_scalar,   &
+                p_so2, p_h2o2, p_sulf, p_msa,   &
+                p_hno3, p_hcl, p_nh3,p_hcho
+
+   implicit none
+
+   integer, intent(in)  :: ims,ime            ! column dimension
+   integer, intent(in)  :: kms,kme            ! level dimension
+   integer, intent(in)  :: jms,jme            ! column dimension
+   integer, intent(in)  :: its,ite            ! column identifier
+   integer, intent(in)  :: kts,kte            ! level identifier
+   integer, intent(in)  :: jts,jte            ! column identifier
+   TYPE(grid_config_rec_type),  INTENT(IN   )    :: config_flags
+
+   integer, intent(in)  :: num_chem 
+   REAL, DIMENSION(num_chem ),          &
+       INTENT(INOUT ) ::                          chem0
+
+
+   real, intent(in) :: deltat           ! model timestep
+
+   real, intent(in) :: qlsink,ilsink,lcldfra,icldfra,feffpr,qc,qi,airdens
+
+
+   real, intent(in) :: t    ! temperature
+   real, intent(in) :: pmid ! pressure at model levels
+
+   INTEGER,      INTENT(IN)    :: numgas_aqfrac
+   ! fraction of gas species in cloud water
+   REAL, DIMENSION(numgas_aqfrac ),INTENT(INOUT) :: gasscav_coef
+
+
+!--------------------------Local Variables------------------------------
+   integer :: i, j, k         ! x, y, z work index
+   integer :: p1st
+
+   integer, parameter :: ng = 8
+   integer, parameter :: ig_so2   = 1
+   integer, parameter :: ig_h2o2  = 2
+   integer, parameter :: ig_h2so4 = 3
+   integer, parameter :: ig_msa   = 4
+   integer, parameter :: ig_hno3  = 5
+   integer, parameter :: ig_hcl   = 6
+   integer, parameter :: ig_nh3   = 7
+   integer, parameter :: ig_hcho   = 8
+   integer :: ig, lg, lg_ptr(ng)
+
+   real :: rainrate,rainrate1 
+   real :: rainfrac 
+
+   REAL, PARAMETER    :: CONV_H2O2 = 8.27042925126d-1
+   REAL, PARAMETER    :: CONV_NH3  = 5.69209978831d-1
+   real :: c_h2o
+   real :: qcv,qiv,l2g,i2g
+   real :: c_tot,f_l,f_i 
+   real :: so2loss
+
+
+   gasscav_coef = 0.0
+   rainrate=qlsink+ilsink
+
+   qcv=(qc/(1.0*1.e3))*airdens  !kg/kg to m3/m3
+   qiv=(qi/(0.9*1.e3))*airdens
+
+   p1st = param_first_scalar
+
+   lg_ptr(ig_so2  ) = p_so2
+   lg_ptr(ig_h2o2 ) = p_h2o2
+   lg_ptr(ig_h2so4) = p_sulf
+   lg_ptr(ig_msa  ) = p_msa
+   lg_ptr(ig_hno3 ) = p_hno3
+   lg_ptr(ig_hcl  ) = p_hcl
+   lg_ptr(ig_nh3  ) = p_nh3
+   lg_ptr(ig_hcho ) = p_hcho
+
+   !------------------------------------
+   ! Coefficient begins here!
+   !------------------------------------
+   do ig = 1, ng
+    if (lg_ptr(ig)==p_hno3) then !HNO3 (treat it as aerosol)
+      rainfrac = GET_RAINFRAC(rainrate, feffpr, deltat)
+      gasscav_coef(lg_ptr(ig))=min(rainfrac,0.9999)
+!     if (rainfrac>0.5) then 
+!     write(0,*)  'czhao check hno3 coef',rainfrac
+!     print*,  'czhao check hno3 coef',rainfrac
+!     endif
+    else if (lg_ptr(ig)==p_h2o2) then ! H2O2 (liquid & ice phases) 
+         ! Compute ice to gas ratio for H2O2 by co-condensation
+         ! (Eq. 9, Jacob et al, 2000)
+         c_h2o= E_ICE( t ) / (pmid*0.01)  ! hPa 
+
+         IF ( c_h2o > 0d0 ) THEN
+            I2G = ( qiv / C_H2O ) * CONV_H2O2
+         ELSE
+            I2G = 0d0
+         ENDIF
+
+         ! Compute liquid to gas ratio for H2O2, using
+         ! the appropriate parameters for Henry's law
+         ! (Eqs. 7, 8 and Table 1, Jacob et al, 2000)
+         CALL COMPUTE_L2G( 8.3d4, -7.4d3, t, qcv, L2G )
+
+         ! Fraction of H2O2 in liquid & ice phases
+         ! (Eqs. 4, 5, 6, Jacob et al, 2000)
+         C_TOT = 1d0 + L2G + I2G
+         F_L   = L2G / C_TOT
+         F_I   = I2G / C_TOT
+
+         ! Compute the rate constant K.  The retention factor  
+         ! for liquid H2O2 is 0.05 for 248 K < T < 268 K, and 
+         ! 1.0 for T >= 268 K.  (Eq. 1, Jacob et al, 2000)
+         IF ( t >= 268d0 ) THEN
+            rainrate1 = rainrate * ( F_L + F_I )
+         ELSE IF ( t > 248d0  .and. t < 268d0 ) THEN
+            rainrate1 = rainrate * ( ( 5d-2 * F_L ) + F_I )
+         ELSE
+            rainrate1 = rainrate * F_I
+         ENDIF
+
+         ! Compute RAINFRAC, the fraction of rained-out H2O2
+         ! (Eq. 10, Jacob et al, 2000)
+         rainfrac = GET_RAINFRAC(rainrate1, feffpr, deltat)
+         gasscav_coef(lg_ptr(ig))=min(rainfrac,0.9999)
+
+    else if (lg_ptr(ig)==p_hcho) then ! CH2O (liquid phase only) 
+         ! Compute liquid to gas ratio for CH2O, using
+         ! the appropriate parameters for Henry's law
+         ! (Eqs. 7, 8 and Table 1, Jacob et al, 2000)
+         CALL COMPUTE_L2G( 3.0d3, -7.2d3, T, qcv, L2G )
+
+         ! Fraction of CH2O in liquid phase 
+         ! NOTE: CH2O does not exist in the ice phase!
+         ! (Eqs. 4, 5, Jacob et al, 2000)
+         C_TOT = 1d0 + L2G
+         F_L   = L2G / C_TOT
+
+         ! Compute the rate constant K.  The retention factor  
+         ! for liquid CH2O is 0.02 for 248 K < T < 268 K, and 
+         ! 1.0 for T > 268 K. (Eq. 1, Jacob et al, 2000)
+         IF ( t >= 268d0 ) THEN
+            rainrate1 = rainrate * F_L
+         ELSE IF ( t > 248d0 .and. t < 268d0 ) THEN
+            rainrate1 = rainrate * ( 2d-2 * F_L )
+         ELSE
+            rainrate1 = 0d0
+         ENDIF
+         ! Compute RAINFRAC, the fraction of rained-out CH2O
+         ! (Eq. 10, Jacob et al, 2000)
+         rainfrac = GET_RAINFRAC(rainrate1, feffpr, deltat)
+         gasscav_coef(lg_ptr(ig))=min(rainfrac,0.9999)
+    else if (lg_ptr(ig)==p_so2) then ! SO2
+         !==============================================================
+         ! NOTE: SO2 and H2O2 are in [v/v] and here RAINFRAC contains 
+         ! the amount of SO2 lost due to rainout normalized by the
+         ! total SO2 -- so that in WETDEP routine mulitiplying SO2 in 
+         ! [kg] will produce correct amount.  Need to verify this. 
+         ! (rjp, 01/16/02)
+         !==============================================================
+         ! Treat SO2 as an aerosol
+         RAINFRAC = GET_RAINFRAC(rainrate,feffpr,deltat)
+         ! Update SO2 and H2O2
+         IF ( chem0(p_so2) > 1.e-16 ) THEN
+
+            ! Limit RAINFRAC 
+            SO2LOSS      = MIN( chem0(p_so2), chem0(p_h2o2) )
+            RAINFRAC     = SO2LOSS * RAINFRAC / chem0(p_so2)
+            RAINFRAC     = MAX( RAINFRAC, 0d0 )
+
+            ! Update saved H2O2 concentration
+            chem0(p_h2o2) = chem0(p_h2o2) - ( chem0(p_so2) * RAINFRAC )
+            chem0(p_h2o2) = MAX(chem0(p_h2o2),1.e-16)
+         ELSE
+            RAINFRAC = 0D0
+         ENDIF
+         gasscav_coef(lg_ptr(ig))=min(rainfrac,0.9999)
+    else if (lg_ptr(ig)==p_sulf.or.lg_ptr(ig)==p_hcl) then !SO4, assume HCL the same as SO4
+         RAINFRAC = GET_RAINFRAC(rainrate,feffpr,deltat)
+         gasscav_coef(lg_ptr(ig))=min(rainfrac,0.9999)
+    else if (lg_ptr(ig)==p_msa) then !MSA
+         RAINFRAC = GET_RAINFRAC(rainrate,feffpr,deltat)
+         gasscav_coef(lg_ptr(ig))=min(rainfrac,0.9999)
+    else if (lg_ptr(ig)==p_nh3) then !NH3 (liquid & ice phases)
+         ! Compute ice to gas ratio for NH3 by co-condensation
+         ! (Eq. 9, Jacob et al, 2000)
+         c_h2o= E_ICE( t ) / (pmid*0.01)  ! hPa 
+         IF ( C_H2O > 0d0 ) THEN
+            I2G = ( qiv / C_H2O) * CONV_NH3
+         ELSE
+            I2G = 0d0
+         ENDIF
+         ! Compute liquid to gas ratio for NH3, using
+         ! the appropriate parameters for Henry's law
+         ! (Seinfeld and Pandis, p343 eq. 6.8)
+         ! PH    = 4.5  ! Assumed PH for typical cloud drop
+         ! Hstar = 1.054d11 * (10.**(-PH)) == 3.3d6
+         CALL COMPUTE_L2G( 3.3d6, -4.1d3, t, qcv, L2G )
+         ! Fraction of NH3 in liquid & ice phases
+         ! (Eqs. 4, 5, 6, Jacob et al, 2000)
+         C_TOT = 1d0 + L2G + I2G
+         F_L   = L2G / C_TOT
+         F_I   = I2G / C_TOT
+         ! Compute the rate constant K.  The retention factor  
+         ! for liquid NH3 is 0.05 for 248 K < T < 268 K, and 
+         ! 1.0 for T >= 268 K.  (Eq. 1, Jacob et al, 2000)
+         IF ( t >= 268d0 ) THEN
+            rainrate1 = rainrate * ( F_L + F_I )
+         ELSE IF ( t > 248d0  .and. t < 268d0 ) THEN
+            rainrate1 = rainrate * ( ( 5d-2 * F_L ) + F_I )
+         ELSE
+            rainrate1 = rainrate * F_I
+         ENDIF
+         ! Compute RAINFRAC, the fraction of rained-out NH3
+         ! (Eq. 10, Jacob et al, 2000)
+         RAINFRAC = GET_RAINFRAC(rainrate1,feffpr,deltat)
+         gasscav_coef(lg_ptr(ig))=min(rainfrac,0.9999)
+    endif
+
+   enddo  !ig
+
+   return
+end subroutine gascloudscav_coef
+
+!============================================================================
+SUBROUTINE COMPUTE_L2G( Kstar298, H298_R, TK, H2OLIQ, L2G )
+!
+!******************************************************************************
+!  Subroutine COMPUTE_L2G computes the ratio L2G = Cliq / Cgas, which is 
+!  the mixing ratio of tracer in the liquid phase, divided by the mixing 
+!  ratio of tracer in the gas phase.
+!
+!  The ratio Cliq / Cgas is obtained via Henry's law.  The appropriate 
+!  values of Kstar298 and H298_R must be supplied for each tracer.  
+!  (cf Jacob et al 2000, p. 3)
+!
+!  Arguments as Input:
+!  ============================================================================
+!  (1 ) Kstar298 (REAL*8) : Eff. Henry's law constant @ 298 K   [moles/atm]
+!  (2 ) H298_R   (REAL*8) : Molar heat of formation @ 298 K / R [K]
+!  (3 ) TK       (REAL*8) : Temperature at grid box (I,J,L)     [K]
+!  (4 ) H2OLIQ   (REAL*8) : Liquid water content at (I,J,L)     [cm3 H2O/cm3 air]
+!  Arguments as Output:
+!  ============================================================================
+!  (5 ) L2G      (REAL*8) : Cliq/Cgas ratio for given tracer  [unitless]
+!
+!  References (see above for full citations):
+!  ===========================================================================
+!  (1 ) Jacob et al, 2000
+!******************************************************************************
+!
+      ! Arguments
+      REAL*8,INTENT(IN) :: KStar298, H298_R
+      REAL, INTENT(IN) :: TK, H2OLIQ
+      REAL, INTENT(OUT) :: L2G
+
+      ! Local variables
+      REAL              :: Kstar
+
+      ! R = universal gas constant [atm/moles/K]
+      REAL, PARAMETER   :: R = 8.32d-2
+
+      ! INV_T0 = 1/298 K
+      REAL, PARAMETER   :: INV_T0 = 1d0 / 298d0
+
+      !=================================================================
+      ! COMPUTE_L2G begins here!
+      !=================================================================
+
+      ! Get Kstar, the effective Henry's law constant for temperature TK
+      Kstar = Kstar298 * EXP( -H298_R * ( ( 1d0 / TK ) - INV_T0 ) )
+
+      ! Use Henry's Law to get the ratio:
+      ! [ mixing ratio in liquid phase / mixing ratio in gas phase ]
+      L2G   = Kstar * H2OLIQ * R * TK
+
+      ! Return to calling program
+END SUBROUTINE COMPUTE_L2G
+
+!=================================================================
+
+FUNCTION E_ICE( TK ) RESULT( VALUE )
+! 
+!******************************************************************************
+!  Subroutine E_ICE computes Eice(T), the saturation vapor pressure of ice
+!  at a given Celsius temperature. 
+!  
+!  Arguments as Input:
+!  (1 ) TK (REAL*8) : Ambient temperature [K] 
+! 
+!  References:
+!  (1 ) Marti & Mauersberber (GRL '93) formulation of saturation 
+!        vapor pressure of ice [Pa] is: log P = A/TK + B
+!  NOTES:
+!  (1 ) Now use the same analytic function as the Goddard CTM (bmy, 2/8/05)
+!******************************************************************************
+      ! Arguments as Input
+      REAL, INTENT(IN) :: TK
+      ! Return value
+      REAL             :: VALUE
+      ! Parameters
+      REAL, PARAMETER  :: A = -2663.5d0
+      REAL, PARAMETER  :: B =  12.537d0
+
+      ! E_ICE begins here!
+
+      ! Saturation vap press of Ice [Pa] -- divide by 100 for [hPa]
+      VALUE = ( 10d0**( A/TK + B ) ) / 100d0
+
+      ! Return to calling program
+END FUNCTION E_ICE
+
+
+!=================================================================
+FUNCTION GET_RAINFRAC( K, F, DT ) RESULT( RAINFRAC )
+!
+!  Function GET_RAINFRAC computes the fraction of tracer lost to rainout 
+!  according to Jacob et al 2000. 
+!
+!  Arguments as Input:
+!******************************************************************************
+!  (1 ) K  (REAL*8) : Rainout rate constant              [1/s]
+!  (2 ) DT (REAL*8) : Timestep for rainout event         [s]
+!  (3 ) F  (REAL*8) : Fraction of grid box precipitating [unitless]
+!******************************************************************************
+!
+      ! Arguments
+      REAL, INTENT(IN) :: K, F, DT
+      ! Local variables
+      REAL             :: RAINFRAC
+
+      ! (Eq. 10, Jacob et al, 2000 ) 
+      RAINFRAC = F * ( 1 - EXP( -K * DT ) )
+
+      ! Return to RAINOUT
+      END FUNCTION GET_RAINFRAC
+!===========================================================================
+
 !===========================================================================
 subroutine aerimpactscav (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte,num_chem,  &
      ntype_aer, nsize_aer, ncomp_aer, massptr_aer, dens_aer, numptr_aer, &
@@ -407,7 +1191,7 @@ subroutine aerimpactscav (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte,num_ch
      scavimptblvol, scavimptblnum, nimptblgrow_mind, nimptblgrow_maxd, dlndg_nimptblgrow, &
      deltat,     t,          pmid,       pdel, chem,                     &
      isprx,      fapx,       pfx,        pfx_inrain,                     &
-     dqdt,       dotend,     qsrflx                                      )
+     dqdt,       dotend                                           )
 
 
 !-----------------------------------------------------------------------
@@ -458,7 +1242,7 @@ subroutine aerimpactscav (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte,num_ch
 
    real, intent(inout) :: dqdt(ims:ime,kms:kme,jms:jme,num_chem) ! TMR tendency array
    logical,  intent(inout) :: dotend(num_chem)     ! flag for doing scav
-   real, intent(inout) :: qsrflx(ims:ime,jms:jme,num_chem) 
+!czhao   real, intent(inout) :: qsrflx(ims:ime,jms:jme,num_chem) 
                         ! changes to column tracer burdens by wet scavenging over current timestep
                         ! this routine adds on the contribution from aerosol impaction and brownian
                         !    diffusion scavenging by precipitation
@@ -553,7 +1337,7 @@ subroutine aerimpactscav (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte,num_ch
 !   wet volume
           l = waterptr_aer(m,n)
           if (l >= param_first_scalar) then
-             duma = max( chem(i,k,j,l)*1.0e-6, 0.0 )
+             duma = max( chem(i,k,j,l)*1.0e-6, 1.e-20)
           else
              duma = 0.0
           end if
@@ -723,27 +1507,27 @@ subroutine aerimpactscav (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte,num_ch
 	    l = massptr_aer(ll,m,n,ai_phase)
 	    if (l < param_first_scalar) cycle
 	    dqdt(i,k,j,l) = chem(i,k,j,l)*dumrate
-	    qsrflx(i,j,l) = qsrflx(i,j,l) + dqdt(i,k,j,l)*pdel_dt_fac ! aerosol mass (ug/m2)
+!czhao	    qsrflx(i,j,l) = qsrflx(i,j,l) + dqdt(i,k,j,l)*pdel_dt_fac ! aerosol mass (ug/m2)
 	end do
 	l = waterptr_aer(m,n)
 	if (l >= param_first_scalar) then 
 	    dqdt(i,k,j,l) = chem(i,k,j,l)*dumrate
-	    qsrflx(i,j,l) = qsrflx(i,j,l) + dqdt(i,k,j,l)*pdel_dt_fac ! aerosol water mass (ug/m2)
+!czhao	    qsrflx(i,j,l) = qsrflx(i,j,l) + dqdt(i,k,j,l)*pdel_dt_fac ! aerosol water mass (ug/m2)
 	end if
 	l = numptr_aer(m,n,ai_phase)
 	if (l >= param_first_scalar) then 
 	    dumrate = -dumimpactamt0/(deltat*(1.0 + 1.0e-8))
 	    dqdt(i,k,j,l) = chem(i,k,j,l)*dumrate
-	    qsrflx(i,j,l) = qsrflx(i,j,l) + dqdt(i,k,j,l)*pdel_dt_fac ! aerosol number (1/m2)
+!czhao	    qsrflx(i,j,l) = qsrflx(i,j,l) + dqdt(i,k,j,l)*pdel_dt_fac ! aerosol number (1/m2)
 	end if
 
 
 
 3900 continue  ! "n = 1, ntot_amode"
 
-4900 continue  ! "k = 1, pver"
+4900 continue  ! "k = kts,kte"
 
-5900 continue  ! "i = 1, ncol"
+5900 continue  ! "i = its,ite, j=jts,jte"
 
 
 ! set dotend's
@@ -1148,7 +1932,7 @@ subroutine gasrainscav (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte,num_chem
                       deltat,     t,          pmid,       pdel,       &
                       chem,                                  &
                       isprx,      fapx,       pfx,        pfx_inrain, &
-                      dqdt,       dotend,     qsrflx      )
+                      dqdt,       dotend      )
 
 
 !-----------------------------------------------------------------------
@@ -1204,9 +1988,9 @@ subroutine gasrainscav (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte,num_chem
                                                  ! flux (kg/m2/s)
    real, intent(in) :: pfx_inrain(ims:ime,kms:kme,jms:jme)  !  precip flux (kg/m2/s)
 
-   real, intent(out) :: dqdt(ims:ime,kms:kme,jms:jme,num_chem) ! TMR tendency array
+   real, intent(inout) :: dqdt(ims:ime,kms:kme,jms:jme,num_chem) ! TMR tendency array
    logical,  intent(inout) :: dotend(num_chem)     ! flag for doing scav
-   real, intent(inout) :: qsrflx(ims:ime,jms:jme,num_chem)
+!  real, intent(inout) :: qsrflx(ims:ime,jms:jme,num_chem)
                         ! changes to column tracer burdens by wet scavenging over current timestep
                         ! this routine adds on the contribution from gas scavenging
                         !    by mass transfer to rain
@@ -1373,7 +2157,7 @@ subroutine gasrainscav (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte,num_chem
 	    lg = lg_ptr(ig)
 	    if (lg .ge. p1st) then
 		dqdt(i,k,j,lg) = -deltatinv*amtscav(ig)  
-		qsrflx(i,j,lg) = qsrflx(i,j,lg) - pdel_fac*amtscav(ig) ! mmol/m2
+!czhao		qsrflx(i,j,lg) = qsrflx(i,j,lg) - pdel_fac*amtscav(ig) ! mmol/m2
 	    end if
 	end do
 
@@ -1569,5 +2353,294 @@ end subroutine gasrainscav
 
 	return
 	end subroutine linsolv
+
+
+!===========================================================================
+!subroutine wetscav_largescale (ims,ime,kms,kme,jms,jme,its,ite,kts,kte,jts,jte,num_chem,  &
+!    ntype_aer, nsize_aer, ncomp_aer, massptr_aer, dens_aer, numptr_aer, &
+!    maxd_acomp, maxd_asize,maxd_atype, maxd_aphase, ai_phase,           &
+!    volumcen_sect, volumlo_sect, volumhi_sect,                          &
+!    waterptr_aer, dens_water_aer,                                       &
+!    scavimptblvol, scavimptblnum, nimptblgrow_mind, nimptblgrow_maxd, dlndg_nimptblgrow, &
+!    deltat,     t,          pmid,       pdel, chem,                     &
+!    isprx,      fapx,       pfx,        pfx_inrain,                     &
+!    dqdt,       dotend                                      )
+
+
+!-----------------------------------------------------------------------
+! Purpose:
+! Does in-cloud and below-cloud scavenging of aerosols following GEOS-Chem 
+!
+! Authors: Chun Zhao, PNNL
+!
+! References:
+! (1) Liu,H., D.J. Jacob, I. Bey and R.M. Yantosca, "Constraints from 210Pb 
+!        and 7Be on wet deposition and transport in a global three-dimensional
+!        chemical tracer model driven by assimilated meteorological fields", 
+!        JGR, Vol 106, pp 12109-12128, 2001.
+! (2) D.J. Jacob, H. Liu, C. Mari, and R. M. Yantosca, "Harvard wet 
+!        deposition scheme for GMI", Harvard Atmospheric Chemistry Modeling 
+!        Group, March 2000.
+!-----------------------------------------------------------------------
+!******************************************************************************
+!  Subroutine computes the downward mass flux of tracer due to washout 
+!  and rainout of aerosols and soluble tracers in a column.  The timestep is 
+!  the dynamic timestep.
+!
+!  The precip fields through the bottom of each level are indexed as follows:
+!
+!       Layer          GISS-CTM II         GEOS-CTM
+!
+!      ------------------------------------------------- Top of Atm.
+!        LM            PSSW4(I,J,LM-1)   PDOWN(LM,I,J)
+!                          |                  |
+!      ====================V==================V========= Max Extent 
+!        LM-1          PSSW4(I,J,LM)     PDOWN(LM-1,I,J)  of Clouds
+!                          |                  |
+!      --------------------V------------------V---------
+!                         ...                ...             
+!
+!      -------------------------------------------------
+!        4             PSSW4(I,J,3)      PDOWN(4,I,J)
+!                          |                  |
+!      --------------------V------------------V----------
+!        3             PSSW4(I,J,2)      PDOWN(3,I,J)
+!                          |                  |
+!      --------------------V------------------V--------- Cloud base
+!        2             PSSW4(I,J,1)      PDOWN(2,I,J) 
+!                          |                  |
+!      -  -  -  -  -  -  - V -  -   -   -   - V -  -  - 
+!        1                               PDOWN(1,I,J) 
+!                                             |
+!      =======================================V========= Ground
+!
+!  From the diagram, we have the following for layer L:
+!     
+!  GISS-CTM:
+!  (a) Precip coming in  thru top    of layer L = PSSW4(I,J,L  )
+!  (b) Precip going  out thru bottom of layer L = PSSW4(I,J,L-1)
+!
+!  GEOS-CHEM
+!  (a) Precip coming in  thru top    of layer L = PDOWN(L+1,I,J)
+!  (b) Precip going  out thru bottom of layer L = PDOWN(L,  I,J) 
+!
+!  Thus: Precip coming in:  PSSW4(I,J,L  ) is analogous to PDOWN(L+1,I,J).
+!        Precip going  out: PSSW4(I,J,L-1) is analogous to PDOWN(L,I,J  ).
+!
+!******************************************************************************
+
+
+
+
+! USE module_model_constants, only: g,rhowater, mwdry
+! USE module_state_description, only: param_first_scalar
+
+!  implicit none
+
+!  INTEGER,      INTENT(IN   )    ::                                &
+!                                     ids,ide, jds,jde, kds,kde,    &
+!                                     ims,ime, jms,jme, kms,kme,    &
+!                                     its,ite, jts,jte, kts,kte,    &
+
+
+!  integer, intent(in)  :: num_chem           ! number of chemical species
+!  real, intent(in) :: deltat           ! model timestep
+
+!  !=================================================================
+!  ! WETDEP begins here!
+!  !
+!  ! (1)  I n i t i a l i z e   V a r i a b l e s
+!  !=================================================================
+
+
+!  !=================================================================
+!  ! (2)  L o o p   O v e r   (I, J)   S u r f a c e   B o x e s
+!  !
+!  ! Process rainout / washout by columns.
+!  !=================================================================
+
+!  DO J = jts,jte 
+!  DO I = its,ite
+
+!        ! Zero FTOP
+!        FTOP = 0d0
+
+!        ! Zero accumulator array
+!        DO L  = 1, LLPAR
+!        DO NN = 1, NSOL
+!           DSTT(NN,L,I,J) = 0d0
+!        ENDDO
+!        ENDDO
+
+!  !==============================================================
+!  ! (3)  R a i n o u t   F r o m   T o p   L a y e r  (L = LLPAR) 
+!  !
+!  ! Assume that rainout is happening in the top layer if 
+!  ! QQ(LLPAR,I,J) > 0.  In other words, if any precipitation 
+!  ! forms in grid box (I,J,LLPAR), assume that all of it falls 
+!  ! down to lower levels.
+!  !
+!  ! Soluble gases/aerosols are incorporated into the raindrops 
+!  ! and are completely removed from grid box (I,J,LLPAR).  There 
+!  ! is no evaporation and "resuspension" of aerosols during a 
+!  ! rainout event.
+!  !
+!  ! For large-scale (a.k.a. stratiform) precipitation, the first 
+!  ! order rate constant for rainout in the grid box (I,J,L=LLPAR) 
+!  ! (cf. Eq. 12, Jacob et al, 2000) is given by:
+!  !                        Q        
+!  !    K_RAIN = K_MIN + -------    [units: s^-1]
+!  !                      L + W    
+!  ! and the areal fraction of grid box (I,J,L=LLPAR) that 
+!  ! is actually experiencing large-scale precipitation 
+!  ! (cf. Eq. 11, Jacob et al, 2000) is given by: 
+!  !                  Q               
+!  !    F' =  -------------------   [unitless]
+!  !           K_RAIN * ( L + W )    
+!  ! Where:
+!  !
+!  !    K_MIN  = minimum value for K_RAIN         
+!  !           = 1.0e-4 [s^-1]
+!  !
+!  !    L + W  = condensed water content in cloud 
+!  !           = 1.5e-6 [cm3 H2O/cm3 air]
+!  !
+!  !    Q = QQ = rate of precipitation formation 
+!  !             [ cm3 H2O / cm3 air / s ]
+!  !
+!  ! For convective precipitation, K_RAIN = 5.0e-3 [s^-1], and the
+!  ! expression for F' (cf. Eq. 13, Jacob et al, 2000) becomes:
+!  !                                  { DT        }
+!  !                    FMAX * Q * MIN{ --- , 1.0 }
+!  !                                  { TAU       }
+!  !  F' = ------------------------------------------------------
+!  !               { DT        }
+!  !        Q * MIN{ --- , 1.0 }  +  FMAX * K_RAIN * ( L + W )
+!  !               { TAU       } 
+!  ! Where:
+!  !    Q = QQ = rate of precipitation formation 
+!  !             [cm3 H2O/cm3 air/s]
+!  !    FMAX   = maximum value for F' 
+!  !           = 0.3
+!  !    DT     = dynamic time step from the CTM [s]
+!  !    TAU    = duration of rainout event 
+!  !           = 1800 s (30 min)
+!  !    L + W  = condensed water content in cloud 
+!  !           = 2.0e-6 [cm3 H2O/cm3 air]
+!  ! K_RAIN and F' are needed to compute the fraction of tracer
+!  ! in grid box (I,J,L=LLPAR) lost to rainout.  This is done in 
+!  ! module routine RAINOUT.
+!  !==============================================================
+
+!        ! Zero variables for this level
+!        ALPHA       = 0d0
+!        ALPHA2      = 0d0
+!        F           = 0d0
+!        F_PRIME     = 0d0
+!        GAINED      = 0d0
+!        K_RAIN      = 0d0
+!        LOST        = 0d0
+!        Q           = 0d0
+!        QDOWN       = 0d0
+!        MASS_NOWASH = 0d0
+!        MASS_WASH   = 0d0
+!        RAINFRAC    = 0d0
+!        WASHFRAC    = 0d0
+!        WETLOSS     = 0d0
+
+!        ! Start at the top of the atmosphere
+!        L = LLPAR
+
+!        ! If precip forms at (I,J,L), assume it all rains out
+!        IF ( QQ(L,I,J) > 0d0 ) THEN
+
+!           ! Q is the new precip that is forming within grid box (I,J,L)
+!           Q = QQ(L,I,J)
+
+!           ! Compute K_RAIN and F' for either large-scale or convective
+!           ! precipitation (cf. Eqs. 11-13, Jacob et al, 2000) 
+!           IF ( LS ) THEN
+!              K_RAIN  = LS_K_RAIN( Q )
+!              F_PRIME = LS_F_PRIME( Q, K_RAIN )
+!           ELSE
+!              K_RAIN  = 1.5d-3
+!              F_PRIME = CONV_F_PRIME( Q, K_RAIN, DT )
+!           ENDIF
+
+!           ! Set F = F', since there is no FTOP at L = LLPAR
+!           F = F_PRIME
+
+!           ! Only compute rainout if F > 0. 
+!           ! This helps to eliminate unnecessary CPU cycles.
+!           IF ( F > 0d0 ) THEN
+
+!              ! ND16 diagnostic...save LS and Conv fractions
+!              IF ( ND16 > 0 .and. L <= LD16 ) THEN
+!                 AD16(I,J,L,IDX) = AD16(I,J,L,IDX) + F
+!                 CT16(I,J,L,IDX) = CT16(I,J,L,IDX) + 1
+!              ENDIF
+
+!              ! ND17 diagnostic...increment counter
+!              IF ( ND17 > 0 .and. L <= LD17 ) THEN
+!                 CT17(I,J,L,IDX) = CT17(I,J,L,IDX) + 1
+!              ENDIF
+
+!              ! Loop over soluble tracers and/or aerosol tracers    
+!              DO NN = 1, NSOL
+!                 N = IDWETD(NN)
+
+!                 ! Call subroutine RAINOUT to compute the fraction
+!                 ! of tracer lost to rainout in grid box (I,J,L=LLPAR)
+!                 CALL RAINOUT( I, J, L, N, K_RAIN, DT, F, RAINFRAC )
+
+!                 ! WETLOSS is the amount of soluble tracer 
+!                 ! lost to rainout in grid box (I,J,L=LLPAR)
+!                 WETLOSS = STT(I,J,L,N) * RAINFRAC
+
+!                 ! Remove rainout losses in grid box (I,J,L=LLPAR) from STT
+!                 STT(I,J,L,N) = STT(I,J,L,N) - WETLOSS
+
+!                 ! DSTT is an accumulator array for rained-out tracers.  
+!                 ! The tracers in DSTT are in the liquid phase and will 
+!                 ! precipitate to the levels below until a washout occurs.
+!                 ! Initialize DSTT at (I,J,L=LLPAR) with WETLOSS.
+!                 DSTT(NN,L,I,J) = WETLOSS
+
+!                 ! ND17 diagnostic...LS and conv rainout fractions [unitless]
+!                 IF ( ND17 > 0 .and. L <= LD17 ) THEN
+!                    AD17(I,J,L,NN,IDX) =
+!    &                    AD17(I,J,L,NN,IDX) + RAINFRAC / F
+!                 ENDIF
+
+!                 ! ND39 diag - save rainout losses in [kg/s]
+!                 ! Add LGTMM in condition for AD39 (ccc, 11/18/09)
+!                 IF ( ( ND39 > 0 .or. LGTMM ) .and. L <= LD39 ) THEN
+!                    AD39(I,J,L,NN) = AD39(I,J,L,NN) + WETLOSS / DT
+!                 ENDIF
+
+!                 ! Negative tracer...call subroutine SAFETY
+!                 IF ( STT(I,J,L,N) < 0d0 ) THEN
+!                    CALL SAFETY( I, J, L, N, 3,
+!    &                            LS,             PDOWN(L,I,J),
+!    &                            QQ(L,I,J),      ALPHA,
+!    &                            ALPHA2,         RAINFRAC,
+!    &                            WASHFRAC,       MASS_WASH,
+!    &                            MASS_NOWASH,    WETLOSS,
+!    &                            GAINED,         LOST,
+!    &                            DSTT(NN,:,I,J), STT(I,J,:,N) )
+!                 ENDIF
+!              ENDDO
+!           ENDIF
+
+!           ! Save FTOP for the next lower level 
+!           FTOP = F
+!        ENDIF
+
+!        !==============================================================
+!        ! (4)  R a i n o u t   i n   t h e   M i d d l e   L e v e l s
+!        ! 
+
+
+!end subroutine wetscav_largescale 
 
 END MODULE module_mosaic_wetscav

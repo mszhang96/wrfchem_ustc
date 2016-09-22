@@ -21,7 +21,8 @@ CONTAINS
                dtstepc, alt, t_phy, moist, p8w,                            &
                t8w, dx, dy, p_phy, chem,                                   &
                rho_phy, cldfra, cldfra2, rainprod, evapprod,               &
-               hno3_col_mdel, qlsink, precr, preci, precs, precg,          &
+               hno3_col_mdel, qlsink,ilsink,precr, preci, precs, precg,    &
+               r2evap,i2evap,                                              &
 	       gas_aqfrac, numgas_aqfrac, dz8w,                            &
 	       h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,           &
                cvaro2,cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,           &
@@ -52,6 +53,9 @@ CONTAINS
 !  2. MOSAIC
 !  3. CAM5's Wet scavenging
 !
+!Notes:
+!1. updated by Chun Zhao, PNNL to allow the wet scavenging without aqueous phase chemistry
+!   and aerosol-cloud interaction
 !----------------------------------------------------------------------
 
    USE module_configure
@@ -111,6 +115,7 @@ CONTAINS
 !-- z             3D height with lowest level being the terrain
 !-- rho_phy   	  density (kg/m^3)
 !-- qlsink        Fractional cloud water sink (/s)
+!-- ilsink        Fractional cloud ice sink (/s)
 !-- precr         rain precipitation rate at all levels (kg/m2/s)
 !-- preci         ice precipitation rate at all levels (kg/m2/s)
 !-- precs         snow precipitation rate at all levels (kg/m2/s)
@@ -212,7 +217,8 @@ CONTAINS
                                                       t8w,          &
                                                       p8w,          &
                                                       dz8w,         &
-	                            qlsink,precr,preci,precs,precg, &
+	                            qlsink,ilsink,precr,preci,precs,precg, &
+	                            r2evap,i2evap, &
                                                     rho_phy,cldfra, &
 !variables needed for cam_mam_wetscav
                                      cldfrai,cldfral,cldfra_mp_all, &
@@ -263,17 +269,23 @@ REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , ntot_amode ),       &
 !   IF (config_flags%chem_opt .eq. 0) return
 !   IF (config_flags%chem_opt .eq. 1) return
 
+    !czhao initialize qsrflx 
+    qsrflx(its:ite,jts:jte,1:num_chem)=0.0
+
 !
 ! select which aerosol scheme to take
 !
    cps_select: SELECT CASE(config_flags%chem_opt)
 
-   CASE ( RADM2SORG_AQ, RADM2SORG_AQCHEM, RACMSORG_AQ, RACMSORG_AQCHEM_KPP, RACM_ESRLSORG_AQCHEM_KPP, CBMZSORG_AQ )
+   CASE (RADM2SORG, RADM2SORG_AQ, RADM2SORG_AQCHEM, RACMSORG_AQ, RACMSORG_AQCHEM_KPP, RACM_ESRLSORG_AQCHEM_KPP, CBMZSORG_AQ )
        CALL wrf_debug(15,'wetscav_driver calling sorgam_wetscav_driver' )
        call wetscav_sorgam_driver (id,ktau,dtstep,ktauc,config_flags,      &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
-               qlsink,precr,preci,precs,precg, qsrflx,                     &
+               qlsink,ilsink,precr,preci,precs,precg,                   &
+               r2evap,i2evap,                     &
                gas_aqfrac, numgas_aqfrac,                                  &
+               moist(ims:ime,kms:kme,jms:jme,P_QV),moist(ims:ime,kms:kme,jms:jme,P_QC),            &
+               moist(ims:ime,kms:kme,jms:jme,P_QI),moist(ims:ime,kms:kme,jms:jme,P_QS),            &
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )
@@ -289,16 +301,20 @@ REAL,  DIMENSION( ims:ime , kms:kme , jms:jme , ntot_amode ),       &
        enddo
        enddo
 
-   CASE (CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN)
-       CALL wrf_error_fatal('Wet scavenging is currently not possible with MOSAIC unless aqueous aerosols are turned on.')
+!czhao  CASE (CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN)
+!czhao      CALL wrf_error_fatal('Wet scavenging is currently not possible with MOSAIC unless aqueous aerosols are turned on.')
 
-   CASE (CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
-   			CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP )
+   CASE (CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, & 
+         CBMZ_MOSAIC_4BIN_AQ,CBMZ_MOSAIC_8BIN_AQ, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ,CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
+   			CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP )!BSINGH(12/05/2013): Added for SAPRC 8 bin vbs
        CALL wrf_debug(15,'wetscav_driver calling mosaic_wetscav_driver')
        call wetscav_cbmz_mosaic (id,ktau,dtstep,ktauc,config_flags,        &
                dtstepc,alt,t_phy,p8w,t8w,p_phy,chem,rho_phy,cldfra,        &
-               qlsink,precr,preci,precs,precg, qsrflx,                     &
+               qlsink,ilsink,precr,preci,precs,precg,                  &
+               r2evap,i2evap,                     &
                gas_aqfrac, numgas_aqfrac,                                  &
+               moist(ims:ime,kms:kme,jms:jme,P_QV),moist(ims:ime,kms:kme,jms:jme,P_QC),            &
+               moist(ims:ime,kms:kme,jms:jme,P_QI),moist(ims:ime,kms:kme,jms:jme,P_QS),            &
                ids,ide, jds,jde, kds,kde,                                  &
                ims,ime, jms,jme, kms,kme,                                  &
                its,ite, jts,jte, kts,kte                                   )

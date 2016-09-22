@@ -33,6 +33,9 @@
    USE module_mosaic_driver, ONLY: sum_pm_mosaic
    USE module_input_tracer, ONLY: initialize_tracer
    USE module_aerosols_soa_vbs, only: sum_pm_soa_vbs
+#ifdef WRF_USE_CLM
+   USE shr_megan_mod, only : wrf_spc_chk
+#endif
 #endif
    USE module_diagnostics, ONLY : pld
 
@@ -68,6 +71,7 @@
                            ipsy, ipey, jpsy, jpey, kpsy, kpey
 
    INTEGER     :: i_m
+   INTEGER     :: numgas
 
    REAL        :: p00, t00, a, tiso, p_surf, pd_surf, temp, tiso_tmp
 #ifdef WRF_CHEM
@@ -713,8 +717,14 @@
                       grid%rublten,grid%rvblten,grid%rthblten,               &
                       grid%rqvblten,grid%rqcblten,grid%rqiblten,             &
                       grid%rthraten,grid%rthratenlw,grid%rthratensw,         &
+                      !BSINGH - For WRFCuP scheme(11/12/2013)
+                      grid%cupflag,grid%cldfra_cup,grid%cldfratend_cup,      & !wig, 18-Sep-2006
+                      grid%shall,                                            & !wig, 18-Sep-2006
+                      grid%tcloud_cup,                                       & !rce, 18-apr-2012
+                      !BSINGH - ENDS                      
                       grid%stepbl,grid%stepra,grid%stepcu,                   &
-                      grid%w0avg, grid%rainnc, grid%rainc, grid%raincv, grid%rainncv,  &
+                      grid%w0avg, grid%rainc, grid%rainnc, grid%rainsh,      &
+                      grid%raincv, grid%rainncv, grid%rainshv,               &
                       grid%snownc, grid%snowncv, grid%graupelnc, grid%graupelncv,  &
                       grid%re_cloud, grid%re_ice, grid%re_snow,         & ! G. Thompson
                       grid%has_reqc, grid%has_reqi, grid%has_reqs,      & ! G. Thompson
@@ -722,6 +732,10 @@
                       grid%cldefi,grid%lowlyr,                          &
                       grid%mass_flux,                              &
                       grid%rthften, grid%rqvften,                       &
+#ifdef WRF_USE_CLM
+                      model_config_rec%megan_specifier, model_config_rec%megan_factors_file,    &
+                      model_config_rec%megan_mapped_emisfctrs,                      &
+#endif
                       grid%cldfra,                                      &
 #ifdef WRF_CHEM
                       grid%cldfra_old,                                  &
@@ -861,7 +875,7 @@
                       config_flags%nssl_cnor, config_flags%nssl_cnos,         &
                       config_flags%nssl_rho_qh, config_flags%nssl_rho_qhl,    &
                       config_flags%nssl_rho_qs                                &
-                      ,grid%RQCNCUTEN, grid%RQINCUTEN,grid%rliq             &      !mchen add for cammpmg
+                      ,grid%RQCNCUTEN, grid%RQINCUTEN,grid%rliq             &      !mchen add for cammpmg (!BSINGH:01/31/2013 - Added rliq and is_CAMMGMP_used for CAM5 physics)
                       ,grid%te_temf,grid%cf3d_temf,grid%wm_temf        & ! WA
                       ,grid%massflux_EDKF, grid%entr_EDKF, grid%detr_EDKF                & 
                       ,grid%thl_up,grid%thv_up,grid%rt_up                                &
@@ -1351,26 +1365,30 @@
                          grid%aerwrf,config_flags,grid,            &
                          grid%alt,grid%t_1,grid%p,convfac,grid%ttday,grid%tcosz,         &
                          grid%julday,grid%gmt,&
-                         grid%tauaer1,grid%tauaer2,grid%tauaer3,grid%tauaer4,                   &
-                         grid%gaer1,grid%gaer2,grid%gaer3,grid%gaer4,                           &
-                         grid%waer1,grid%waer2,grid%waer3,grid%waer4,                           &
+                         tauaersw(:,:,:,2),tauaersw(:,:,:,3),tauaersw(:,:,:,4),tauaersw(:,:,:,5), &
+                         gaersw(:,:,:,2),gaersw(:,:,:,3),gaersw(:,:,:,4),gaersw(:,:,:,5),  &
+                         waersw(:,:,:,2),waersw(:,:,:,3),waersw(:,:,:,4),waersw(:,:,:,5),  &
                          grid%l2aer,grid%l3aer,grid%l4aer,grid%l5aer,grid%l6aer,grid%l7aer,     &
-                         grid%extaerlw1,grid%extaerlw2,grid%extaerlw3,grid%extaerlw4,           &
-                         grid%extaerlw5,grid%extaerlw6,grid%extaerlw7,grid%extaerlw8,           &
-                         grid%extaerlw9,grid%extaerlw10,grid%extaerlw11,grid%extaerlw12,        &
-                         grid%extaerlw13,grid%extaerlw14,grid%extaerlw15,grid%extaerlw16,       &
-                         grid%tauaerlw1,grid%tauaerlw2,grid%tauaerlw3,grid%tauaerlw4,           &
-                         grid%tauaerlw5,grid%tauaerlw6,grid%tauaerlw7,grid%tauaerlw8,           &
-                         grid%tauaerlw9,grid%tauaerlw10,grid%tauaerlw11,grid%tauaerlw12,        &
-                         grid%tauaerlw13,grid%tauaerlw14,grid%tauaerlw15,grid%tauaerlw16,       &
-                         grid%pm2_5_dry,grid%pm2_5_water,grid%pm2_5_dry_ec,                &
+                         grid%pm2_5_dry,grid%pm2_5_water,grid%pm2_5_dry_dust,      & 
+                         grid%pm2_5_dry_oc,grid%pm2_5_dry_ec,grid%h2oaj,grid%h2oai,          &
                          grid%last_chem_time_year,grid%last_chem_time_month,               &
                          grid%last_chem_time_day,grid%last_chem_time_hour,                 &
                          grid%last_chem_time_minute,grid%last_chem_time_second,            &
-                         grid%chem_in_opt,grid%kemit,grid%num_vert_mix,                       &
+                         grid%chem_in_opt,grid%kemit,grid%num_vert_mix,numgas,                &
                          ids , ide , jds , jde , kds , kde ,                &
                          ims , ime , jms , jme , kms , kme ,                &
                          its , ite , jts , jte , kts , kte                  )
+#ifdef WRF_USE_CLM
+!-------------------------------------------------------------------
+!   check that the megan emission species are in chem option
+!-------------------------------------------------------------------
+         if (config_flags%chem_opt.gt.0) then !czhao++++ 
+         write(message,'('' start_domain_em: numgas = '',i4)') numgas
+         CALL wrf_message( trim(message) )
+         CALL wrf_spc_chk( numgas )
+!        CALL wrf_error_fatal( ' start_domain_em: finished wrf_spc_chk' )
+         endif !czhao-----
+#endif
 
 !
 ! calculate initial pm
@@ -1386,8 +1404,12 @@
         case (RADM2SORG,RADM2SORG_AQ,RADM2SORG_AQCHEM,RADM2SORG_KPP,RACMSORG_AQ,RACMSORG_AQCHEM_KPP, &
               RACM_ESRLSORG_AQCHEM_KPP,RACMSORG_KPP)
            call sum_pm_sorgam (                                             &
-                grid%alt, chem, grid%h2oaj, grid%h2oai,                                    &
-                grid%pm2_5_dry, grid%pm2_5_water, grid%pm2_5_dry_ec, grid%pm10,                 &
+                grid%alt, chem, grid%h2oaj_adjust, grid%h2oai_adjust,grid%h2oac_adjust, &
+                grid%pm2_5_dry, grid%pm2_5_water,grid%pm2_5_dry_dust,grid%pm2_5_dry_oc,  &
+                grid%pm2_5_dry_ec, grid%pm2_5_dry_seas,grid%pm2_5_dry_so4f,grid%pm2_5_dry_no3f, &
+                grid%pm2_5_dry_nh4f,  grid%pm10,                 &
+                !czhao
+                grid%dgnuc, grid%dgacc, grid%dgcor,                 &
                 grid%dust_opt,ids,ide, jds,jde, kds,kde,                    &
                 ims,ime, jms,jme, kms,kme,                                  &
                 its,ite, jts,jte, kts,kte-1                                 )
@@ -1401,10 +1423,13 @@
 
         case (CBMZ_MOSAIC_4BIN,CBMZ_MOSAIC_8BIN,CBMZ_MOSAIC_4BIN_AQ,CBMZ_MOSAIC_8BIN_AQ, &
               CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, CBMZ_MOSAIC_DMS_4BIN_AQ,       &
-              CBMZ_MOSAIC_DMS_8BIN_AQ, CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP)
+              CBMZ_MOSAIC_DMS_8BIN_AQ, CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
+              CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP)
            call sum_pm_mosaic (                                             &
                 grid%alt, chem,                                                  &
-                grid%pm2_5_dry, grid%pm2_5_water, grid%pm2_5_dry_ec, grid%pm10,                 &
+                grid%pm2_5_dry, grid%pm2_5_water,grid%pm2_5_dry_dust,grid%pm2_5_dry_oc, &
+                grid%pm2_5_dry_ec,grid%pm2_5_dry_seas,grid%pm2_5_dry_so4f,grid%pm2_5_dry_no3f, &
+                grid%pm2_5_dry_nh4f,grid%pm10,                 &
                 ids,ide, jds,jde, kds,kde,                                  &
                 ims,ime, jms,jme, kms,kme,                                  &
                 its,ite, jts,jte, kts,kte-1                                 )
@@ -1416,6 +1441,8 @@
                     grid%pm2_5_dry(i,k,j)    = 0.
                     grid%pm2_5_water(i,k,j)  = 0.
                     grid%pm2_5_dry_ec(i,k,j) = 0.
+                    grid%pm2_5_dry_oc(i,k,j) = 0.
+                    grid%pm2_5_dry_dust(i,k,j) = 0.
                     grid%pm10(i,k,j)         = 0.
                  enddo
               enddo

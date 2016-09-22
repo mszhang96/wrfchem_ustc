@@ -755,7 +755,7 @@ CONTAINS
   ! hkb = moist static energy at originating level
   ! mentr_rate = entrainment rate
      real,    dimension (its:ite,kts:kte) ::                           &
-        he3,hes3,qes3,z3,zdo3,zu3_0,hc3_0,dby3_0,                      &
+        he3,hes3,qes3,z3,zdo3,zu3_0,hc3_0,dby3_0,gamma3_0_cup,         &!BSINGH(12/06/2013): added gamma3_0_cup
         qes3_cup,q3_cup,he3_cup,hes3_cup,z3_cup,gamma3_cup,t3_cup,     &
         xhe3,xhes3,xqes3,xz3,xt3,xq3,                                  &
         xqes3_cup,xq3_cup,xhe3_cup,xhes3_cup,xz3_cup,xgamma3_cup,      &

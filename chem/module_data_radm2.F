@@ -57,6 +57,7 @@
       
       INTEGER, PARAMETER :: lcsl=38
       INTEGER, PARAMETER :: liso=39
+!     INTEGER, PARAMETER :: lhcl=40
       INTEGER, PARAMETER :: lho=40
       INTEGER, PARAMETER :: lho2=41
 ! parameters for timestep, integration

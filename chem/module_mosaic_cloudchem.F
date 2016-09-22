@@ -19,8 +19,13 @@
 	integer, parameter :: l_oin_aqyy = 6
 	integer, parameter :: l_bc_aqyy  = 7
 	integer, parameter :: l_oc_aqyy  = 8
+	integer, parameter :: l_dust_aqyy  = 9
+	integer, parameter :: l_tr1r1_aqyy  = 10 
+	integer, parameter :: l_tr1r2_aqyy  = 11
+	integer, parameter :: l_tr1r3_aqyy  = 12
+	integer, parameter :: l_tr1r4_aqyy  = 13
 
-	integer, parameter :: nyyy = 8
+	integer, parameter :: nyyy = 13 
 
 
 
@@ -236,7 +241,8 @@
 		cw_phase, nsize_aer, ntype_aer,   &
 		lptr_so4_aer, lptr_no3_aer, lptr_cl_aer, lptr_co3_aer,   &
 		lptr_msa_aer, lptr_nh4_aer, lptr_na_aer, lptr_ca_aer,   &
-		lptr_oin_aer, lptr_bc_aer, lptr_oc_aer
+		lptr_oin_aer, lptr_bc_aer, lptr_oc_aer, lptr_dust_aer,  &
+                lptr_tr1r1_aer,lptr_tr1r2_aer,lptr_tr1r3_aer,lptr_tr1r4_aer
 
 	use module_data_mosaic_other, only:   &
 		l2maxd, ltot2, rsub
@@ -279,6 +285,11 @@
         real, dimension( maxd_asize, maxd_atype ) :: fr_partit_cw
 
 
+!czhao initialize ph_cmuaq_cur
+        ph_cmuaq_cur = 0.0
+        yaq_beg(:) = 0.0
+        yaq_end(:) = 0.0
+
 !
 !   set the lptr_yyy_cwaer
 !
@@ -291,6 +302,11 @@
 	lptr_yyy_cwaer(:,:,l_oin_aqyy) = lptr_oin_aer(:,:,iphase)
 	lptr_yyy_cwaer(:,:,l_bc_aqyy ) = lptr_bc_aer( :,:,iphase)
 	lptr_yyy_cwaer(:,:,l_oc_aqyy ) = lptr_oc_aer( :,:,iphase)
+	lptr_yyy_cwaer(:,:,l_dust_aqyy) = lptr_dust_aer(:,:,iphase)
+	lptr_yyy_cwaer(:,:,l_tr1r1_aqyy) = lptr_tr1r1_aer(:,:,iphase)
+	lptr_yyy_cwaer(:,:,l_tr1r2_aqyy) = lptr_tr1r2_aer(:,:,iphase)
+	lptr_yyy_cwaer(:,:,l_tr1r3_aqyy) = lptr_tr1r3_aer(:,:,iphase)
+	lptr_yyy_cwaer(:,:,l_tr1r4_aqyy) = lptr_tr1r4_aer(:,:,iphase)
 
 !
 !   xfer from rsub to rbox
@@ -416,7 +432,7 @@
 	use module_data_cmu_bulkaqchem, only:   &
 	        meqn1max, naers, ngas,   &
 	        na4, naa, nac, nae, nah, nahmsa, nahso5,   &
-	        nan, nao, nar, nas, naw,   &
+	        nan, nao, nar, nas, naw, nad,nt1r1,nt1r2,nt1r3,nt1r4,   &
 	        ng4, nga, ngc, ngch3co3h, ngch3o2, ngch3o2h, ngch3oh,   &
 	        ngh2o2, nghcho, nghcooh, nghno2, ngho2,   &
 	        ngn, ngno, ngno2, ngno3, ngo3, ngoh, ngpan, ngso2
@@ -428,7 +444,8 @@
 		cw_phase, nsize_aer, ntype_aer,   &
 		lptr_so4_aer, lptr_no3_aer, lptr_cl_aer, lptr_co3_aer,   &
 		lptr_msa_aer, lptr_nh4_aer, lptr_na_aer, lptr_ca_aer,   &
-		lptr_oin_aer, lptr_bc_aer, lptr_oc_aer,   &
+		lptr_oin_aer, lptr_bc_aer, lptr_oc_aer, lptr_dust_aer,   &
+                lptr_tr1r1_aer,lptr_tr1r2_aer,lptr_tr1r3_aer,lptr_tr1r4_aer,  &
 		mw_cl_aer, mw_na_aer, mw_nh4_aer, mw_no3_aer, mw_so4_aer
 
 	use module_data_mosaic_other, only:   &
@@ -475,7 +492,8 @@
 	real :: dum, dumb
 	real :: factgas, factlwc, factpatm, factphoto
 	real :: factaerbc, factaercl, factaerna, factaernh4,   &
-		factaerno3, factaeroc, factaeroin, factaerso4
+		factaerno3, factaeroc, factaeroin, factaerdust,factaerso4, &
+                factaertr1r1,factaertr1r2,factaertr1r3,factaertr1r4
 	real :: lwc
 	real :: p_atm, photo_in
 	real :: rh
@@ -491,7 +509,8 @@
 	double precision gas_dp(ngas), gas_aqfrac_cmu_dp(ngas),   &
 	  aerosol_dp(naers), yaq_beg_dp(meqn1max), yaq_end_dp(meqn1max)
 
-
+        !czhao initialize gas_aqfrac_cmu
+        gas_aqfrac_cmu(:) = 0.0
 
 	p1st = param_first_scalar
 
@@ -517,6 +536,11 @@
 	factaernh4   = dum*mw_nh4_aer
 	factaerna    = dum*mw_na_aer
 	factaeroin   = dum
+	factaerdust   = dum
+	factaertr1r1   = dum
+	factaertr1r2   = dum
+	factaertr1r3   = dum
+	factaertr1r4   = dum
 	factaeroc    = dum
 	factaerbc    = dum
 
@@ -540,6 +564,11 @@
 	    factaernh4   = 1.0
 	    factaerna    = 1.0
 	    factaeroin   = 1.0
+	    factaerdust   = 1.0
+	    factaertr1r1   = 1.0
+	    factaertr1r2   = 1.0
+	    factaertr1r3   = 1.0
+	    factaertr1r4   = 1.0
 	    factaeroc    = 1.0
 	    factaerbc    = 1.0
 	end if
@@ -571,6 +600,7 @@
 	gas(ngc     ) = rbox(p_hcl   ) * factgas
 	if(p_sulf > param_first_scalar )  gas(ng4 ) = rbox(p_sulf  ) * factgas
 	if(p_h2so4 > param_first_scalar ) gas(ng4 ) = rbox(p_h2so4 ) * factgas
+        gas(ng4     ) = rbox(p_h2so4  ) * factgas
 
 
 	gas(nghcho  ) = rbox(p_hcho  ) * factgas
@@ -615,6 +645,11 @@
 	aerosol(naa) = rbulk_cwaer(l_nh4_aqyy,1) * factaernh4
 	aerosol(nas) = rbulk_cwaer(l_na_aqyy, 1) * factaerna
 	aerosol(nar) = rbulk_cwaer(l_oin_aqyy,1) * factaeroin
+	aerosol(nad) = rbulk_cwaer(l_dust_aqyy,1) * factaerdust
+	aerosol(nt1r1) = rbulk_cwaer(l_tr1r1_aqyy,1) * factaertr1r1
+	aerosol(nt1r2) = rbulk_cwaer(l_tr1r2_aqyy,1) * factaertr1r2
+	aerosol(nt1r3) = rbulk_cwaer(l_tr1r3_aqyy,1) * factaertr1r3
+	aerosol(nt1r4) = rbulk_cwaer(l_tr1r4_aqyy,1) * factaertr1r4
 	aerosol(nae) = rbulk_cwaer(l_bc_aqyy, 1) * factaerbc
 	aerosol(nao) = rbulk_cwaer(l_oc_aqyy, 1) * factaeroc
 
@@ -646,7 +681,7 @@
 		rbox(p_sulf),rbox(p_h2so4), rbox(p_so2), rbox(p_h2o2), rbox(p_o3)
 	    write(lunxx,*) 'aerosol (1=na, 3=nh4, 4=no3, 5=cl, 6=so4, 8=ec, 9=oc, 10=crus)'
 	    write(lunxx,9875) aerosol
-	    write(lunxx,*) 'rbulk_cwaer (1=so4, 2=no3, 3-cl, 4=nh4, 5=na, 6=oin, 7=bc, 8=oc)'
+	    write(lunxx,*) 'rbulk_cwaer (1=so4, 2=no3, 3-cl, 4=nh4, 5=na, 6=oin, 7=bc, 8=oc, 9=dust)'
 	    write(lunxx,9875) rbulk_cwaer(:,1)
 !	    if (icase .ge. 3) then
 !		write(*,*)   &
@@ -818,6 +853,7 @@
 	rbox(p_hcl   ) = gas(ngc     ) / factgas
 	if(p_sulf .gt. param_first_scalar)  rbox(p_sulf  ) = gas(ng4) / factgas
 	if(p_h2so4 .gt. param_first_scalar) rbox(p_h2so4 ) = gas(ng4) / factgas
+        rbox(p_h2so4  ) = gas(ng4     ) / factgas
 
 
 	rbox(p_hcho  ) = gas(nghcho  ) / factgas
@@ -888,6 +924,11 @@
 	rbulk_cwaer(l_nh4_aqyy,2) = aerosol(naa) / factaernh4
 	rbulk_cwaer(l_na_aqyy, 2) = aerosol(nas) / factaerna
 	rbulk_cwaer(l_oin_aqyy,2) = aerosol(nar) / factaeroin
+	rbulk_cwaer(l_dust_aqyy,2) = aerosol(nad) / factaerdust
+	rbulk_cwaer(l_tr1r1_aqyy,2) = aerosol(nt1r1) / factaertr1r1
+	rbulk_cwaer(l_tr1r2_aqyy,2) = aerosol(nt1r2) / factaertr1r2
+	rbulk_cwaer(l_tr1r3_aqyy,2) = aerosol(nt1r3) / factaertr1r3
+	rbulk_cwaer(l_tr1r4_aqyy,2) = aerosol(nt1r4) / factaertr1r4
 	rbulk_cwaer(l_bc_aqyy, 2) = aerosol(nae) / factaerbc
 	rbulk_cwaer(l_oc_aqyy, 2) = aerosol(nao) / factaeroc
 
@@ -907,7 +948,7 @@
 		rbox(p_sulf), rbox(p_h2so4), rbox(p_so2), rbox(p_h2o2), rbox(p_o3)
 	    write(lunxx,*) 'aerosol (1=na, 3=nh4, 4=no3, 5=cl, 6=so4, 8=ec, 9=oc, 10=crus)'
 	    write(lunxx,9875) aerosol
-	    write(lunxx,*) 'rbulk_cwaer (1=so4, 2=no3, 3-cl, 4=nh4, 5=na, 6=oin, 7=bc, 8=oc)'
+	    write(lunxx,*) 'rbulk_cwaer (1=so4, 2=no3, 3-cl, 4=nh4, 5=na, 6=oin, 7=bc, 8=oc, 9=dust)'
 	    write(lunxx,9875) rbulk_cwaer(:,2)
 	    write(lunxx,*) 'ph_cmuaq_cur'
 	    write(lunxx,9875) ph_cmuaq_cur
@@ -969,6 +1010,11 @@
     p1st = PARAM_FIRST_SCALAR
 
 	iphase = cw_phase
+        !czhao initialize
+        fmass(:,:) = 0.0
+        fnumb(:,:) = 0.0
+        xmass(:,:) = 0.0
+        xnumb(:,:) = 0.0
 	tmass = 0.0
 	tnumb = 0.0
 	umass = 0.0
@@ -1174,7 +1220,8 @@
 		cw_phase, nsize_aer, ntype_aer,   &
 		lptr_so4_aer, lptr_no3_aer, lptr_cl_aer, lptr_co3_aer,   &
 		lptr_msa_aer, lptr_nh4_aer, lptr_na_aer, lptr_ca_aer,   &
-		lptr_oin_aer, lptr_bc_aer, lptr_oc_aer
+		lptr_oin_aer, lptr_bc_aer, lptr_oc_aer, lptr_dust_aer, &
+                lptr_tr1r1_aer,lptr_tr1r2_aer,lptr_tr1r3_aer,lptr_tr1r4_aer
 
 	use module_data_mosaic_other, only:  l2maxd, lunout, name
 
@@ -1449,7 +1496,8 @@
 		massptr_aer, numptr_aer, mw_aer, dens_aer,   &
 		lptr_so4_aer, lptr_no3_aer, lptr_cl_aer, lptr_co3_aer,   &
 		lptr_msa_aer, lptr_nh4_aer, lptr_na_aer, lptr_ca_aer,   &
-		lptr_oin_aer, lptr_bc_aer, lptr_oc_aer,   &
+		lptr_oin_aer, lptr_bc_aer, lptr_oc_aer, lptr_dust_aer,  &
+                lptr_tr1r1_aer,lptr_tr1r2_aer,lptr_tr1r3_aer,lptr_tr1r4_aer,  &
 		drymass_aftgrow, drymass_pregrow,   &
 		drydens_aftgrow, drydens_pregrow
 
@@ -1552,7 +1600,7 @@
 	lunxx = -1
 	if ((it==23) .and. (jt==1) .and. (kt<=20)) lunxx = 171
 	if (lunxx .gt. 0) then
-	    do ll = 1, 4
+	    do ll = 1, 9
 		if (ll .eq. 1) then
 		    lptr_dum(:,:) = lptr_so4_aer(:,:,iphase)
 		else if (ll .eq. 2) then
@@ -1561,6 +1609,16 @@
 		    lptr_dum(:,:) = lptr_oin_aer(:,:,iphase)
 		else if (ll .eq. 4) then
 		    lptr_dum(:,:) = numptr_aer(:,:,iphase)
+		else if (ll .eq. 5) then
+		    lptr_dum(:,:) = lptr_dust_aer(:,:,iphase)
+                else if (ll .eq. 6) then
+                    lptr_dum(:,:) = lptr_tr1r1_aer(:,:,iphase)
+                else if (ll .eq. 7) then
+                    lptr_dum(:,:) = lptr_tr1r2_aer(:,:,iphase)
+                else if (ll .eq. 8) then
+                    lptr_dum(:,:) = lptr_tr1r3_aer(:,:,iphase)
+                else if (ll .eq. 9) then
+                    lptr_dum(:,:) = lptr_tr1r4_aer(:,:,iphase)
 		end if
 
 		if (ll .eq. 1) write(lunxx,9800)

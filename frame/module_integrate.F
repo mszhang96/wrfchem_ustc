@@ -304,6 +304,12 @@ RECURSIVE SUBROUTINE integrate ( grid )
             CALL dfi_accumulate ( grid )
 
             CALL med_before_solve_io ( grid , config_flags )
+
+!#if defined( DM_PARALLEL ) && ! defined( STUBMPI) 
+!  write(0,*) WRFU_AlarmIsRinging( grid%alarms(history_alarm ), rc=rc )
+!#endif
+!  print* , WRFU_AlarmIsRinging( grid%alarms(history_alarm ), rc=rc )
+
             grid_ptr => grid
             DO WHILE ( ASSOCIATED( grid_ptr ) )
                CALL set_current_grid_ptr( grid_ptr )

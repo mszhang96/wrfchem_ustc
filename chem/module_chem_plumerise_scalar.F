@@ -146,7 +146,7 @@ subroutine plumerise(m1,m2,m3,ia,iz,ja,jz,firesize,mean_fct   &
                 cycle
 	     endif
 	     
-	     call makeplume (kmt,ztopmax(imm),ixx,imm)	      	      
+	     call makeplume (m1,m2,m3,kmt,ztopmax(imm),ixx,imm)	      	      
 	     	   
 	   enddo ! enddo do loop em imm
 	   
@@ -536,7 +536,7 @@ return
 end subroutine get_fire_properties
 !-------------------------------------------------------------------------------
 !
-SUBROUTINE MAKEPLUME ( kmt,ztopmax,ixx,imm)  
+SUBROUTINE MAKEPLUME (m1,m2,m3,kmt,ztopmax,ixx,imm)  
 !
 ! *********************************************************************
 !
@@ -598,6 +598,10 @@ SUBROUTINE MAKEPLUME ( kmt,ztopmax,ixx,imm)
 !**********************************************************************               
 !use module_zero_plumegen_coms 
 implicit none 
+
+
+  integer :: m1,m2,m3
+
 !logical :: endspace  
 character (len=10) :: varn
 integer ::  izprint, iconv,  itime, k, kk, kkmax, deltak,ilastprint,kmt &
@@ -620,7 +624,7 @@ character (len=2) :: cixx
 parameter (vc = 5.107387)  
 parameter (g = 9.80796, r = 287.04, cp = 1004., eps = 0.622,  tmelt = 273.3)
 parameter (heatsubl = 2.834e6, heatfus = 3.34e5, heatcond = 2.501e6)
-parameter (tfreeze = 269.3)  
+parameter (tfreeze = 269.3, delz_thresold=50)  
 !
 tstpf = 2.0  	!- timestep factor
 viscosity = 500.!- viscosity constant (original value: 0.001)

@@ -85,7 +85,7 @@ MODULE module_input_chem_data
     REAL                                         :: so4vaptoaer
     DATA so4vaptoaer/.999/
 
-    CHARACTER (LEN=4), DIMENSION(logg) :: ggnam
+    CHARACTER (LEN=20), DIMENSION(logg) :: ggnam !BSINGH(12/04/13): changed length(LEN) from 4 to 20
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
@@ -181,67 +181,76 @@ MODULE module_input_chem_data
 !     e.g. p_o3=6, iref(6-1)=1, so xl(1,:) is the ozone profile.
 !     See gasprofile_init_pnnl for an explination of what height
 !     each index represents.
+!O3-czhao
       DATA (xl(1,k_loop),k_loop=1,kx) &
       / 1.68E-07, 1.68E-07, 5.79E-08, 5.24E-08, 5.26E-08, &
        5.16E-08, 4.83E-08, 4.50E-08, 4.16E-08, 3.80E-08, 3.56E-08, &
        3.35E-08, 3.15E-08, 3.08E-08, 3.06E-08, 3.00E-08/  
-
+!NO2 & NO -czhao
       DATA (xl(2,k_loop),k_loop=1,kx) &
       / 4.06E-10, 4.06E-10, 2.16E-10, 1.37E-10, 9.47E-11, &
        6.95E-11, 5.31E-11, 4.19E-11, 3.46E-11, 3.01E-11, 2.71E-11, &
        2.50E-11, 2.35E-11, 2.26E-11, 2.20E-11, 2.16E-11/  
-
+!HNO3-czhao
       DATA (xl(3,k_loop),k_loop=1,kx) &
       / 9.84E-10, 9.84E-10, 5.66E-10, 4.24E-10, 3.26E-10, &
        2.06E-10, 1.12E-10, 7.33E-11, 7.03E-11, 7.52E-11, 7.96E-11, &
        7.56E-11, 7.27E-11, 7.07E-11, 7.00E-11, 7.00E-11/
-
+!H2O2-czhao
       DATA (xl(4,k_loop),k_loop=1,kx) &
       / 8.15E-10, 8.15E-10, 8.15E-10, 8.15E-10, 8.15E-10, &
        8.65E-10, 1.07E-09, 1.35E-09, 1.47E-09, 1.47E-09, 1.47E-09, &
        1.47E-09, 1.45E-09, 1.43E-09, 1.40E-09, 1.38E-09/
-
+!op1,op2-czhao
       DATA (xl(5,k_loop),k_loop=1,kx) &
       / 4.16E-10, 4.16E-10, 4.16E-10, 4.16E-10, 4.16E-10, &
        4.46E-10, 5.57E-10, 1.11E-09, 1.63E-09, 1.63E-09, 1.63E-09, &
        1.63E-09, 1.61E-09, 1.59E-09, 1.57E-09, 1.54E-09/
 
 !  CO is 70 ppbv at top, 80 throughout troposphere
+!ORA1,ORA2,NH3,ol2-czhao
       DATA (xl(6,k_loop),k_loop=1,kx)  / 7.00E-08, kxm1*8.00E-08/
-
+!iso-czhao, isoprene
       DATA (xl(7,k_loop),k_loop=1,kx) &
       / 8.33E-29, 8.33E-29, 8.33E-29, 8.33E-29, 8.33E-29, &
        1.33E-28, 3.54E-28, 1.85E-28, 1.29E-29, 1.03E-30, 1.72E-31, &
        7.56E-32, 1.22E-31, 2.14E-31, 2.76E-31, 2.88E-31/
-
+!hcho-czhao
       DATA (xl(8,k_loop),k_loop=1,kx) &
       / 9.17E-11, 9.17E-11, 9.17E-11, 9.17E-11, 9.17E-11, &
        1.03E-10, 1.55E-10, 2.68E-10, 4.47E-10, 4.59E-10, 4.72E-10, &
        4.91E-10, 5.05E-10, 5.13E-10, 5.14E-10, 5.11E-10/
+!ALD-czhao
       DATA (xl(9,k_loop),k_loop=1,kx) &
       / 7.10E-12, 7.10E-12, 7.10E-12, 7.10E-12, 7.10E-12, &
        7.36E-12, 1.02E-11, 2.03E-11, 2.98E-11, 3.01E-11, 3.05E-11, &
        3.08E-11, 3.08E-11, 3.06E-11, 3.03E-11, 2.99E-11/
+!hc3-czhao
       DATA (xl(10,k_loop),k_loop=1,kx) &
       / 4.00E-11, 4.00E-11, 4.00E-11, 3.27E-11, 2.51E-11, &
        2.61E-11, 2.20E-11, 1.69E-11, 1.60E-11, 1.47E-11, 1.37E-11, &
        1.30E-11, 1.24E-11, 1.20E-11, 1.18E-11, 1.17E-11/
+!eth-czhao
       DATA (xl(11,k_loop),k_loop=1,kx) &
       / 1.15E-16, 1.15E-16, 2.46E-15, 2.30E-14, 1.38E-13, &
        6.25E-13, 2.31E-12, 7.32E-12, 1.87E-11, 3.68E-11, 6.10E-11, &
        9.05E-11, 1.22E-10, 1.50E-10, 1.70E-10, 1.85E-10/
+!SO2-czhao
       DATA (xl(12,k_loop),k_loop=1,kx) &
       / 1.00E-10, 1.00E-10, 1.00E-10, 1.00E-10, 1.00E-10, &
        1.00E-10, 1.00E-10, 1.00E-10, 1.00E-10, 1.00E-10, 1.00E-10, &
        1.00E-10, 1.00E-10, 1.00E-10, 1.00E-10, 1.00E-10/
+!hc8-czhao
       DATA (xl(13,k_loop),k_loop=1,kx) &
       / 1.26E-11, 1.26E-11, 2.02E-11, 2.50E-11, 3.02E-11, &
        4.28E-11, 6.62E-11, 1.08E-10, 1.54E-10, 2.15E-10, 2.67E-10, &
        3.24E-10, 3.67E-10, 3.97E-10, 4.16E-10, 4.31E-10/
+!olt-czhao
       DATA (xl(14,k_loop),k_loop=1,kx) &
       / 1.15E-16, 1.15E-16, 2.46E-15, 2.30E-14, 1.38E-13, &
        6.25E-13, 2.31E-12, 7.32E-12, 1.87E-11, 3.68E-11, 6.10E-11, &
        9.05E-11, 1.22E-10, 1.50E-10, 1.70E-10, 1.85E-10/
+!oli,tol-czhao
       DATA (xl(15,k_loop),k_loop=1,kx) &
       / 1.00E-20, 1.00E-20, 6.18E-20, 4.18E-18, 1.23E-16, &
        2.13E-15, 2.50E-14, 2.21E-13, 1.30E-12, 4.66E-12, 1.21E-11, &
@@ -250,27 +259,33 @@ MODULE module_input_chem_data
       / 1.23E-11, 1.23E-11, 1.23E-11, 1.23E-11, 1.23E-11, &
        1.20E-11, 9.43E-12, 3.97E-12, 1.19E-12, 1.11E-12, 9.93E-13, &
        8.66E-13, 7.78E-13, 7.26E-13, 7.04E-13, 6.88E-13/
+!ket-czhao
       DATA (xl(17,k_loop),k_loop=1,kx) &
       / 1.43E-12, 1.43E-12, 1.43E-12, 1.43E-12, 1.43E-12, &
        1.50E-12, 2.64E-12, 8.90E-12, 1.29E-11, 1.30E-11, 1.32E-11, &
        1.32E-11, 1.31E-11, 1.30E-11, 1.29E-11, 1.27E-11/
+!RCHO-czhao
       DATA (xl(18,k_loop),k_loop=1,kx) &
        / 3.61E-13, 3.61E-13, 3.61E-13, 3.61E-13, 3.61E-13, &
        3.58E-13, 5.22E-13, 1.75E-12, 2.59E-12, 2.62E-12, 2.64E-12, &
        2.66E-12, 2.65E-12, 2.62E-12, 2.60E-12, 2.57E-12/
+!SULF-czhao
       DATA (xl(19,k_loop),k_loop=1,kx) &
        / 5.00E-11, 5.00E-11, 5.00E-11, 5.00E-11, 5.00E-11, &
        5.00E-11, 5.00E-11, 5.00E-11, 5.00E-11, 5.00E-11, 5.00E-11, &
        5.00E-11, 5.00E-11, 5.00E-11, 5.00E-11, 5.00E-11/
 
+!xyl,aco3,hono-czhao
       DATA (xl(20,k_loop),k_loop=1,kx)/kx*1.E-20/
       DATA (xl(21,k_loop),k_loop=1,kx)/kx*1.E-20/
       DATA (xl(22,k_loop),k_loop=1,kx)/kx*1.E-20/
+!gly,mgly,dcb,
       DATA (xl(23,k_loop),k_loop=1,kx)/kx*1.E-20/
       DATA (xl(24,k_loop),k_loop=1,kx)/kx*1.E-20/
       DATA (xl(25,k_loop),k_loop=1,kx)/kx*1.E-20/
 
 ! Propane - Gregory PEM-West A 25 ppt median marine boundary layer
+!hc5-czhao
       DATA (xl(26,k_loop),k_loop=1,kx) &
       /5.00E-13, 1.24E-12, 2.21E-12, 3.27E-12, 4.71E-12, &
        6.64E-12, 9.06E-12, 1.19E-11, 1.47E-11, 1.72E-11, &
@@ -295,7 +310,7 @@ MODULE module_input_chem_data
        / 5.52E+05, 5.52E+05, 3.04E+05, 2.68E+05, 2.32E+05, &
        1.66E+05, 1.57E+05, 1.72E+05, 1.98E+05, 2.22E+05, 2.43E+05, &
        2.75E+05, 3.00E+05, 3.18E+05, 3.32E+05, 3.39E+05/
-! HO2NO2
+! HO2NO2-czhao
       DATA (xl(31,k_loop),k_loop=1,kx) &
        / 7.25E+07, 7.25E+07, 6.36E+07, 5.55E+07, 4.94E+07, &
        3.66E+07, 2.01E+07, 9.57E+06, 4.75E+06, 2.37E+06, 1.62E+06, &
@@ -306,11 +321,12 @@ MODULE module_input_chem_data
        3.62E+07, 5.47E+07, 1.19E+08, 2.05E+08, 2.25E+08, 2.39E+08, &
        2.58E+08, 2.82E+08, 2.99E+08, 3.08E+08, 3.15E+08/
 ! O3 <--This is not the O3 used for RADM2 or CBMZ (wig)
+!in molecule number concentration
       DATA (xl(33,k_loop),k_loop=1,kx) &
        / 8.36E+11, 8.36E+11, 4.26E+11, 4.96E+11, 6.05E+11, &
        6.93E+11, 7.40E+11, 7.74E+11, 7.82E+11, 7.75E+11, 7.69E+11, &
        7.59E+11, 7.54E+11, 7.50E+11, 7.47E+11, 7.45E+11/
-! NOx (NO+NO2)
+! NOx (NO+NO2) in molecule number concentration
       DATA (xl(34,k_loop),k_loop=1,kx) &
        / 1.94E+09, 1.94E+09, 1.53E+09, 1.24E+09, 1.04E+09, &
        8.96E+08, 7.94E+08, 7.11E+08, 6.44E+08, 6.00E+08, 5.70E+08, &
@@ -343,7 +359,8 @@ SUBROUTINE setup_gasprofile_maps(chem_opt, numgas)
         GOCARTRACM_KPP, GOCARTRADM2,GOCARTRADM2_KPP,CHEM_TRACER, CHEM_TRACE2)
      call setup_gasprofile_map_radm_racm
 
-  case (SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP)
+  case (SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_4BIN_VBS9_KPP,      &
+     SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP, SAPRC99_MOSAIC_8BIN_VBS2_KPP)!BSINGH(12/04/2013): Added SAPRC 8 bin and non-aq on 04/03/2014
      call setup_gasprofile_map_saprcnov
 
 
@@ -353,6 +370,7 @@ SUBROUTINE setup_gasprofile_maps(chem_opt, numgas)
         CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ,CBMZSORG, &
         CBMZSORG_AQ, CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, &
         CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
+        CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE, CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
 		CBMZ_CAM_MAM3_NOAQ, CBMZ_CAM_MAM3_AQ, CBMZ_CAM_MAM7_NOAQ, CBMZ_CAM_MAM7_AQ)
 !    This call works for CBMZ_BB_KPP and CBMZ_SORGAM_KPP if all additional
 !    gas species such as ch4, api, lim etc. are put after ho2 in the
@@ -560,6 +578,414 @@ SUBROUTINE setup_gasprofile_map_cbm4(numgas)
   
 END SUBROUTINE setup_gasprofile_map_cbm4
 
+
+! SUBROUTINE input_ext_chem_file (si_grid)  !czhao 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!   IMPLICIT NONE
+
+!   TYPE(domain)           ::  si_grid
+
+!  INTEGER :: i , j , k, l, &
+!             ids, ide, jds, jde, kds, kde,    &
+!             ims, ime, jms, jme, kms, kme,    &
+!             ips, ipe, jps, jpe, kps, kpe    
+!  INTEGER :: si_jday
+!  INTEGER :: dat_jday,dat_year,dat_month,dat_day,dat_hour,dat_min,dat_sec
+!  INTEGER :: time_loop_max , time_loop
+!  INTEGER, DIMENSION(2) :: num_steps
+!  INTEGER :: fid, ierr, rc
+!  INTEGER :: status_next_var 
+!  INTEGER :: debug_level
+!  INTEGER :: si_year,si_month,si_day,si_hour,si_min,si_sec
+!  INTEGER :: total_time_sec , file_counter
+!#if ( ! NMM_CORE == 0 )
+!  REAL, ALLOCATABLE, DIMENSION(:,:,:) :: pint
+!  REAL, ALLOCATABLE, DIMENSION(:,:) :: pdsl
+!#endif
+
+!  LOGICAL :: input_from_file , need_new_file
+
+!  REAL, ALLOCATABLE, DIMENSION(:,:,:) :: si_zsigf, si_zsig
+!  REAL, ALLOCATABLE, DIMENSION(:,:,:) :: ch_zsigf, ch_zsig, ozone
+!  REAL    :: ext_time
+!  REAL    :: dat_time = 0.
+!  REAL    :: wgt0,wgt_time1,wgt_time2
+
+!  CHARACTER (LEN=80) :: inpname, message
+!  CHARACTER (LEN=19) :: date_string
+!  CHARACTER (LEN=19) :: extract_date, use_date, current_date_char
+!  CHARACTER*80                           :: timestr
+
+!  TYPE (grid_config_rec_type)              :: config_flags
+!  TYPE(domain) , POINTER ::  null_domain, chem_grid, chgrid, parent_grid
+!  TYPE(domain) , POINTER ::  chem_grid0
+!!!!   TYPE(ESMF_Time)                        :: CurrTime
+
+!  !  Interface block for routine that passes pointers and needs to know that they
+!  !  are receiving pointers.
+
+
+!    CALL model_to_grid_config_rec ( si_grid%id , model_config_rec , config_flags )
+!     !  After current_date has been set, fill in the julgmt stuff.
+
+!     CALL geth_julgmt ( config_flags%julyr , config_flags%julday , config_flags%gmt )
+
+!  WRITE ( extract_date , FMT = '(I4.4,"-",I2.2,"-",I2.2,"_",I2.2,":",I2.2,":",I2.2)' ) &
+!          model_config_rec%start_year  (si_grid%id) , &
+!          model_config_rec%start_month (si_grid%id) , &
+!          model_config_rec%start_day   (si_grid%id) , &
+!          model_config_rec%start_hour  (si_grid%id) , &
+!          model_config_rec%start_minute(si_grid%id) , &
+!          model_config_rec%start_second(si_grid%id)
+
+!  write(message,'(A,A)') 'Subroutine input_chem: finding data at date/time: ',extract_date
+!  CALL  wrf_message ( TRIM(message) )
+
+
+!  !  And here is an instance of using the information in the NAMELIST.  
+
+!  CALL nl_get_debug_level ( 1,debug_level )
+!  CALL set_wrf_debug_level ( debug_level )
+
+!  
+!  !  Allocated and configure the mother domain.  Since we are in the nesting down
+!  !  mode, we know a) we got a nest, and b) we only got 1 nest.
+
+!  NULLIFY( null_domain )
+
+!  CALL       wrf_debug ( 100 , 'wrfchem:input_chem: calling alloc_and_configure_domain 1' )
+!  ! Note that this is *not* the intended use of alloc_and_configure_domain()
+!  ! It does not seem to hurt anything, yet...  
+
+!   if( si_grid%id .EQ. 1) then
+!  CALL alloc_and_configure_domain ( domain_id  = 1           , &
+!                                    grid       = chem_grid   , &
+!                                    parent     = null_domain , &
+!                                    kid        = -1            )
+
+!   else
+!    CALL alloc_and_configure_domain ( domain_id  = 1           , &
+!                                    grid       = chem_grid0   , &
+!                                    parent     = null_domain , &
+!                                    kid        = -1            )
+!    parent_grid => chem_grid0
+
+!    CALL alloc_and_configure_domain ( domain_id  = 2 ,                  &
+!                                      grid       = chem_grid ,        &
+!                                      parent     = parent_grid ,        &
+!                                      kid        = 1                   )
+!   endif
+
+!  CALL       wrf_debug ( 100 , 'wrfchem:input_chem: set pointer for domain 1' )
+!  chgrid => chem_grid
+
+!  !  Get a list of available file names to try.  This fills up the eligible_file_name
+!  !  array with number_of_eligible_files entries.  This routine issues a nonstandard
+!  !  call (system).
+
+!  file_counter = 1
+!  need_new_file = .FALSE.
+
+!  CALL unix_ls ( 'wrf_chem_input' , chem_grid%id )
+
+!  write(message,'(A,1x,I2.2)') 'number of eligible files',number_of_eligible_files 
+!  CALL wrf_message( TRIM(message) )
+
+!!!!   !  Open the input data (chemin_d01_000000) for reading.
+!!!!   CALL wrf_debug          ( 100 , 'subroutine input_chem: calling open_r_dataset for wrfout' )
+!!!!   CALL construct_filename ( inpname , 'chemin' , chgrid%id, 2 , 0 , 6 )
+
+!  CALL construct_filename2a (inpname , chgrid%input_chem_inname, chgrid%id , 2, extract_date)
+!  write(message,'(A,A)') 'Subroutine input_chem: Opening data file ',TRIM(inpname)
+!  CALL wrf_message( TRIM(message) )
+
+!  CALL open_r_dataset ( fid, TRIM(inpname) , chgrid, config_flags, "DATASET=INPUT", ierr )
+!
+!  IF ( ierr .NE. 0 ) THEN
+!     WRITE( wrf_err_message , FMT='(A,A,A,I8)' ) 'subroutine chemin: error opening ',TRIM(inpname),' for reading ierr=',ierr
+!     CALL WRF_ERROR_FATAL ( wrf_err_message )
+!  ENDIF
+
+!  !  How many data time levels in the input file?
+
+!  num_steps = -1
+!  time_loop_max = 0
+!  CALL wrf_debug    ( 100, 'subroutine input_chem: find time_loop_max' )
+
+!    !  Which times are in this file, and more importantly, are any of them the
+!    !  ones that we want?  We need to loop over times in each files, loop
+!    !  over files.
+
+!  get_the_right_time : DO
+!!!!!!     CALL ext_ncd_get_next_time ( fid, date_string, status_next_var )
+!     CALL wrf_get_next_time ( fid, date_string, status_next_var )
+
+!     write(message,'(19A)') 'Subroutine input_chem: file date/time = ',date_string
+!     CALL  wrf_message ( TRIM(message) )
+
+!     IF ( status_next_var == 0 ) THEN
+!        CALL wrf_debug          ( 100 , 'input_ext_chem_file: calling close_dataset  for ' // TRIM(eligible_file_name(file_counter)) )
+!        CALL close_dataset      ( fid , config_flags , "DATASET=INPUT" )
+!        time_loop_max = time_loop_max + 1
+!           IF ( time_loop_max .GT. number_of_eligible_files ) THEN
+!              WRITE( wrf_err_message , FMT='(A,A,A,I8)' ) 'program input_chem_data: opening too many files'
+!              CALL WRF_ERROR_FATAL ( wrf_err_message )
+!           END IF
+
+!           IF ( time_loop_max .EQ. number_of_eligible_files ) THEN
+!             num_steps(1) = time_loop_max
+!             num_steps(2) = time_loop_max+1
+!             use_date = date_string
+!             wgt_time1 = dat_time
+
+!             EXIT get_the_right_time
+!           END IF
+!           CYCLE get_the_right_time
+!     ELSE
+!!!        ELSE IF ( TRIM(date_string) .LT. TRIM(current_date_char) ) THEN
+!!!           CYCLE get_the_right_time
+!!!        ELSE IF ( TRIM(date_string) .EQ. TRIM(current_date_char) ) THEN
+!!!           EXIT get_the_right_time
+!!!        ELSE IF ( TRIM(date_string) .GT. TRIM(current_date_char) ) THEN
+!!!           WRITE( wrf_err_message , FMT='(A,A,A,A,A)' ) 'Found ',TRIM(date_string),' before I found ',TRIM(current_date_char),' .'
+!!!           CALL WRF_ERROR_FATAL ( wrf_err_message )
+!!!        END IF
+
+!!!    For now, the input date and time MUST match 
+!
+!!!    Put the time check here and set num_steps
+
+!       num_steps(1) = time_loop_max
+!       num_steps(2) = time_loop_max+1
+!       use_date = date_string
+!       wgt_time1 = dat_time
+
+!       EXIT get_the_right_time
+
+!     ENDIF
+!     if( num_steps(2) == time_loop_max ) then
+!       wgt_time2 = dat_time
+!     endif
+!  END DO get_the_right_time
+
+!  num_steps(2) = MIN(num_steps(2),time_loop_max)
+
+!!!!  wgt0 = (ext_time  - wgt_time1) / (wgt_time2 - wgt_time1)
+!   wgt0 = 0.
+
+!!!! Make sure the right date and time for the chemin data has been found
+
+!  write(message,'(A,A20,A,I9)') 'Subroutine input_chem: use_date, num_steps(1) = ',use_date,num_steps(1)
+!  if( num_steps(1) > 0 ) then
+!     write(message,'(A,A)') 'Subroutine input_chem: extracting data at date/time: ',use_date
+!     CALL  wrf_message ( TRIM( message ) )
+!  else
+!     WRITE( wrf_err_message, FMT='(A)' ) 'subroutine input_chem: error finding chemin date/time #2'
+!     CALL WRF_ERROR_FATAL ( wrf_err_message )
+!  endif
+
+!  !  There has to be a more elegant way to get to the beginning of the file, but this will do.
+
+!  CALL close_dataset      ( fid , config_flags , "DATASET=INPUT" )
+
+!  CALL construct_filename2a (inpname , chgrid%input_chem_inname, chgrid%id , 2, extract_date)
+!  write(message,'(A,A)') 'Subroutine input_chem: Opening data file ',TRIM(inpname)
+!  CALL wrf_message( TRIM(message) )
+
+!  CALL open_r_dataset     ( fid, TRIM(inpname) , chgrid , config_flags , "DATASET=INPUT", ierr )
+!  IF ( ierr .NE. 0 ) THEN
+!     WRITE( wrf_err_message , FMT='(A,A,A,I8)' ) 'subroutine chemin: error opening ',TRIM(inpname),' for reading ierr=',ierr
+!     CALL WRF_ERROR_FATAL ( wrf_err_message )
+!  ENDIF
+
+!  !  We know how many time periods to process (right now - all of them), we have the input data
+!  !  (re-)opened, so we begin.
+
+!  big_time_loop_thingy : DO time_loop = 1 , time_loop_max
+
+!       CALL wrf_debug          ( 100 , 'input_chem: calling input_history' )
+!       CALL input_history      ( fid , chgrid , config_flags, ierr )
+!       CALL wrf_debug          ( 100 , 'input_chem: back from input_history' )
+
+!       IF( time_loop .EQ. num_steps(1) ) THEN
+
+!         ! Get grid dimensions
+!         CALL get_ijk_from_grid (  si_grid ,                        &
+!                                   ids, ide, jds, jde, kds, kde,    &
+!                                   ims, ime, jms, jme, kms, kme,    &
+!                                   ips, ipe, jps, jpe, kps, kpe    )
+
+!         ! Get scalar grid point heights
+!         ALLOCATE( si_zsigf(ims:ime,kms:kme,jms:jme) )
+!         ALLOCATE( ch_zsigf(ims:ime,kms:kme,jms:jme) )
+!         ALLOCATE(  si_zsig(ims:ime,kms:kme,jms:jme) )
+!         ALLOCATE(  ch_zsig(ims:ime,kms:kme,jms:jme) )
+!#if ( EM_CORE == 1 )
+!          si_zsigf = (si_grid%ph_1 + si_grid%phb) / grav
+!          ch_zsigf = ( chgrid%ph_1 +  chgrid%phb) / grav
+!#endif
+
+!#if ( NMM_CORE == 1 )
+
+!  ! Get scalar grid point heights
+!  ALLOCATE(  pint(ips:ipe,kps:kpe,jps:jpe) )
+!  ALLOCATE(  pdsl(ips:ipe,jps:jpe) )
+
+!      IF(chgrid%sigma.EQ. 1)THEN
+!        do j=jps,jpe
+!        do i=ips,ipe
+!          pdsl(i,j)=chgrid%pd(i,j)
+!        ENDDO
+!        ENDDO
+!      ELSE
+!        do j=jps,jpe
+!        do i=ips,ipe
+!          pdsl(i,j)=chgrid%res(i,j)*chgrid%pd(i,j)
+!        enddo
+!        enddO
+!      ENDIF
+!!
+!!!!!    SHOULD PINT,Z,W BE REDEFINED IF RESTRT?
+!
+!     do j=jps,jpe
+!       do k=kps,kpe
+!       do i=ips,ipe
+!         pint(i,k,j)=si_grid%eta1(k)*chgrid%pdtop+si_grid%eta2(k)*pdsl(i,j)+chgrid%pt
+!         ch_zsigf(i,k,j)=pint(i,k,j)
+!       ENDDO
+!       ENDDO
+!     ENDDO
+
+!         CALL wrf_debug (0, message)
+
+!      IF(si_grid%sigma.EQ. 1)THEN
+!        do j=jps,jpe
+!        do i=ips,ipe
+!          pdsl(i,j)=si_grid%pd(i,j)
+!        ENDDO
+!        ENDDO
+!      ELSE
+!        do j=jps,jpe
+!        do i=ips,ipe
+!          pdsl(i,j)=si_grid%res(i,j)*si_grid%pd(i,j)
+!        enddo
+!        enddO
+!      ENDIF
+!!!!!         write(message,'(1e15.6,i6)') pdsl(ips,jps), si_grid%sigma
+!!
+!!!!!    SHOULD PINT,Z,W BE REDEFINED IF RESTRT?
+!
+!     do j=jps,jpe
+!       do k=kps,kpe
+!       do i=ips,ipe
+!         pint(i,k,j)=si_grid%eta1(k)*si_grid%pdtop+si_grid%eta2(k)*pdsl(i,j)+si_grid%pt
+!!!!         if (i.EQ. ips .and. j .EQ. jps) then
+!!!!         print *,k,pint(i,k,j),si_grid%eta1(k),si_grid%pdtop,si_grid%eta2(k),pdsl(i,j),si_grid%pt
+!!!!!         endif
+!         si_zsigf(i,k,j)=pint(i,k,j)
+!       ENDDO
+!       ENDDO
+!     ENDDO
+
+!!!!!         write(message,'(4e15.6)') si_zsigf(1,1:4,1)
+!!!!!         CALL wrf_error_fatal (message)
+
+!         DEALLOCATE( pint); DEALLOCATE( pdsl )
+!#endif
+
+
+!         do k=1,kde-1
+!           si_zsig(ips:ipe,k,jps:jpe) = 0.5 * ( si_zsigf(ips:ipe,k,jps:jpe) + si_zsigf(ips:ipe,k+1,jps:jpe) ) 
+!           ch_zsig(ips:ipe,k,jps:jpe) = 0.5 * ( ch_zsigf(ips:ipe,k,jps:jpe) + ch_zsigf(ips:ipe,k+1,jps:jpe) ) 
+!         enddo
+!         si_zsig(ips:ipe,kde,jps:jpe) = 0.5 * ( 3. * si_zsigf(ips:ipe,kde,jps:jpe) - si_zsigf(ips:ipe,kde-1,jps:jpe) ) 
+!         ch_zsig(ips:ipe,kde,jps:jpe) = 0.5 * ( 3. * ch_zsigf(ips:ipe,kde,jps:jpe) - ch_zsigf(ips:ipe,kde-1,jps:jpe) ) 
+!        
+!     ! check size of si_grid vs chgrid
+
+!       IF( size(si_grid%chem,1) .NE. ime-ims+1 .OR.  &
+!           size(si_grid%chem,2) .NE. kme-kms+1 .OR.  &
+!           size(si_grid%chem,3) .NE. jme-jms+1 .OR.  &
+!           size(si_grid%chem,4) .NE. num_chem  ) then
+
+!         CALL wrf_debug (100, ' SI grid dimensions ' )
+!         write(message,'(4i8.8)') size(si_grid%chem,1),size(si_grid%chem,2), &
+!                                  size(si_grid%chem,3),size(si_grid%chem,4)
+!         CALL wrf_debug (100, message)
+!         CALL wrf_debug (100, ' Input data dimensions ' )
+!         write(message,'(4i8.8)') ime-ims+1,kme-kms+1,jme-jms+1,num_chem
+!         CALL wrf_debug (100, message)
+!         write(wrf_err_message,'(A)') 'ERROR IN MODULE_INPUT_CHEM: bad dimensions in input data '
+!         CALL WRF_ERROR_FATAL ( wrf_err_message )
+!       ENDIF
+
+!       ! Fill top level to prevent spurious interpolation results (no extrapolation)
+!       chgrid%chem(ips:ipe,kde,jps:jpe,:) = chgrid%chem(ips:ipe,kde-1,jps:jpe,:)
+
+!     ! Interpolate the chemistry data to the SI grid (holding place for time interpolation)
+
+!       call vinterp_chem(ims, ime, jms, jme, kms, kme, kme, num_chem, ch_zsig, si_zsig, &
+!                         chgrid%chem, si_grid%chem, .false.)
+
+!         if(wgt0 == 0.) EXIT big_time_loop_thingy
+!       ENDIF
+
+!        IF( time_loop .EQ. num_steps(2) ) THEN
+
+!!!!     ! input chemistry sigma levels
+!!!!      ch_zsigf = ( chgrid%ph_1 +  chgrid%phb) / grav
+!!!!      do k=1,kde-1
+!!!!        ch_zsig(:,k,:) = 0.5 * ( ch_zsigf(:,k,:) + ch_zsigf(:,k+1,:) ) 
+!!!!      enddo
+!!!!      ch_zsig(:,kde,:) = 0.5 * ( 3. * ch_zsigf(:,kde,:) - ch_zsigf(:,kde-1,:) ) 
+
+!!!!    ! Fill top level to prevent spurious interpolation results (no extrapolation)
+!!!!      chgrid%chem(:,kde,:,:) = chgrid%chem(:,kde-1,:,:)
+
+!!!!  ! Interpolate the chemistry data to the temp chgrid2 structure
+
+!!!!      call vinterp_chem(ims, ime, jms, jme, kms, kme, kme, num_chem, ch_zsig, si_zsig, &
+!!!!                        chgrid%chem, chgrid2%chem, .false.)
+
+!!!!  ! use linear interpolation in time to get new chem arrays
+!!!!      si_grid%chem = (1. - wgt0) * si_grid%chem + &
+!!!!                             wgt0  * chgrid2%chem 
+
+!         DEALLOCATE( si_zsigf); DEALLOCATE( si_zsig )
+!         DEALLOCATE( ch_zsigf); DEALLOCATE( ch_zsig )
+
+!         EXIT big_time_loop_thingy
+!       ENDIF
+!  END DO big_time_loop_thingy
+
+!!!Check for errors in chemin data set
+
+!!!do l=2,num_chem
+!!!do j=jds,jde
+!!!do k=kds,kde
+!!!do i=ids,ide
+!!!  si_grid%chem(i,k,j,l) = MAX(si_grid%chem(i,k,j,l),epsilc)
+!!!enddo
+!!!enddo
+!!!enddo
+!!!enddo
+!  
+
+!!!Close chemin data set
+!  CALL close_dataset ( fid , config_flags , "DATASET=INPUT" )
+
+!!free memory
+!  CALL domain_destroy( chem_grid )
+
+!  CALL wrf_debug ( 100,' input_ext_chem_data: exit subroutine ')
+
+!  RETURN
+
+! END SUBROUTINE input_ext_chem_file
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   SUBROUTINE vinterp_chem(nx1, nx2, ny1, ny2, nz1, nz_in, nz_out, nch, z_in, z_out, &
                  data_in, data_out, extrapolate)
@@ -588,6 +1014,7 @@ END SUBROUTINE setup_gasprofile_map_cbm4
 !   Loop over the number of chemical species
     chem_loop: DO l = 2, nch
 
+!czhao     data_out(nx1:nx2,nz1:nz_out,ny1:ny2,l) = -99999.9
       data_out(:,:,:,l) = -99999.9
 
       DO j = ny1, ny2
@@ -835,6 +1262,10 @@ SUBROUTINE input_chem_profile (si_grid)
 
 !  si_zsigf = (si_grid%ph_1 + si_grid%phb) / grav
 
+!cz  do k=1,kde-1
+!cz    si_zsig(ips:ipe,k,jps:jpe) = 0.5 * ( si_zsigf(ips:ipe,k,jps:jpe) + si_zsigf(ips:ipe,k+1,jps:jpe) ) 
+!cz  enddo
+!cz  si_zsig(ips:ipe,kde,jps:jpe) = 0.5 * ( 3. * si_zsigf(ips:ipe,kde,jps:jpe) - si_zsigf(ips:ipe,kde-1,jps:jpe) ) 
    do k=1,kde-1
      si_zsig(:,k,:) = 0.5 * ( si_zsigf(:,k,:) + si_zsigf(:,k+1,:) ) 
    enddo
@@ -983,6 +1414,7 @@ SUBROUTINE input_chem_profile (si_grid)
             CBMZ_MOSAIC_4BIN_AQ,CBMZ_MOSAIC_8BIN_AQ, &
             CBMZSORG,CBMZSORG_AQ, CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, & 
             CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
+            CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE, CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
             CBMZ_CAM_MAM3_NOAQ, CBMZ_CAM_MAM3_AQ, CBMZ_CAM_MAM7_NOAQ, CBMZ_CAM_MAM7_AQ)
          do j = ny1,ny2
          do k = nz1,nz2
@@ -1535,11 +1967,14 @@ END SUBROUTINE bdy_chem_value_ghg
       INTEGER    :: i, j, k, numgas
       INTEGER    :: ibs, ibe, jbs, jbe, itf, jtf, ktf
       INTEGER    :: i_inner, j_inner
-      INTEGER    :: b_dist
+      INTEGER    :: b_dist,b_limit
       integer    :: itestbc, i_bdy_method
       real tempfac,convfac
       real       :: chem_bv_def
       logical    :: have_bcs_chem
+      LOGICAL    :: periodic_x
+
+      periodic_x = config_flags%periodic_x
 
       chem_bv_def = conmin
       numgas = get_last_gas(config_flags%chem_opt)
@@ -1660,10 +2095,13 @@ END SUBROUTINE bdy_chem_value_ghg
 ! Y-start boundary
         DO j = jts, min(jtf,jbs+spec_zone-1)
           b_dist = j - jbs
+          b_limit = b_dist
+          IF(periodic_x)b_limit = 0
           DO k = kts, ktf
-            DO i = max(its,b_dist+ibs), min(itf,ibe-b_dist)
+            DO i = max(its,b_limit+ibs), min(itf,ibe-b_limit)
               i_inner = max(i,ibs+spec_zone)
               i_inner = min(i_inner,ibe-spec_zone)
+              IF(periodic_x)i_inner = i
               IF(v(i,k,j) .lt. 0.)THEN
                 chem(i,k,j) = chem(i_inner,k,jbs+spec_zone)
               ELSE
@@ -1712,10 +2150,13 @@ END SUBROUTINE bdy_chem_value_ghg
 ! Y-end boundary 
         DO j = max(jts,jbe-spec_zone+1), jtf 
           b_dist = jbe - j 
+          b_limit = b_dist
+          IF(periodic_x)b_limit = 0
           DO k = kts, ktf 
-            DO i = max(its,b_dist+ibs), min(itf,ibe-b_dist)
+            DO i = max(its,b_limit+ibs), min(itf,ibe-b_limit)
               i_inner = max(i,ibs+spec_zone)
               i_inner = min(i_inner,ibe-spec_zone)
+              IF(periodic_x)i_inner = i
               IF(v(i,k,j+1) .gt. 0.)THEN
                 chem(i,k,j) = chem(i_inner,k,jbe-spec_zone)
               ELSE
@@ -1761,6 +2202,7 @@ END SUBROUTINE bdy_chem_value_ghg
         ENDDO
       ENDIF 
 
+    IF(.NOT.periodic_x)THEN
       IF (its - ibs .lt. spec_zone) THEN
 ! X-start boundary
         DO i = its, min(itf,ibs+spec_zone-1)
@@ -1866,6 +2308,8 @@ END SUBROUTINE bdy_chem_value_ghg
           ENDDO
         ENDDO
       ENDIF 
+
+     ENDIF  ! periodic_x
 
    END SUBROUTINE flow_dep_bdy_chem
 #else
@@ -2569,15 +3013,17 @@ END SUBROUTINE bdy_chem_value_ghg
            GOCARTRACM_KPP,GOCARTRADM2,GOCARTRADM2_KPP)
         get_last_gas = p_ho2
 
-     case (CBMZ_MOSAIC_4BIN_VBS2_KPP, SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP)
+     case (CBMZ_MOSAIC_4BIN_VBS2_KPP, SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP, &
+           SAPRC99_MOSAIC_4BIN_VBS9_KPP,SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_KPP )!BSINGH(12/13/2013): Added SAPRC 8 bin AQ case and non-aq on 04/03/2014
         get_last_gas = p_ch4
 
 
-     case (CBMZ,CBMZ_MOSAIC_DMS_4BIN,CBMZ_MOSAIC_DMS_8BIN,CBMZ_MOSAIC_DMS_4BIN_AQ,CBMZ_MOSAIC_DMS_8BIN_AQ)
+     case (CBMZ,CBMZ_MOSAIC_DMS_4BIN,CBMZ_MOSAIC_DMS_8BIN,CBMZ_MOSAIC_DMS_4BIN_AQ,CBMZ_MOSAIC_DMS_8BIN_AQ,CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE)
         get_last_gas = p_mtf
 
-     case (CBMZ_BB,CBMZ_BB_KPP, CBMZ_MOSAIC_KPP, CBMZ_MOSAIC_4BIN, &
-           CBMZ_MOSAIC_8BIN,CBMZ_MOSAIC_4BIN_AQ,CBMZ_MOSAIC_8BIN_AQ,CBMZSORG,CBMZSORG_AQ)
+     case (CBMZ_BB,CBMZ_BB_KPP, CBMZ_SORGAM_KPP, CBMZ_MOSAIC_KPP, CBMZ_MOSAIC_4BIN, &
+           CBMZ_MOSAIC_8BIN,CBMZ_MOSAIC_4BIN_AQ,CBMZ_MOSAIC_8BIN_AQ,CBMZSORG,CBMZSORG_AQ, &
+           CBMZ_MOSAIC_8BIN_VBS9_KPP, CBMZ_MOSAIC_4BIN_VBS9_KPP)
         get_last_gas = p_isopo2
 
      case (CHEM_TRACER)
@@ -2655,6 +3101,8 @@ END SUBROUTINE bdy_chem_value_ghg
               bv_no3ai, bv_no3aj,         &
               bv_eci,   bv_ecj,           &
               bv_p25i,  bv_p25j,          &
+              !czhao
+              bv_dusti,  bv_dustj,          &
               bv_orgpai,bv_orgpaj,        &
               bv_antha, bv_seas, bv_soila
 
@@ -2746,6 +3194,8 @@ END SUBROUTINE bdy_chem_value_ghg
       bv_eci   = mult*0.013*0.03
       bv_p25j  = mult*4.500*0.97
       bv_p25i  = mult*4.500*0.03
+      bv_dustj  = mult*4.500*0.97
+      bv_dusti  = mult*4.500*0.03
       bv_antha = mult*4.500/2.0
       bv_orgpaj = mult*0.088*0.97
       bv_orgpai = mult*0.088*0.03
@@ -2757,13 +3207,13 @@ END SUBROUTINE bdy_chem_value_ghg
       m3nuc = so4fac*bv_so4ai + nh4fac*bv_nh4ai + &
         no3fac*bv_no3ai + &
         orgfac*8.0*conmin + orgfac*bv_orgpai + &
-        anthfac*bv_p25i + anthfac*bv_eci
+        anthfac*bv_p25i + anthfac*bv_eci + soilfac*bv_dusti
 
 !... j-mode (note that the 8 SOA species have bv=conmin)
       m3acc = so4fac*bv_so4aj + nh4fac*bv_nh4aj + &
         no3fac*bv_no3aj + &
         orgfac*8.0*conmin + orgfac*bv_orgpaj + &
-        anthfac*bv_p25j + anthfac*bv_ecj
+        anthfac*bv_p25j + anthfac*bv_ecj + soilfac*bv_dustj
 
 !...c-mode
       m3cor = soilfac*bv_soila + seasfac*bv_seas + &
@@ -2784,6 +3234,8 @@ END SUBROUTINE bdy_chem_value_ghg
       if( nch == p_eci     ) chem = bv_eci
       if( nch == p_p25j    ) chem = bv_p25j
       if( nch == p_p25i    ) chem = bv_p25i
+      if( nch == p_dustj    ) chem = bv_dustj
+      if( nch == p_dusti    ) chem = bv_dusti
       if( nch == p_orgpaj  ) chem = bv_orgpaj
       if( nch == p_orgpai  ) chem = bv_orgpai
 

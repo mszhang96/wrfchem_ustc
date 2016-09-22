@@ -342,7 +342,7 @@
 !   lsodes
 	if (igas_solver.eq.2 .or. iok.le.0) then
 	    jsolver = 2
-	    call gasodesolver_lsodes( tstart, tstop, iok,   &
+	    call gasodesolver_lsodes( dtchem,tstart, tstop, iok,   &
       		it, jt, kt, iregime,   &
       		mgaschem, lunerr, lunout, levdbg_err, levdbg_info,   &
 		i_force_dump, iodestatus_count,   &
@@ -822,7 +822,7 @@
 !
 !-----------------------------------------------------------------------
 
-      subroutine gasodesolver_lsodes( tstart, tstop, iok,   &
+      subroutine gasodesolver_lsodes( dtchem, tstart, tstop, iok,   &
       		isvode, jsvode, ksvode, iregime,   &
       		mgaschem, lunerr, lunout, levdbg_err, levdbg_info,   &
 		i_force_dump, iodestatus_count, &

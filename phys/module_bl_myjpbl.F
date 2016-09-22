@@ -152,7 +152,7 @@
 
       INTEGER,DIMENSION(IMS:IME,JMS:JME),INTENT(IN) :: LOWLYR
 !
-      INTEGER,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: KPBL
+      INTEGER,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: KPBL
 !
       REAL,INTENT(IN) :: DT
 !
@@ -167,15 +167,15 @@
       REAL,OPTIONAL,INTENT(IN),DIMENSION(IMS:IME,KMS:KME,JMS:JME)::    &  !BSF
                                                 QV,QCW,QCI,QCS,QCR,QCG    !BSF
 !
-      REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(OUT) :: PBLH,MIXHT            !PLee (3/07)
+      REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: PBLH,MIXHT            !PLee (3/07)
 !
       REAL,DIMENSION(IMS:IME,JMS:JME),INTENT(INOUT) :: AKHS,AKMS
 !
-      REAL, INTENT(OUT), DIMENSION(IMS:IME,KMS:KME,JMS:JME) ::         &   !BSF
+      REAL, INTENT(INOUT), DIMENSION(IMS:IME,KMS:KME,JMS:JME) ::         &   !BSF
      &                                         EL_MYJ,RTHBLTEN         &   !BSF
      &                                        ,RUBLTEN,RVBLTEN        
 !
-      REAL,OPTIONAL,INTENT(OUT),DIMENSION(IMS:IME,KMS:KME,JMS:JME)::   &   !BSF
+      REAL,OPTIONAL,INTENT(INOUT),DIMENSION(IMS:IME,KMS:KME,JMS:JME)::   &   !BSF
      &                                             RQCBLTEN,RQVBLTEN   &   !BSF
      &                                            ,RQIBLTEN,RQSBLTEN   &   !BSF
      &                                            ,RQRBLTEN,RQGBLTEN       !BSF

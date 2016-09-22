@@ -2554,6 +2554,8 @@
     
 ! Recompute original s.s.a. to test for conservative solution
             !Balwinder.Singh@pnnl.gov: Code added to avoid 'divide by zero' error in zwo computation
+            !Chun Zhao: Code added to avoid 'divide by zero' error in zg computation
+            if ((1.-zg).eq.0) zg=0.99
             denom = max((1._rb - (1._rb - zw) * (zg / (1._rb - zg))**2),1.0E-30_rb)
             zwo= zw / denom
 
@@ -4714,7 +4716,7 @@
                                               ! at constant pressure at 273 K
                                               ! (J kg-1 K-1)
 
-! Shortwave spectral band limits (wavenumbers)
+! Shortwave spectral band limits (wavenumbers cm-1)
       wavenum1(:) = (/2600._rb, 3250._rb, 4000._rb, 4650._rb, 5150._rb, 6150._rb, 7700._rb, &
                       8050._rb,12850._rb,16000._rb,22650._rb,29000._rb,38000._rb,  820._rb/)
       wavenum2(:) = (/3250._rb, 4000._rb, 4650._rb, 5150._rb, 6150._rb, 7700._rb, 8050._rb, &
@@ -8444,7 +8446,10 @@
                zf = zgcc(jk) * zgcc(jk)
                zwf = zomcc(jk) * zf
                ztauc(jk) = (1.0_rb - zwf) * ztauc(jk)
+               !Chun Zhao add for temporarily avoiding floating
+               zwf=min(zwf,0.99)
                zomcc(jk) = (zomcc(jk) - zwf) / (1.0_rb - zwf)
+               zf=min(zf,0.99)
                zgcc (jk) = (zgcc(jk) - zf) / (1.0_rb - zf)
 
 ! Total sky optical parameters (cloud properties already delta-scaled)
@@ -8452,8 +8457,11 @@
                if (icpr .ge. 1) then
                   ztauo(jk) = ztauc(jk) + ptaucmc(ikl,iw)
                   zomco(jk) = ztauc(jk) * zomcc(jk) + ptaucmc(ikl,iw) * pomgcmc(ikl,iw) 
+                  !Chun Zhao add for temporarily avoiding floating
+                  if (zomco(jk).eq.0) zomco(jk)=1.e-16
                   zgco (jk) = (ptaucmc(ikl,iw) * pomgcmc(ikl,iw) * pasycmc(ikl,iw) + &
                               ztauc(jk) * zomcc(jk) * zgcc(jk)) / zomco(jk)
+                  if (ztauo(jk).eq.0) ztauo(jk)=1.e-16
                   zomco(jk) = zomco(jk) / ztauo(jk)
 
 ! Total sky optical parameters (if cloud properties not delta scaled)
@@ -9270,6 +9278,10 @@
 ! IAER=10: Direct specification of aerosol optical properties from GCM
          elseif (iaer.eq.10) then
 
+            ztaua(:,:) = 0._rb
+            zasya(:,:) = 0._rb
+            zomga(:,:) = 1._rb
+
             do i = 1 ,nlayers
                do ib = 1 ,nbndsw
                   ztaua(i,ib) = taua(i,ib)
@@ -9765,6 +9777,7 @@ use mcica_subcol_gen_sw, only: mcica_subcol_sw
 use module_ra_rrtmg_lw, only : inirad, o3data, relcalc, reicalc
 !                               mcica_random_numbers, randomNumberSequence, &
 !                               new_RandomNumberSequence, getRandomReal
+use module_state_description, ONLY : MORR_TWO_MOMENT  
 
 CONTAINS
 
@@ -9780,7 +9793,10 @@ CONTAINS
                        coszr, julday, solcon,                     &
                        albedo, t3d, t8w, tsk,                     &
                        p3d, p8w, pi3d, rho3d,                     &
-                       dz8w, cldfra3d, r, g,                      &
+                       dz8w, cldfra3d, lradius, iradius,          & !BSINGH (01/22/2014)
+                       is_cammgmp_used, r, g,                     & !BSINGH (01/22/2014)
+                       !czhao added
+                       taucldc,taucldi,                           &
                        re_cloud,re_ice,re_snow,                   &
                        has_reqc,has_reqi,has_reqs,                &
                        icloud, warm_rain,                         &
@@ -9796,13 +9812,14 @@ CONTAINS
                        swnirdir, swnirdif,                        &  !Zhenxin ssib swi comp (06/20/2011)
                        sf_surface_physics,                        &  !Zhenxin
                        f_qv, f_qc, f_qr, f_qi, f_qs, f_qg,        &
-                       tauaer300,tauaer400,tauaer600,tauaer999,   & ! czhao 
-                       gaer300,gaer400,gaer600,gaer999,           & ! czhao 
-                       waer300,waer400,waer600,waer999,           & ! czhao 
+                       tauaersw,gaersw,waersw,   & ! czhao 
                        aer_ra_feedback,                           &
 !jdfcz                 progn,prescribe,                           &
-                       progn,                                     &
+                       progn,progn_ice,                           &
                        qndrop3d,f_qndrop,                         & !czhao
+                       qnice3d,f_qnice,                         & !czhao
+                       radeffc,radeffi,                                 & !czhao
+                       mp_physics,            &
                        ids,ide, jds,jde, kds,kde,                 & 
                        ims,ime, jms,jme, kms,kme,                 &
                        its,ite, jts,jte, kts,kte,                 &
@@ -9814,12 +9831,17 @@ CONTAINS
    IMPLICIT NONE
 !------------------------------------------------------------------
    LOGICAL, INTENT(IN )      ::        warm_rain
+   LOGICAL, INTENT(IN )      ::   is_CAMMGMP_used !BSINGH:01/22/2014: Added for CAM5 RRTMG<->CAMMGMP
 !
    INTEGER, INTENT(IN )      ::        ids,ide, jds,jde, kds,kde, &
                                        ims,ime, jms,jme, kms,kme, &
                                        its,ite, jts,jte, kts,kte
 
    INTEGER, INTENT(IN )      ::        ICLOUD
+
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme), INTENT(IN) ::   &
+                      radeffi, radeffc
+   INTEGER,    INTENT(IN   )    :: mp_physics
 !
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme )                 , &
          INTENT(IN   ) ::                                   dz8w, &
@@ -9829,6 +9851,12 @@ CONTAINS
                                                              p8w, &
                                                             pi3d, &
                                                            rho3d
+!czhao added cloud optical depth diagnosis
+!  taucldi: ice cloud optical thickness for visible broadband
+!  taucldc: liquid cloud optical thickness for visible braodband
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme )                 , &
+         INTENT(INOUT)  :: taucldi,taucldc      
+   REAL dump1,dump2
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme )                 , &
          INTENT(INOUT)  ::                            RTHRATENSW
@@ -9890,13 +9918,16 @@ CONTAINS
          OPTIONAL                                               , &
          INTENT(IN   ) ::                                         &
                                                         CLDFRA3D, &
+                                                         LRADIUS, &
+                                                         IRADIUS, &
                                                             QV3D, &
                                                             QC3D, &
                                                             QR3D, &
                                                             QI3D, &
                                                             QS3D, &
                                                             QG3D, &
-                                                        QNDROP3D
+                                                        QNDROP3D, &
+                                                        QNICE3D
 
 !..Added by G. Thompson to couple cloud physics effective radii.
    REAL, DIMENSION(ims:ime, kms:kme, jms:jme), INTENT(IN)::       &
@@ -9905,7 +9936,7 @@ CONTAINS
                                                          RE_SNOW
    INTEGER, INTENT(IN):: has_reqc, has_reqi, has_reqs
 
-   real pi,third,relconst,lwpmin,rhoh2o
+   real pi,third,relconst,lwpmin,iwpmin,rhoh2o,rhoice
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme )                 , &
          OPTIONAL                                               , &
@@ -9914,17 +9945,15 @@ CONTAINS
                                                       F_RAIN_PHY
 
    LOGICAL, OPTIONAL, INTENT(IN)   ::                             &
-                                F_QV,F_QC,F_QR,F_QI,F_QS,F_QG,F_QNDROP
+                                F_QV,F_QC,F_QR,F_QI,F_QS,F_QG,F_QNDROP,F_QNICE
 
 ! Optional
-   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ), OPTIONAL ,       &
-         INTENT(IN    ) :: tauaer300,tauaer400,tauaer600,tauaer999, & ! czhao 
-                                 gaer300,gaer400,gaer600,gaer999, & ! czhao 
-                                 waer300,waer400,waer600,waer999    ! czhao 
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, 5 ), OPTIONAL ,       &
+         INTENT(IN    ) :: tauaersw,gaersw,waersw   !czhao
 
    INTEGER,    INTENT(IN  ), OPTIONAL   ::       aer_ra_feedback
 !jdfcz   INTEGER,    INTENT(IN  ), OPTIONAL   ::       progn,prescribe
-   INTEGER,    INTENT(IN  ), OPTIONAL   ::       progn
+   INTEGER,    INTENT(IN  ), OPTIONAL   ::       progn,progn_ice
 !  Ozone
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme )                 , &
          OPTIONAL                                               , &
@@ -9945,9 +9974,10 @@ CONTAINS
       data wavemax/3.846,3.077,2.500,2.150,1.942,1.626, &
       1.299,1.242,0.778,0.625,0.442,0.345,0.263,12.195/
       real wavemid(nbndsw) ! Mid wavelength (um) of interval
-      real, parameter :: thresh=1.e-9
-      real ang,slope
-      character(len=200) :: msg
+      real, parameter :: thresh1=1.e-9
+      real, parameter :: thresh2=1.e9
+      real ang,slope 
+      character(len=200) :: msg 
 
 ! Top of atmosphere and surface shortwave fluxes (W m-2)
    REAL, DIMENSION( ims:ime, jms:jme ),                           &
@@ -9964,12 +9994,14 @@ CONTAINS
 !  LOCAL VARS
  
    REAL, DIMENSION( kts:kte+1 ) ::                          Pw1D, &
-                                                            Tw1D
+                                                            Tw1D, &
+                                                            PHYD
 
    REAL, DIMENSION( kts:kte ) ::                          TTEN1D, &
                                                         CLDFRA1D, &
                                                             DZ1D, &
                                                              P1D, &
+                                                         PHYDMID, &
                                                              T1D, &
                                                             QV1D, &
                                                             QC1D, &
@@ -9978,7 +10010,8 @@ CONTAINS
                                                             QS1D, &
                                                             QG1D, &
                                                             O31D, &
-                                                          qndrop1d 
+                                                          qndrop1d, &
+                                                          qnice1d 
 
 ! Added local arrays for RRTMG
     integer ::                                              ncol, &
@@ -10139,23 +10172,15 @@ CONTAINS
 #ifdef WRF_CHEM
       IF ( aer_ra_feedback == 1) then
       IF ( .NOT. &
-      ( PRESENT(tauaer300) .AND. &
-        PRESENT(tauaer400) .AND. &
-        PRESENT(tauaer600) .AND. &
-        PRESENT(tauaer999) .AND. &
-        PRESENT(gaer300) .AND. &
-        PRESENT(gaer400) .AND. &
-        PRESENT(gaer600) .AND. &
-        PRESENT(gaer999) .AND. &
-        PRESENT(waer300) .AND. &
-        PRESENT(waer400) .AND. &
-        PRESENT(waer600) .AND. &
-        PRESENT(waer999) ) ) THEN
-      CALL wrf_error_fatal  &
+      ( PRESENT(tauaersw) .AND. &  
+        PRESENT(gaersw) .AND. &
+        PRESENT(waersw) ) ) THEN
+      CALL wrf_error_fatal  & 
       ('Warning: missing fields required for aerosol radiation' )
       ENDIF
       ENDIF
 #endif
+
 
 !-----CALCULATE SHORT WAVE RADIATION
 !                                                              
@@ -10201,6 +10226,7 @@ CONTAINS
 
 ! Set flag to prevent shortwave calculation when sun below horizon
          if (coszrs.le.0.0) dorrsw = .false.
+
 ! Perform shortwave calculation if sun above horizon
          if (dorrsw) then
 
@@ -10217,6 +10243,7 @@ CONTAINS
             QS1D(K)=0.
             CLDFRA1D(k)=0.
             QNDROP1D(k)=0.
+            QNICE1D(k)=0.
          ENDDO
 
          DO K=kts,kte
@@ -10272,6 +10299,14 @@ CONTAINS
              IF (F_QNDROP) THEN
               DO K=kts,kte
                qndrop1d(K)=qndrop3d(I,K,J)
+              ENDDO
+             ENDIF
+            ENDIF
+
+            IF ( PRESENT(F_QNICE).AND.PRESENT(QNICE3D)) THEN
+             IF (F_QNICE) THEN
+              DO K=kts,kte
+               qnice1d(K)=qnice3d(I,K,J)
               ENDDO
              ENDIF
             ENDIF
@@ -10550,13 +10585,12 @@ CONTAINS
 ! From module_ra_cam: Convert liquid and ice mixing ratios to water paths;
 ! pdel is in mb here; convert back to Pa (*100.)
 ! Water paths are in units of g/m2
-! snow added as ice cloud (JD 091022)
-            do k = kts, kte
-               gicewp = (qi1d(k)+qs1d(k)) * pdel(ncol,k)*100.0 / gravmks * 1000.0     ! Grid box ice water path.
-               gliqwp = qc1d(k) * pdel(ncol,k)*100.0 / gravmks * 1000.0     ! Grid box liquid water path.
-               cicewp(ncol,k) = gicewp / max(0.01,cldfrac(ncol,k))               ! In-cloud ice water path.
-               cliqwp(ncol,k) = gliqwp / max(0.01,cldfrac(ncol,k))               ! In-cloud liquid water path.
-            end do
+    do k = kts, kte
+       gicewp = qi1d(k) * pdel(ncol,k)*100.0 / gravmks * 1000.0     ! Grid box ice water path.
+       gliqwp = qc1d(k) * pdel(ncol,k)*100.0 / gravmks * 1000.0     ! Grid box liquid water path.
+       cicewp(ncol,k) = gicewp / max(0.01,cldfrac(ncol,k))               ! In-cloud ice water path.
+       cliqwp(ncol,k) = gliqwp / max(0.01,cldfrac(ncol,k))               ! In-cloud liquid water path.
+    end do
 
 ! Mukul
 !..The ice water path is already sum of cloud ice and snow, but when we have explicit
@@ -10591,49 +10625,11 @@ CONTAINS
 
 
 !link the aerosol feedback to cloud  -czhao
-  if( PRESENT( progn ) ) then
-    if (progn == 1) then
-!jdfcz     if(prescribe==0) then
 
-      pi = 4.*atan(1.0)
-      third=1./3.
-      rhoh2o=1.e3
-      relconst=3/(4.*pi*rhoh2o)
-!     minimun liquid water path to calculate rel
-!     corresponds to optical depth of 1.e-3 for radius 4 microns.
-      lwpmin=3.e-5
-      do k = kts, kte
-         reliq(ncol,k) = 10.
-         if( PRESENT( F_QNDROP ) ) then
-            if( F_QNDROP ) then
-              if ( qc1d(k)*pdel(ncol,k).gt.lwpmin.and. &
-                   qndrop1d(k).gt.1000. ) then
-               reliq(ncol,k)=(relconst*qc1d(k)/qndrop1d(k))**third ! effective radius in m
-!           apply scaling from Martin et al., JAS 51, 1830.
-               reliq(ncol,k)=1.1*reliq(ncol,k)
-               reliq(ncol,k)=reliq(ncol,k)*1.e6 ! convert from m to microns
-               reliq(ncol,k)=max(reliq(ncol,k),4.)
-               reliq(ncol,k)=min(reliq(ncol,k),20.)
-              end if
-            end if
-         end if
-      end do
-!jdfcz     else ! prescribe 
-! following Kiehl
-      call relcalc(ncol, pcols, pver, tlay, landfrac, landm, icefrac, reliq, snowh)
-!      write(0,*) 'sw prescribe aerosol',maxval(qndrop3d)
-!jdfcz     endif
-    else  ! progn   (progn=1)
-      call relcalc(ncol, pcols, pver, tlay, landfrac, landm, icefrac, reliq, snowh)
-    endif
-  else   !progn   (PRESENT)
-      call relcalc(ncol, pcols, pver, tlay, landfrac, landm, icefrac, reliq, snowh)
-  endif
+  call relcalc(ncol, pcols, pver, tlay, landfrac, landm, icefrac, reliq, snowh)
 
-! following Kristjansson and Mitchell
-      call reicalc(ncol, pcols, pver, tlay, reice)
-
-
+  ! following Kristjansson and Mitchell
+  call reicalc(ncol, pcols, pver, tlay, reice)
 
 !..If we already have effective radius of cloud and ice, then just overwrite what
 !.. was computed in the relcalc and reicalc subroutines above.
@@ -10650,15 +10646,37 @@ CONTAINS
       endif
 
 
-#if 0
-      if (i==80.and.j==30) then
-#if defined( DM_PARALLEL ) && ! defined( STUBMPI) 
-      if( PRESENT( progn ) ) write(0,*) 'aerosol indirect',progn
-      write(0,*)'sw water eff radius',reliq(ncol,10),reliq(ncol,20),reliq(ncol,25)
-      write(0,*)'sw ice eff radius',reice(ncol,10),reice(ncol,20),reice(ncol,25)
-#endif
-      endif
-#endif
+!direct use of effectie radius leads to fail of regtest,
+!so re-calculated using simplified method  -czhao 
+  !reliq replaced by below lines
+  if( PRESENT( progn ) ) then
+    if (progn == 1) then
+
+      pi = 4.*atan(1.0)
+      third=1./3.
+      rhoh2o=1.e3
+      relconst=3/(4.*pi*rhoh2o)
+      !     minimun liquid water path to calculate rel
+      !     corresponds to optical depth of 1.e-3 for radius 4 microns.
+      lwpmin=3.e-5
+      do k = kts, kte
+         reliq(ncol,k) = 10.
+         if( PRESENT( F_QNDROP ) ) then
+            if( F_QNDROP ) then
+              if ( qc1d(k)*pdel(ncol,k).gt.lwpmin.and. &
+                   qndrop1d(k).gt.1000. ) then
+               reliq(ncol,k)=(relconst*qc1d(k)/qndrop1d(k))**third ! effective radius in m
+         !           apply scaling from Martin et al., JAS 51, 1830.
+               reliq(ncol,k)=1.1*reliq(ncol,k)
+               reliq(ncol,k)=reliq(ncol,k)*1.e6 ! convert from m to microns
+               reliq(ncol,k)=max(reliq(ncol,k),4.)
+               reliq(ncol,k)=min(reliq(ncol,k),20.)
+              end if
+            end if
+         end if
+      end do
+    endif !progn==1
+  endif  !present(progn)
 
 
 ! Limit upper bound of reice for Fu ice parameterization and convert
@@ -10669,6 +10687,94 @@ CONTAINS
                   reice(ncol,k) = min(140.0,reice(ncol,k))
                end do
             endif
+            
+!BSINGH(01/22/2014): if CAMMGMP is used, use output from CAMMGMP            
+!PMA
+            if(is_CAMMGMP_used) then
+               do k = kts, kte
+                  if ( qi1d(k) .gt. 1.e-20 .or. qs1d(k) .gt. 1.e-20) then
+                     reice(ncol,k) = iradius(i,k,j)
+                  else
+                     reice(ncol,k) = 25.
+                  end if
+                  reice(ncol,k) = max(5., min(140.0,reice(ncol,k)))
+                  if ( qc1d(k) .gt. 1.e-20) then
+                     reliq(ncol,k) = lradius(i,k,j)
+                  else
+                     reliq(ncol,k) = 10.
+                  end if
+                  reliq(ncol,k) = max(2.5, min(60.0,reliq(ncol,k)))
+               enddo
+            endif
+!BSINGH (01/22/2014):ENDS
+
+      if ( present( f_qs ) .and. present( qs3d )  ) then ! snow
+        do k=kts,kte
+         if ( (f_qs) ) then
+          if ( qi1d(k) > 0. ) then !ice exist
+           dump1=max(0.,qi1d(k))+max(0.,qs1d(k)) !  snow+ice
+           dump2=1.02*10000.*(p8w(i,k,j)-p8w(i,k+1,j))*0.01
+           taucldi(i,k,j) = dump2*dump1*(-6.59e-3 + 1.65/reice(ncol,k)) !use ice 
+          else
+           dump1= max(0.,qs1d(k))  ! define snow is large aggrefated ice
+           dump2=1.02*10000.*(p8w(i,k,j)-p8w(i,k+1,j))*0.01
+           taucldi(i,k,j) = dump2*dump1*(-6.59e-3 + 1.65/140.) !use largest reff of ice 
+          endif
+         endif
+        enddo
+      endif
+!---------------------------------------------------
+!diagnose end here
+!---------------------------------------------------
+
+!---------------------------------------------------
+!diagnose cloud optical depth for visible band (only for output)  -czhao
+!---------------------------------------------------
+!1. cloud water optical depth
+      if ( present(f_qc) .and. present(qc3d) ) then
+        do k=kts,kte 
+         if ((f_qc)) then
+           dump1=max(0.,qc1d(k))
+           !p8w(k)-p8w(k+1) is pressure difference
+           dump2=1.02*10000.*(p8w(i,k,j)-p8w(i,k+1,j))*0.01 !0.01 is for Pa to mb
+           taucldc(i,k,j) = dump2*dump1*(3.33e-4+2.52/reliq(ncol,k))
+         else
+           taucldc(i,k,j) = 0.
+         endif
+        enddo
+      endif
+
+!2. cloud ice optical depth (currently adding the snow.)
+      if ( present( f_qi ) .and. present( qi3d)  ) then ! ice
+        do k=kts,kte
+         if ((f_qi)) then
+           dump1=max(0.,qi1d(k))
+           dump2=1.02*10000.*(p8w(i,k,j)-p8w(i,k+1,j))*0.01
+           taucldi(i,k,j) = dump2*dump1*(-6.59e-3+1.65/reice(ncol,k))
+         else
+           taucldi(i,k,j) = 0.
+         endif
+        enddo
+      endif
+
+      if ( present( f_qs ) .and. present( qs3d )  ) then ! snow
+        do k=kts,kte
+         if ( (f_qs) ) then
+          if ( qi1d(k) > 0. ) then !ice exist
+           dump1=max(0.,qi1d(k))+max(0.,qs1d(k)) !  snow+ice
+           dump2=1.02*10000.*(p8w(i,k,j)-p8w(i,k+1,j))*0.01
+           taucldi(i,k,j) = dump2*dump1*(-6.59e-3 + 1.65/reice(ncol,k)) !use ice 
+          else
+           dump1= max(0.,qs1d(k))  ! define snow is large aggrefated ice
+           dump2=1.02*10000.*(p8w(i,k,j)-p8w(i,k+1,j))*0.01
+           taucldi(i,k,j) = dump2*dump1*(-6.59e-3 + 1.65/140.) !use largest reff of ice 
+          endif
+         endif
+        enddo
+      endif
+!---------------------------------------------------
+!diagnose end here
+!---------------------------------------------------
 
 ! Set cloud physical property arrays
             do k = kts, kte
@@ -10760,24 +10866,22 @@ CONTAINS
 
 ! convert optical properties at 300,400,600, and 999 to conform to the band wavelengths
 ! tauaer - use angstrom exponent
-        if(tauaer300(i,k,j).gt.thresh .and. tauaer999(i,k,j).gt.thresh) then
-           ang=alog(tauaer300(i,k,j)/tauaer999(i,k,j))/alog(999./300.)
-           tauaer(ncol,k,nb)=tauaer400(i,k,j)*(0.4/wavemid(nb))**ang
+        if(tauaersw(i,k,j,2).gt.thresh1.and.tauaersw(i,k,j,5).gt.thresh1 & 
+       .and.tauaersw(i,k,j,2).lt.thresh2.and.tauaersw(i,k,j,5).lt.thresh2) then
+           !czhao use 400&600 nm 
+           !ang=alog(tauaer300(i,k,j)/tauaer999(i,k,j))/alog(999./300.)
+           ang=alog(tauaersw(i,k,j,3)/tauaersw(i,k,j,4))/alog(600./400.)
+           !tauaer(ncol,k,nb)=tauaer400(i,k,j)*(0.4/wavemid(nb))**ang 
+           tauaer(ncol,k,nb)=tauaersw(i,k,j,4)*(0.6/wavemid(nb))**ang 
            !tauaer(ncol,k,nb)=tauaer600(i,k,j)*(0.6/wavemid(nb))**ang 
-           if (i==30.and.j==49.and.k==2.and.nb==12) then
-            write(0,*) 'TAU from 600 vs 400 in RRTMG',tauaer600(i,k,j),tauaer400(i,k,j)
-            print*, 'TAU from 600 vs 400 in RRTMG',tauaer600(i,k,j),tauaer400(i,k,j)
-            write(0,*) tauaer600(i,k,j)*(0.6/wavemid(nb))**ang,tauaer400(i,k,j)*(0.4/wavemid(nb))**ang
-            print*, tauaer600(i,k,j)*(0.6/wavemid(nb))**ang,tauaer400(i,k,j)*(0.4/wavemid(nb))**ang
-           endif
 ! ssa - linear interpolation; extrapolation
-           slope=(waer600(i,k,j)-waer400(i,k,j))/.2
-           ssaaer(ncol,k,nb) = slope*(wavemid(nb)-.6)+waer600(i,k,j)
+           slope=(waersw(i,k,j,4)-waersw(i,k,j,3))/.2
+           ssaaer(ncol,k,nb) = slope*(wavemid(nb)-.6)+waersw(i,k,j,4) 
            if(ssaaer(ncol,k,nb).lt.0.4) ssaaer(ncol,k,nb)=0.4
            if(ssaaer(ncol,k,nb).ge.1.0) ssaaer(ncol,k,nb)=1.0
 ! g - linear interpolation;extrapolation
-           slope=(gaer600(i,k,j)-gaer400(i,k,j))/.2
-           asmaer(ncol,k,nb) = slope*(wavemid(nb)-.6)+gaer600(i,k,j) ! notice reversed varaibles
+           slope=(gaersw(i,k,j,4)-gaersw(i,k,j,3))/.2
+           asmaer(ncol,k,nb) = slope*(wavemid(nb)-.6)+gaersw(i,k,j,4) ! notice reversed varaibles
            if(asmaer(ncol,k,nb).lt.0.5) asmaer(ncol,k,nb)=0.5
            if(asmaer(ncol,k,nb).ge.1.0) asmaer(ncol,k,nb)=1.0
         endif
@@ -10793,38 +10897,38 @@ CONTAINS
          if( slope < 0. ) then
             write(msg,'("ERROR: Negative total optical depth of ",f8.2," at point i,j,nb=",3i5)') slope,i,j,nb
             call wrf_error_fatal(msg)
-         else if( slope > 6. ) then
+         else if( slope > 5. ) then
             call wrf_message("-------------------------")
             write(msg,'("WARNING: Large total sw optical depth of ",f8.2," at point i,j,nb=",3i5)') slope,i,j,nb
             call wrf_message(msg)
 
             call wrf_message("Diagnostics 1: k, tauaer300, tauaer400, tauaer600, tauaer999, tauaer")
             do k=kts,kte
-               write(msg,'(i4,5f8.2)') k, tauaer300(i,k,j), tauaer400(i,k,j), &
-                    tauaer600(i,k,j), tauaer999(i,k,j),tauaer(ncol,k,nb)
+               write(msg,'(i4,5f8.2)') k, tauaersw(i,k,j,2), tauaersw(i,k,j,3), &
+                    tauaersw(i,k,j,4), tauaersw(i,k,j,5),tauaer(ncol,k,nb)
                call wrf_message(msg)
                !czhao set an up-limit here to avoid segmentation fault 
                !from extreme AOD
-               tauaer(ncol,k,nb)=tauaer(ncol,k,nb)*6.0/slope 
+               tauaer(ncol,k,nb)=tauaer(ncol,k,nb)*5.0/slope 
             end do
 
             call wrf_message("Diagnostics 2: k, gaer300, gaer400, gaer600, gaer999")
             do k=kts,kte
-               write(msg,'(i4,4f8.2)') k, gaer300(i,k,j), gaer400(i,k,j), &
-                    gaer600(i,k,j), gaer999(i,k,j)
+               write(msg,'(i4,4f8.2)') k, gaersw(i,k,j,2), gaersw(i,k,j,3), &
+                    gaersw(i,k,j,4), gaersw(i,k,j,5)
                call wrf_message(msg)
             end do
 
             call wrf_message("Diagnostics 3: k, waer300, waer400, waer600, waer999")
             do k=kts,kte
-               write(msg,'(i4,4f8.2)') k, waer300(i,k,j), waer400(i,k,j), &
-                    waer600(i,k,j), waer999(i,k,j)
+               write(msg,'(i4,4f8.2)') k, waersw(i,k,j,2), waersw(i,k,j,3), &
+                    waersw(i,k,j,4), waersw(i,k,j,5)
                call wrf_message(msg)
             end do
 
             call wrf_message("Diagnostics 4: k, ssaal, asyal, taual")
-            do k=kts-1,kte
-               write(msg,'(i4,3f8.2)') k, ssaaer(i,k,nb), asmaer(i,k,nb), tauaer(i,k,nb)
+            do k=kts,kte
+               write(msg,'(i4,3f8.2)') k, ssaaer(ncol,k,nb), asmaer(ncol,k,nb), tauaer(ncol,k,nb)
                call wrf_message(msg)
             end do
             call wrf_message("-------------------------")
@@ -10885,6 +10989,11 @@ CONTAINS
 ! at the top of atmosphere (W/m2)
          gsw(i,j) = swdflx(1,1) - swuflx(1,1)
          swcf(i,j) = (swdflx(1,kte+2) - swuflx(1,kte+2)) - (swdflxc(1,kte+2) - swuflxc(1,kte+2))
+
+         if (i==50.and.j==50) then 
+           print*,'check swdflx ',i,j,kte,nlay
+           print*,swdflx(1,kte),swdflx(1,kte+1),swdflx(1,kte+2)
+         endif
 
          if (present(swupt)) then 
 ! Output up and down toa fluxes for total and clear sky
@@ -11017,7 +11126,8 @@ IMPLICIT NONE
 
       IF ( wrf_dm_on_monitor() ) THEN
         OPEN(rrtmg_unit,FILE='RRTMG_SW_DATA',                  &
-             FORM='UNFORMATTED',STATUS='OLD',ERR=9009)
+             FORM='UNFORMATTED',STATUS='OLD',                  &
+             CONVERT='BIG_ENDIAN',ERR=9009)
       ENDIF
 
       call sw_kgb16(rrtmg_unit)

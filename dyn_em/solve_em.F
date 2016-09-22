@@ -677,6 +677,14 @@ BENCH_END(set_phys_bc_tim)
                              , tracer, tracer_tend              &
                              , scalar , scalar_tend             &
                              , fdda3d, fdda2d                   &
+                             , tauaerlw                         &
+                             , tauaersw,waersw,gaersw  &
+                             , tauaersw_dust,waersw_dust,gaersw_dust  &
+                             , tauaersw_bc,waersw_bc,gaersw_bc  &
+                             , tauaersw_sulf,waersw_sulf,gaersw_sulf  &
+                             , tauaersw_oc,waersw_oc,gaersw_oc  &
+                             , tauaersw_other,waersw_other,gaersw_other  &
+                    , tauaerlw_dust,tauaerlw_bc,tauaerlw_sulf,tauaerlw_oc,tauaerlw_other  &
                              , aerod                            &
                              , ru_tendf, rv_tendf               &
                              , rw_tendf, t_tendf                &
@@ -3201,6 +3209,7 @@ BENCH_END(bc_end_tim)
 BENCH_START(advance_ppt_tim)
      CALL wrf_debug ( 200 , ' call advance_ppt' )
      CALL advance_ppt(grid%rthcuten,grid%rqvcuten,grid%rqccuten,grid%rqrcuten, &
+                      grid%cldfra_cup,                                         & !BSINGH -  Added for CuP scheme
                       grid%rqicuten,grid%rqscuten,           &
                       grid%rainc,grid%raincv,grid%rainsh,grid%pratec,grid%pratesh, &
                       grid%nca,grid%htop,grid%hbot,grid%cutop,grid%cubot,  &
@@ -3307,8 +3316,12 @@ BENCH_START(micro_driver_tim)
       &        ,T8W=t8w                                                   &
       &        ,CLDFRA=grid%cldfra, EXCH_H=grid%exch_h &
       &        ,NSOURCE=grid%qndropsource                                 &
+!czhao add effective radius from morrison scheme
+      &        ,radeffc=grid%radeffc,radeffi=grid%radeffi   &
 #ifdef WRF_CHEM
-      &        ,QLSINK=grid%qlsink,CLDFRA_OLD=grid%cldfra_old             &
+!czhao     &        ,QLSINK=grid%qlsink,CLDFRA_OLD=grid%cldfra_old             &
+      &        ,QLSINK=grid%qlsink,ILSINK=grid%ilsink,CLDFRA_OLD=grid%cldfra_old             &
+      &        ,R2EVAP3D=grid%r2evap3d,I2EVAP3D=grid%i2evap3d             &
       &        ,PRECR=grid%precr, PRECI=grid%preci, PRECS=grid%precs, PRECG=grid%precg &
       &        ,CHEM_OPT=config_flags%chem_opt, PROGN=config_flags%progn  &
 !======================
@@ -3325,6 +3338,8 @@ BENCH_START(micro_driver_tim)
       &        ,F_RAIN_PHY=grid%f_rain_phy                                &
       &        ,F_RIMEF_PHY=grid%f_rimef_phy                              &
       &        ,MP_PHYSICS=config_flags%mp_physics                        &
+                !czhao
+      &        ,SW_PHYSICS=config_flags%ra_sw_physics                        &
       &        ,ID=grid%id                                                &
       &        ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde         &
       &        ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme         &
@@ -3342,7 +3357,8 @@ BENCH_START(micro_driver_tim)
       &        ,TURBTYPE3D=grid%turbtype3d,SMAW3D=grid%smaw3d             &
       &        ,WSEDL3D=grid%wsedl3d,CLDFRA_OLD_MP=grid%cldfra_old_mp     &
       &        ,CLDFRA_MP=grid%cldfra_mp,CLDFRA_MP_ALL=grid%cldfra_mp_ALL &
-      &        ,CLDFRAI=grid%cldfrai             &
+      &        ,LRADIUS=grid%LRADIUS, IRADIUS=grid%IRADIUS                & !BSINGH(01/20/2014): Added for RRTMG<->CAMMGMP
+      &        ,CLDFRAI=grid%cldfrai                                      &
       &        ,CLDFRAL=grid%cldfral,CLDFRA_CONV=grid%CLDFRA_CONV         &
       &        ,ALT=grid%alt                                              &
       &        ,ACCUM_MODE=config_flags%accum_mode                        &
@@ -3371,7 +3387,12 @@ BENCH_START(micro_driver_tim)
       &        , QG_CURR=moist(ims,kms,jms,P_QG), F_QG=F_QG               &
       &        , QH_CURR=moist(ims,kms,jms,P_QH), F_QH=F_QH               & ! for milbrandt2mom
       &        , QNDROP_CURR=scalar(ims,kms,jms,P_QNDROP), F_QNDROP=F_QNDROP &
+                 !czhao
+      &        , QNICEAER_CURR=scalar(ims,kms,jms,P_QNICEAER), F_QNICEAER=F_QNICEAER &
+      &        , QNICEMIX_CURR=scalar(ims,kms,jms,P_QNICEMIX), F_QNICEMIX=F_QNICEMIX &
 #ifdef WRF_CHEM
+      &  , rndst1=grid%rndst1,rndst2=grid%rndst2,rndst3=grid%rndst3,rndst4=grid%rndst4 & !czhao,WRFChem
+      &  , nacon1=grid%nacon1,nacon2=grid%nacon2,nacon3=grid%nacon3,nacon4=grid%nacon4 & !czhao,WRFChem
       &        , RAINPROD=grid%rainprod, EVAPPROD=grid%evapprod           &
       &        , QV_B4MP=grid%qv_b4mp,QC_B4MP=grid%qc_b4mp                &
       &        , QI_B4MP=grid%qi_b4mp, QS_B4MP=grid%qs_b4mp               &
@@ -3402,6 +3423,7 @@ BENCH_START(micro_driver_tim)
       &        , has_reqc=grid%has_reqc, has_reqi=grid%has_reqi, has_reqs=grid%has_reqs & ! G. Thompson
       &        , diagflag=diag_flag, do_radar_ref=config_flags%do_radar_ref &
                                                                           )
+
 BENCH_END(micro_driver_tim)
 
 #if 0
@@ -4243,6 +4265,7 @@ BENCH_END(bc_2d_tim)
 
 ! Finish timers if compiled with -DBENCH.
 #include <bench_solve_em_end.h>
+
 
    RETURN
 

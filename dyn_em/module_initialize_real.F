@@ -1090,7 +1090,6 @@ integer::oops1,oops2
          IF ( config_flags%interp_theta ) THEN
 
             !  The input field is temperature, we want potential temp.
-
             CALL t_to_theta ( grid%t_gc , grid%p_gc , p00 , &
                               ids , ide , jds , jde , 1   , num_metgrid_levels , &
                               ims , ime , jms , jme , 1   , num_metgrid_levels , &

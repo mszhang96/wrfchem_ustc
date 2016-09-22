@@ -19,8 +19,9 @@
 	integer, parameter :: l_oin_aqyy = 6
 	integer, parameter :: l_bc_aqyy  = 7
 	integer, parameter :: l_oc_aqyy  = 8
+	integer, parameter :: l_dust_aqyy = 9
 
-	integer, parameter :: nyyy = 8
+	integer, parameter :: nyyy = 9
 
 ! "negligible volume" = (1 #/kg ~= 1e-6 #/cm3) * ((dp=1e-6 cm)**3 * pi/6)
 	real, parameter :: smallvolaa = 0.5e-18
@@ -223,7 +224,7 @@
 		msectional, maxd_asize, maxd_atype,   &
 		cw_phase, nsize_aer, ntype_aer, do_cloudchem_aer,   &
 		lptr_so4_aer, lptr_no3_aer, lptr_nh4_aer,   &
-		lptr_orgpa_aer, lptr_ec_aer, lptr_p25_aer
+		lptr_orgpa_aer, lptr_ec_aer, lptr_p25_aer, lptr_dust_aer
 
 	use module_data_cmu_bulkaqchem, only:   &
 	        meqn1max
@@ -270,6 +271,10 @@
         real, dimension( maxd_asize, maxd_atype ) :: fr_partit_cw
         real, dimension( 2, 3 ) :: xvol_old
 
+!czhao initialize ph_cmuaq_cur 
+        ph_cmuaq_cur = 0.0
+        yaq_beg(:) = 0.0
+        yaq_end(:) = 0.0
 
 !
 !   set the lptr_yyy_cwaer
@@ -279,6 +284,7 @@
 	lptr_yyy_cwaer(:,:,l_no3_aqyy) = lptr_no3_aer(:,:,iphase)
 	lptr_yyy_cwaer(:,:,l_nh4_aqyy) = lptr_nh4_aer(:,:,iphase)
 	lptr_yyy_cwaer(:,:,l_oin_aqyy) = lptr_p25_aer(:,:,iphase)
+	lptr_yyy_cwaer(:,:,l_dust_aqyy) = lptr_dust_aer(:,:,iphase)
 	lptr_yyy_cwaer(:,:,l_bc_aqyy ) = lptr_ec_aer( :,:,iphase)
 	lptr_yyy_cwaer(:,:,l_oc_aqyy ) = lptr_orgpa_aer( :,:,iphase)
 	lptr_yyy_cwaer(:,:,l_cl_aqyy ) = -999888777
@@ -399,7 +405,7 @@
 	use module_data_cmu_bulkaqchem, only:   &
 	        meqn1max, naers, ngas,   &
 	        na4, naa, nac, nae, nah, nahmsa, nahso5,   &
-	        nan, nao, nar, nas, naw,   &
+	        nan, nao, nar, nas, naw, nad,  &
 	        ng4, nga, ngc, ngch3co3h, ngch3o2, ngch3o2h, ngch3oh,   &
 	        ngh2o2, nghcho, nghcooh, nghno2, ngho2,   &
 	        ngn, ngno, ngno2, ngno3, ngo3, ngoh, ngpan, ngso2
@@ -410,7 +416,7 @@
         	maxd_asize, maxd_atype,   &
 		cw_phase, nsize_aer, ntype_aer, do_cloudchem_aer,   &
 		lptr_so4_aer, lptr_no3_aer, lptr_nh4_aer,   &
-		lptr_orgpa_aer, lptr_ec_aer, lptr_p25_aer
+		lptr_orgpa_aer, lptr_ec_aer, lptr_p25_aer, lptr_dust_aer
 
 
 	implicit none
@@ -456,7 +462,7 @@
 	real :: dum, dumb
 	real :: factgas, factlwc, factpatm, factphoto
 	real :: factaerbc, factaercl, factaerna, factaernh4,   &
-		factaerno3, factaeroc, factaeroin, factaerso4
+		factaerno3, factaeroc, factaeroin, factaerso4,factaerdust
 	real :: lwc
 	real :: p_atm, photo_in
 	real :: rh
@@ -472,7 +478,8 @@
 	double precision gas_dp(ngas), gas_aqfrac_cmu_dp(ngas),   &
 	  aerosol_dp(naers), yaq_beg_dp(meqn1max), yaq_end_dp(meqn1max)
 
-
+        !czhao initialize gas_aqfrac_cmu
+        gas_aqfrac_cmu(:) = 0.0
 
 	p1st = param_first_scalar
 
@@ -498,6 +505,7 @@
 	factaernh4   = dum
 	factaerna    = dum
 	factaeroin   = dum
+	factaerdust   = dum
 	factaeroc    = dum
 	factaerbc    = dum
 
@@ -515,6 +523,7 @@
 	    factaernh4   = 1.0
 	    factaerna    = 1.0
 	    factaeroin   = 1.0
+	    factaerdust   = 1.0
 	    factaeroc    = 1.0
 	    factaerbc    = 1.0
 	end if
@@ -593,6 +602,7 @@
 	aerosol(naa) = rbulk_cwaer(l_nh4_aqyy,1) * factaernh4
 	aerosol(nas) = rbulk_cwaer(l_na_aqyy, 1) * factaerna
 	aerosol(nar) = rbulk_cwaer(l_oin_aqyy,1) * factaeroin
+	aerosol(nad) = rbulk_cwaer(l_dust_aqyy,1) * factaerdust
 	aerosol(nae) = rbulk_cwaer(l_bc_aqyy, 1) * factaerbc
 	aerosol(nao) = rbulk_cwaer(l_oc_aqyy, 1) * factaeroc
 
@@ -623,7 +633,7 @@
 		rbox(p_sulf), rbox(p_so2), rbox(p_h2o2), rbox(p_o3)
 	    write(lunxx,*) 'aerosol (1=na, 3=nh4, 4=no3, 5=cl, 6=so4, 8=ec, 9=oc, 10=crus)'
 	    write(lunxx,9875) aerosol
-	    write(lunxx,*) 'rbulk_cwaer (1=so4, 2=no3, 3-cl, 4=nh4, 5=na, 6=oin, 7=bc, 8=oc)'
+	    write(lunxx,*) 'rbulk_cwaer (1=so4, 2=no3, 3-cl, 4=nh4, 5=na, 6=oin, 7=bc, 8=oc, 9=dust)'
 	    write(lunxx,9875) rbulk_cwaer(:,1)
 	    if (icase .le. -5) then
 		write(*,*)   &
@@ -899,6 +909,7 @@
 	rbulk_cwaer(l_nh4_aqyy,2) = aerosol(naa)/factaernh4
 	rbulk_cwaer(l_na_aqyy, 2) = aerosol(nas)/factaerna
 	rbulk_cwaer(l_oin_aqyy,2) = aerosol(nar)/factaeroin
+	rbulk_cwaer(l_dust_aqyy,2) = aerosol(nad)/factaerdust
 	rbulk_cwaer(l_bc_aqyy, 2) = aerosol(nae)/factaerbc
 	rbulk_cwaer(l_oc_aqyy, 2) = aerosol(nao)/factaeroc
 
@@ -917,7 +928,7 @@
 		rbox(p_sulf), rbox(p_so2), rbox(p_h2o2), rbox(p_o3)
 	    write(lunxx,*) 'aerosol (1=na, 3=nh4, 4=no3, 5=cl, 6=so4, 8=ec, 9=oc, 10=crus)'
 	    write(lunxx,9875) aerosol
-	    write(lunxx,*) 'rbulk_cwaer (1=so4, 2=no3, 3-cl, 4=nh4, 5=na, 6=oin, 7=bc, 8=oc)'
+	    write(lunxx,*) 'rbulk_cwaer (1=so4, 2=no3, 3-cl, 4=nh4, 5=na, 6=oin, 7=bc, 8=oc, 9=dust)'
 	    write(lunxx,9875) rbulk_cwaer(:,2)
 	    write(lunxx,*) 'ph_cmuaq_cur'
 	    write(lunxx,9875) ph_cmuaq_cur
@@ -984,6 +995,13 @@
 
 
 	p1st = PARAM_FIRST_SCALAR
+
+        !czhao initialize
+        fmass(:,:) = 0.0
+        fnumb(:,:) = 0.0
+        xmass(:,:) = 0.0
+        xnumb(:,:) = 0.0
+        xnumbsv(:,:) = 0.0
 
 	tmass = 0.0
 	tnumb = 0.0
@@ -1276,7 +1294,7 @@
 		maxd_asize, maxd_atype,   &
 		cw_phase, nsize_aer, ntype_aer, do_cloudchem_aer,   &
 		lptr_so4_aer, lptr_no3_aer, lptr_nh4_aer,   &
-		lptr_orgpa_aer, lptr_ec_aer, lptr_p25_aer
+		lptr_orgpa_aer, lptr_ec_aer, lptr_p25_aer, lptr_dust_aer
 
 
 	implicit none
@@ -1451,11 +1469,12 @@
 	    if ((it==23) .and. (jt==1) .and. (kt<=20)) lunxxaa = 171
 #endif
 	    if ((lunxxaa .gt. 0) .and. (icount .gt. (1+jpos_sv)/2)) then
-		write(lunxxaa,9800)   &
-		'distribute_bulk_changes - icount>jpos_sv/2 - i,j,k'
-		write(lunxxaa,9810)  it, jt, kt
-		write(lunxxaa,9800) 'icase, lyyy, idone, icount, jpos, jpos_sv'
-		write(lunxxaa,9810)  icase, lyyy, idone, icount, jpos, jpos_sv
+!!!!!!!!czhao comment out the printting
+!!!!!!!!        write(lunxxaa,9800)   &
+!!!!!!!!	'distribute_bulk_changes - icount>jpos_sv/2 - i,j,k'
+!!!!!!!!	write(lunxxaa,9810)  it, jt, kt
+!!!!!!!!	write(lunxxaa,9800) 'icase, lyyy, idone, icount, jpos, jpos_sv'
+!!!!!!!!	write(lunxxaa,9810)  icase, lyyy, idone, icount, jpos, jpos_sv
 	    end if
 	    goto 3900	
 	end if
@@ -1568,7 +1587,7 @@
 		do_cloudchem_aer, massptr_aer, numptr_aer, dens_aer,   &
 		sigmag_aer, dcen_sect, dlo_sect, dhi_sect,   &
 		volumcen_sect, volumlo_sect, volumhi_sect,   &
-		lptr_so4_aer, lptr_nh4_aer, lptr_p25_aer
+		lptr_so4_aer, lptr_nh4_aer, lptr_p25_aer, lptr_dust_aer
 
 	use module_aerosols_sorgam, only:  getaf
 
@@ -1779,7 +1798,7 @@
 #if defined ( ccboxtest_box_testing_active ) || defined ( cctemp_testing_active )
 !   more diagnostics for testing
 	if (lunxx .gt. 0) then
-	    do ll = 1, 4
+	    do ll = 1, 5
 		if (ll .eq. 1) then
 		    lptr_dum(:,:) = lptr_so4_aer(:,:,cw_phase)
 		else if (ll .eq. 2) then
@@ -1788,6 +1807,8 @@
 		    lptr_dum(:,:) = lptr_p25_aer(:,:,cw_phase)
 		else if (ll .eq. 4) then
 		    lptr_dum(:,:) = numptr_aer(:,:,cw_phase)
+		else if (ll .eq. 5) then
+		    lptr_dum(:,:) = lptr_dust_aer(:,:,cw_phase)
 		end if
 
 		if (ll .eq. 1) write(lunxx,'(a)')

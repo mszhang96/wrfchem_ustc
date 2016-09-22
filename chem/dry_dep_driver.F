@@ -20,9 +20,19 @@ CONTAINS
                xland,ash_fall,h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,       &
                anh3,cvaro1,cvaro2,   &
                cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,dep_vel_o3,      &
-               emis_ant,ebu_in,                                           &
-               sf_urban_physics,numgas,current_month,dvel,                &
-               snowh,is_CAMMGMP_used,                                     & !BSINGH:01/31/2013: Added is_CAMMGMP_used for MAM drydep
+               !czhao
+               dep_vel_nnuc,dep_vel_mnuc,dep_vel_nacc,dep_vel_macc,  &
+               dep_vel_ncor,dep_vel_mcor,       &
+               dep_vel_a01,dep_vel_a02,dep_vel_a03,dep_vel_a04, & 
+               dep_vel_a05,dep_vel_a06,dep_vel_a07,dep_vel_a08, & 
+               emis_ant,ebu_in,sf_urban_physics,numgas,current_month,dvel,     &
+               snowh,is_CAMMGMP_used,f_ice_phy,f_rain_phy,                   &
+               !czhao
+               nihf3d,niimm3d,nidep3d,nimey3d,   &
+               rndst1,rndst2,rndst3,rndst4,                     &
+               nacon1,nacon2,nacon3,nacon4,                     &
+               dgnuc, dgacc,dgcor,                              & 
+               tke_pbl,relhum3d,wsub3d,   &
                dep_vel,num_vert_mix,                                      &
                ids,ide, jds,jde, kds,kde,                                 &
                ims,ime, jms,jme, kms,kme,                                 &
@@ -37,6 +47,7 @@ CONTAINS
   USE module_data_sorgam
   USE module_aerosols_sorgam
   USE module_gocart_settling
+  USE module_mosaic_settling
   USE module_vash_settling
   USE module_gocart_drydep
   USE module_mosaic_drydep, only:  mosaic_drydep_driver
@@ -44,8 +55,8 @@ CONTAINS
   USE module_aer_drydep
   USE module_aerosols_soa_vbs, only: soa_vbs_depdriver
 
+  USE module_data_mosaic_asect, only: lptr_oin_aer
   USE module_cam_mam_drydep, only:  cam_mam_drydep_driver
-  
   use module_cam_support, only: pcnst => pcnst_runtime
   USE module_data_cam_mam_asect, only: lptr_chem_to_q, lptr_chem_to_qqcw !Balwinder.Singh@pnnl.gov: Added to avoid mixing of CHEM array constituents multiple times
   USE modal_aero_data,         only: numptr_amode, lmassptr_amode, ntot_amode, nspec_amode !Added by Balwinder.Singh@pnnl.gov to avoid mixing of CHEM array constituents multiple times
@@ -64,7 +75,6 @@ CONTAINS
                                   ims,ime, jms,jme, kms,kme,    &
                                   its,ite, jts,jte, kts,kte
    INTEGER,      INTENT(IN   ) :: ktau
-   integer l
    REAL(KIND=8), INTENT(IN   ) :: curr_secs
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_moist ),        &
          INTENT(IN ) ::                                   moist
@@ -118,6 +128,10 @@ CONTAINS
                                                      xlong,     &
                                                      snowh,     &
                                           xland,znt,raincv,ash_fall
+
+  real, intent(in), dimension( ims:ime, kms:kme, jms:jme ) :: &
+        f_ice_phy,f_rain_phy
+
    REAL,  DIMENSION( ims:ime , kms:kme , jms:jme )         ,        &
           INTENT(INOUT ) ::                                     &
                     cldfra,     & ! cloud fraction current timestep
@@ -126,7 +140,34 @@ CONTAINS
           INTENT(IN) ::            seasin,dustin 
    REAL,  DIMENSION( ims:ime , jms:jme )                   ,    &
           INTENT(OUT) ::                                      &
-                                                     dep_vel_o3
+      dep_vel_o3
+   !czhao
+   REAL,  DIMENSION( ims:ime , jms:jme)                   ,    &
+          INTENT(OUT) ::                                      &
+      dep_vel_nnuc,dep_vel_mnuc,dep_vel_nacc,dep_vel_macc, &
+      dep_vel_ncor,dep_vel_mcor,  & 
+      dep_vel_a01,dep_vel_a02,dep_vel_a03,dep_vel_a04, & 
+      dep_vel_a05,dep_vel_a06,dep_vel_a07,dep_vel_a08
+
+   !czhao
+   REAL,  DIMENSION( ims:ime ,kms:kme, jms:jme)                   ,    &
+          INTENT(OUT) ::                                      &
+      rndst1,rndst2,rndst3,rndst4,    & 
+      nacon1,nacon2,nacon3,nacon4 
+
+   real, intent(out), dimension(ims:ime,kms:kme,jms:jme) ::  &
+      nihf3d,niimm3d,nidep3d,nimey3d
+
+   REAL, intent(out), DIMENSION( ims:ime, kms:kme, jms:jme ) :: &
+       relhum3d,wsub3d
+
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme ),                &
+         INTENT(IN ) :: tke_pbl
+
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                       &
+         INTENT(IN) ::                                             &
+           dgnuc, dgacc,dgcor
+
    REAL, INTENT(OUT), dimension(ims:ime,kms:kme,jms:jme) :: nsource, &
 	     ccn1,ccn2,ccn3,ccn4,ccn5,ccn6  ! number conc of aerosols activated at supersat
 
@@ -147,6 +188,8 @@ CONTAINS
       INTEGER :: l2,m,lnum,lmass
 
       LOGICAL :: highnh3, rainflag, vegflag, wetflag
+
+      integer  l, iphase, itype
 ! ..
 ! .. Local Arrays ..
       REAL :: p(kts:kte)
@@ -180,6 +223,8 @@ CONTAINS
       !Balwinder.Singh@pnnl.gov: Following code sets vertMixAero(:) flag to true or false based on whether
       !a particular CHEM array constituent should be mixed (vertically) by dry_dep_driver or not
       !The constituents which are  mixed in CAMMGMP microphysics are NOT mixed in dry_dep_driver. 
+      !czhao initialize vertMixAero
+         vertMixAero(:)    = .FALSE. 
       if(is_CAMMGMP_used) then ! If CAMMGMP microphysics is selected
          vertMixAero(:)    = .FALSE. 
          lptr_q_to_chem(:) = -999888777 ! pointer which maps Q array (CAM's STATE%Q array) to CHEM array
@@ -214,7 +259,9 @@ CONTAINS
 !	    you cannot compute aerosol drydep without it !!
 ! 08-jul-2005 rce - pass idrydep_onoff to mixactivate routines
 !
-   ddvel(:,:,:) = 0.0
+   ddvel(its:ite,jts:jte,1:num_chem) = 0.0
+
+
    idrydep_onoff = 0
 
    drydep_select: SELECT CASE(config_flags%gas_drydep_opt)
@@ -364,16 +411,16 @@ CONTAINS
        ELSE
           !Set dry deposition velocity to zero when using the
           !chemistry tracer mode.
-          ddvel(:,:,:) = 0.
+          ddvel(its:ite,jte:jte,1:num_chem) = 0.
        END IF
 
        if (config_flags%aer_aerodynres_opt == 2) then
           ! use aerodynamic resistance from center of layer kts to surface
-          aer_res(:,:) = aer_res_zcen(:,:)
+          aer_res(its:ite,jts:jte) = aer_res_zcen(its:ite,jts:jte)
        else
           ! this is the default -- use aerodynamic resistance from 
           ! "default reference height" (currently 2 m) to surface
-          aer_res(:,:) = aer_res_def(:,:)
+          aer_res(its:ite,jts:jte) = aer_res_def(its:ite,jts:jte)
        end if
 
        idrydep_onoff = 1
@@ -387,7 +434,9 @@ CONTAINS
           CASE ( CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_KPP, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, &
                  CBMZ_MOSAIC_8BIN_AQ,CBMZ_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP,MOZART_MOSAIC_4BIN_VBS0_KPP,  &
                  CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
-                 CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP)
+                 CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE, CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
+                 CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP, SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP, &!BSINGH(12/03/2013): Added SAPRC 8 bin
+                 SAPRC99_MOSAIC_8BIN_VBS2_KPP)!BSINGH(04/04/2014): Added SAPRC 8 bin non-aq
              aer_mech_id = 3
           CASE ( CBMZ_CAM_MAM3_NOAQ, CBMZ_CAM_MAM3_AQ, CBMZ_CAM_MAM7_NOAQ, CBMZ_CAM_MAM7_AQ )
              aer_mech_id = 4
@@ -415,7 +464,7 @@ CONTAINS
                alt,p_phy,chem,rho_phy,dz8w,z,z_at_w,                    &
                h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,cvaro2, &
                cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,               &
-               aer_res,ddvel(:,:,numgas+1:num_chem),                    &
+               aer_res,ddvel(its:ite,jts:jte,numgas+1:num_chem),                    &
                num_chem-numgas,                                         &
                ids,ide, jds,jde, kds,kde,                               &
                ims,ime, jms,jme, kms,kme,                               &
@@ -427,15 +476,18 @@ CONTAINS
                alt,p_phy,chem,rho_phy,dz8w,z,z_at_w,                    &
                h2oaj,h2oai,nu3,ac3,cor3,asulf,ahno3,anh3,cvaro1,cvaro2, &
                cvalk1,cvole1,cvapi1,cvapi2,cvlim1,cvlim2,               &
-               aer_res,ddvel(:,:,numgas+1:num_chem),                    &
+               aer_res,ddvel(its:ite,jts:jte,numgas+1:num_chem),                    &
                num_chem-numgas,                                         &
                ids,ide, jds,jde, kds,kde,                               &
                ims,ime, jms,jme, kms,kme,                               &
                its,ite, jts,jte, kts,kte                                )
      CASE ( CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_KPP, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
           CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
+          CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE, CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
           CBMZ_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP, MOZART_MOSAIC_4BIN_VBS0_KPP, &
-          CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP  )
+          CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP,  &
+          CBMZ_MOSAIC_8BIN_VBS9_KPP,CBMZ_MOSAIC_4BIN_VBS9_KPP,SAPRC99_MOSAIC_4BIN_VBS9_KPP, &
+          SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_KPP)!BSINGH(12/03/2013): Added SAPRC 8 bin and non-aq on 04/04/2014
        CALL wrf_debug(15,'DOING DRY DEP VELOCITIES FOR MOSAIC AEROSOLS')
        call mosaic_drydep_driver(                                       &
                id, curr_secs, ktau, dtstep, config_flags,               &
@@ -485,13 +537,14 @@ CONTAINS
                       ids,ide, jds,jde, kds,kde,                               &
                       ims,ime, jms,jme, kms,kme,                               &
                       its,ite, jts,jte, kts,kte                                )
+
    end if
        if (config_flags%aer_drydep_opt > 0) then
           if ((aer_mech_id > 0) .and. (aer_mech_id <= 4)) then
              ! limit aerosol ddvels to <= 0.5 m/s
              ! drydep routines occasionally produce unrealistically-large particle
              !    diameter leading to unrealistically-large sedimentation velocity
-             ddvel(:,:,numgas+1:num_chem) = min( 0.50, ddvel(:,:,numgas+1:num_chem) )
+             ddvel(its:ite,jts:jte,numgas+1:num_chem) = min(0.50,ddvel(its:ite,jts:jte,numgas+1:num_chem) )
           end if
        end if
 
@@ -526,6 +579,64 @@ CONTAINS
       enddo
       enddo
 
+   drydep_output: SELECT CASE(config_flags%chem_opt)
+     CASE (RADM2SORG,RADM2SORG_AQ,RADM2SORG_KPP,RACM_ESRLSORG_KPP,CBMZSORG,CBMZSORG_AQ)
+       CALL wrf_debug(15,'OUTPUT DRY DEP VELOCITIES FOR SORGAM AEROSOLS')
+      !czhao
+      dep_vel_nnuc=0.
+      dep_vel_mnuc=0.
+      dep_vel_nacc=0.
+      dep_vel_macc=0.
+      dep_vel_ncor=0.
+      dep_vel_mcor=0.
+
+      !czhao 
+      dep_vel_mnuc(its:ite,jts:jte)=ddvel(its:ite,jts:jte,p_so4ai)
+      dep_vel_macc(its:ite,jts:jte)=ddvel(its:ite,jts:jte,p_so4aj)
+      dep_vel_mcor(its:ite,jts:jte)=ddvel(its:ite,jts:jte,p_soila)
+      dep_vel_nnuc(its:ite,jts:jte)=ddvel(its:ite,jts:jte,p_nu0)
+      dep_vel_nacc(its:ite,jts:jte)=ddvel(its:ite,jts:jte,p_ac0)
+      dep_vel_ncor(its:ite,jts:jte)=ddvel(its:ite,jts:jte,p_corn)
+
+     CASE ( CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_KPP, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
+          CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ,CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE)
+      CALL wrf_debug(15,'OUTPUT DRY DEP VELOCITIES FOR MOSAIC AEROSOLS')
+      !czhao
+      dep_vel_a01=0.
+      dep_vel_a02=0.
+      dep_vel_a03=0.
+      dep_vel_a04=0.
+      dep_vel_a05=0.
+      dep_vel_a06=0.
+      dep_vel_a07=0.
+      dep_vel_a08=0.
+
+!   *** currently only works with ntype_aer = 1 and phase 1 (dry aerosol)
+      itype = 1
+      !iphase = ai_phase
+      iphase = 1 
+      l = lptr_oin_aer(1,itype,iphase)
+      if (l >= param_first_scalar) dep_vel_a01(its:ite,jts:jte) = ddvel(its:ite,jts:jte,l) 
+      l = lptr_oin_aer(2,itype,iphase)
+      if (l >= param_first_scalar) dep_vel_a02(its:ite,jts:jte) = ddvel(its:ite,jts:jte,l) 
+      l = lptr_oin_aer(3,itype,iphase)
+      if (l >= param_first_scalar) dep_vel_a03(its:ite,jts:jte) = ddvel(its:ite,jts:jte,l) 
+      l = lptr_oin_aer(4,itype,iphase)
+      if (l >= param_first_scalar) dep_vel_a04(its:ite,jts:jte) = ddvel(its:ite,jts:jte,l) 
+      l = lptr_oin_aer(5,itype,iphase)
+      if (l >= param_first_scalar) dep_vel_a05(its:ite,jts:jte) = ddvel(its:ite,jts:jte,l) 
+      l = lptr_oin_aer(6,itype,iphase)
+      if (l >= param_first_scalar) dep_vel_a06(its:ite,jts:jte) = ddvel(its:ite,jts:jte,l) 
+      l = lptr_oin_aer(7,itype,iphase)
+      if (l >= param_first_scalar) dep_vel_a07(its:ite,jts:jte) = ddvel(its:ite,jts:jte,l) 
+      l = lptr_oin_aer(8,itype,iphase)
+      if (l >= param_first_scalar) dep_vel_a08(its:ite,jts:jte) = ddvel(its:ite,jts:jte,l) 
+
+     CASE DEFAULT
+
+     END SELECT drydep_output 
+
+
 !   This will be called later from subgrd_transport_driver.F !!!!!!!!
 !
 !
@@ -535,8 +646,9 @@ CONTAINS
       do 100 i=its,ite
       pblst=0.
 !
-!
-!-- start with vertical mixing
+!====================================================================================
+!Start with vertical turbulent mixing    -czhao
+!====================================================================================
 !
       do k=kts,kte+1
          zzfull(k)=z_at_w(i,k,j)-z_at_w(i,kts,j)
@@ -592,6 +704,7 @@ CONTAINS
 !   (03-may-2006 rce - calc dryrho_1d and pass it to vertmx)
 !
       dep_vel_o3(i,j)=ddvel(i,j,p_o3)
+
       do nv=2,num_chem-0
          if(is_CAMMGMP_used .and. .not.vertMixAero(nv))cycle !Balwinder.Singh@pnnl.gov: Do mix constituents which are already mixed by CAMMGMP microphysics
          do k=kts,kte
@@ -599,11 +712,15 @@ CONTAINS
             dryrho_1d(k) = 1./alt(i,k,j)
          enddo
 
+
          mix_select: SELECT CASE(config_flags%chem_opt)
          CASE (RADM2SORG_AQ, RADM2SORG_AQCHEM, RACMSORG_AQ, RACMSORG_AQCHEM_KPP, RACM_ESRLSORG_AQCHEM_KPP, CBMZ_MOSAIC_4BIN_AQ, &
-              CBMZ_MOSAIC_8BIN_AQ, CBMZSORG_AQ, CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, CBMZ_MOSAIC_DMS_4BIN_AQ,  &
-              CBMZ_MOSAIC_DMS_8BIN_AQ, CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP)
+              CBMZ_MOSAIC_8BIN_AQ, CBMZSORG_AQ, CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE, &
+              CBMZ_MOSAIC_DMS_8BIN_AQ, CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP)!BSINGH(12/03/2013): Added SAPRC 8 bin
             if(.not.is_aerosol(nv))then ! mix gases not aerosol
+            !----------------------------------------
+            !Vertical turbulent mixing with dry deposition for gases only    -czhao
+            !----------------------------------------
                call vertmx(dtstep,pblst,ekmfull,dryrho_1d, &
                            zzfull,zz,ddvel(i,j,nv),kts,kte)
 
@@ -613,6 +730,9 @@ CONTAINS
 !It requires ddvel array as a boundary condition near surface for flux of species 
 !The top boundary condition for eddy diffusivity is zero
          CASE DEFAULT
+            !----------------------------------------
+            !Vertical turbulent mixing with dry deposition for gases and aerosols  -czhao
+            !----------------------------------------
             call vertmx(dtstep,pblst,ekmfull,dryrho_1d, &
                         zzfull,zz,ddvel(i,j,nv),kts,kte)
 
@@ -654,35 +774,53 @@ CONTAINS
       dryrho_phy(its:ite,kts:kte,jts:jte) = 0.
    end where
 
+   !----------------------------------------
+   !Vertical turbulent mixing with dry deposition and aerosol activation for aerosols only  -czhao
+   !----------------------------------------
    mixactivate_select: SELECT CASE(config_flags%chem_opt)
 
    CASE (RADM2SORG_AQ, RADM2SORG_AQCHEM, RACMSORG_AQ, RACMSORG_AQCHEM_KPP, RACM_ESRLSORG_AQCHEM_KPP, CBMZSORG_AQ)
       CALL wrf_debug(15,'call mixactivate for sorgam aerosol')
       call sorgam_mixactivate (                        &
 		id, ktau, dtstep, config_flags, idrydep_onoff,   &
-		dryrho_phy, t_phy, w, cldfra, cldfra_old, &
+		!dryrho_phy, t_phy, w, cldfra, cldfra_old, &
+		p_phy,dryrho_phy, t_phy, w, cldfra, cldfra_old, &
 		ddvel, z, dz8w, p8w, t8w, exch_h,         &
-		moist(ims,kms,jms,P_QV), moist(ims,kms,jms,P_QC), moist(ims,kms,jms,P_QI), &
-        scalar(ims,kms,jms,P_QNDROP), f_qc, f_qi, chem, &
+		moist(ims,kms,jms,P_QV), moist(ims,kms,jms,P_QC), moist(ims,kms,jms,P_QI), moist(ims,kms,jms,P_QS),f_ice_phy,f_rain_phy,&
+        scalar(ims,kms,jms,P_QNDROP),scalar(ims,kms,jms,P_QNICEAER),f_qv,f_qc, f_qi,f_qs, chem, &
         ccn1, ccn2, ccn3, ccn4, ccn5, ccn6, nsource,       &
+        !czhao 
+        nihf3d,niimm3d,nidep3d,scalar(ims,kms,jms,p_qnicemix),     &
+        rndst1,rndst2,rndst3,rndst4,nacon1,nacon2,nacon3,nacon4,  & 
+        dgnuc,dgacc,dgcor,        & 
+        tke_pbl,relhum3d,wsub3d,   &
 		ids,ide, jds,jde, kds,kde,                        &
 		ims,ime, jms,jme, kms,kme,                        &
 		its,ite, jts,jte, kts,kte                         )
-   CASE (CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
-   			CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP)
+! Mixactivate called only for _AQ packages below MS 12/28/2013
+   CASE (CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
+   			CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP)!BSINGH(12/03/2013): Added SAPRC 8 bin
       CALL wrf_debug(15,'call mixactivate for mosaic aerosol')
       call mosaic_mixactivate (                        &
 		id, ktau, dtstep, config_flags, idrydep_onoff,   &
-		dryrho_phy, t_phy, w, cldfra, cldfra_old, &
+		!dryrho_phy, t_phy, w, cldfra, cldfra_old, &
+		p_phy,dryrho_phy, t_phy, w, cldfra, cldfra_old, &
 		ddvel, z, dz8w, p8w, t8w, exch_h,         &
-		moist(ims,kms,jms,P_QV), moist(ims,kms,jms,P_QC), moist(ims,kms,jms,P_QI), &
-        scalar(ims,kms,jms,P_QNDROP), f_qc, f_qi, chem,   &
+		moist(ims,kms,jms,P_QV), moist(ims,kms,jms,P_QC), moist(ims,kms,jms,P_QI), moist(ims,kms,jms,P_QS), f_ice_phy,f_rain_phy,&
+        scalar(ims,kms,jms,P_QNDROP),scalar(ims,kms,jms,P_QNICEAER),f_qv,f_qc, f_qi,f_qs, chem,   &
         ccn1, ccn2, ccn3, ccn4, ccn5, ccn6, nsource,      &
+        !czhao 
+        nihf3d,niimm3d,nidep3d,scalar(ims,kms,jms,p_qnicemix),  &
+        rndst1,rndst2,rndst3,rndst4,nacon1,nacon2,nacon3,nacon4,  &
+        tke_pbl,relhum3d,wsub3d,   &
 		ids,ide, jds,jde, kds,kde,                        &
 		ims,ime, jms,jme, kms,kme,                        &
 		its,ite, jts,jte, kts,kte                         )
+
    CASE DEFAULT
    END SELECT mixactivate_select
+
+   !gravitational settling for aerosols above surface
    settling_select: SELECT CASE(config_flags%chem_opt)
    CASE (DUST,GOCART_SIMPLE,GOCARTRACM_KPP,MOZCART_KPP,RADM2SORG,RADM2SORG_AQ, &
          RADM2SORG_AQCHEM,RACMSORG_AQCHEM_KPP,RACM_ESRLSORG_AQCHEM_KPP)
@@ -693,6 +831,16 @@ CONTAINS
          ids,ide, jds,jde, kds,kde,                                        &
          ims,ime, jms,jme, kms,kme,                                        &
          its,ite, jts,jte, kts,kte                                         )
+   CASE (CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
+                        CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP)
+       CALL wrf_debug(15,'call mosaic settling routine')
+
+       call mosaic_settling_driver(dtstep,config_flags,t_phy,moist,  & 
+         chem,rho_phy,dz8w,p8w,p_phy,dx,g, &
+         ids,ide, jds,jde, kds,kde,                                        &
+         ims,ime, jms,jme, kms,kme,                                        &
+         its,ite, jts,jte, kts,kte                                         )
+
    CASE (CHEM_VASH, CHEM_VOLC, CHEM_VOLC_4BIN)
        CALL wrf_debug(15,'call vash settling routine')
          call vash_settling_driver(dtstep,config_flags,t_phy,moist,        &

@@ -167,6 +167,8 @@
       c43 = - 8.e0/3.e0
 !     h = 60.e0 ! hmin
       h = max( hstart, hmin )
+!czhao initialize hold here
+      hold = hmin
       tplus = t
       tin = t
       isreject = .false.

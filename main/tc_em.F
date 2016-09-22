@@ -279,8 +279,7 @@ SUBROUTINE tc_med_sidata_input ( grid , config_flags, latc_loc, lonc_loc, &
    real    :: t1,t2,t3,t4
    real    :: latc_loc(max_bogus), lonc_loc(max_bogus)
    real    :: vmax(max_bogus),rmax(max_bogus),rankine_lid
-
-   grid%input_from_file = .true.
+   
    grid%input_from_file = .false.
 
    CALL tc_compute_si_start ( model_config_rec%start_year  (grid%id) , &

@@ -61,9 +61,6 @@
 !	deleted the call to hybrd, so iradical_in>0 results in iradical=100
 !-----------------------------------------------------------------------
 
-
-
-
 !----------------------------------------------------------------------
       subroutine aqoperator1(   &
         istat_fatal, istat_warn,   &
@@ -233,7 +230,7 @@
       if (iradical .gt.   0) meqn1 = 20
 
       icount=0
-! Undefined.  Provide a value for now.
+!czhao
       iprint=20
       watvap = 0.d0
 
@@ -573,6 +570,10 @@
       enddo
       lrw = lrw1                      ! dimension of double precision work vector
       liw = liw1                      ! dimension of integer work vector
+
+!czhao initialize iwork
+      iwork(:) = 0
+      rwork(:) = 0.0
       iwork(6) = worki                ! steps allowed
       rwork(6) = workr                ! maximum step in seconds
 

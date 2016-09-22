@@ -194,6 +194,13 @@ CONTAINS
                 + conv*emis_ant(i,k,j,p_e_c2h5oh)
         end if
 
+        !PMA DMS emission [added by BSINGH - 01/20/2014]        
+        if ( (config_flags%emiss_inpt_opt == EMISS_INPT_PNNL_MAM)) then
+           chem(i,k,j,p_dms) = chem(i,k,j,p_dms)             &
+                + conv*emis_ant(i,k,j,p_e_dms)
+        end if
+
+
       END DO                                                          
  100  continue
 

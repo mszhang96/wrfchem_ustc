@@ -140,8 +140,13 @@ CONTAINS
              chem(i,k,j,p_oc1) = chem(i,k,j,p_oc1) + conv_rho_aer*emis_ant(i,k,j,p_e_oc)
              chem(i,k,j,p_bc1) = chem(i,k,j,p_bc1) + conv_rho_aer*emis_ant(i,k,j,p_e_bc)
            elseif( config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then
-             chem(i,k,j,p_voca)  = chem(i,k,j,p_voca) + conv_rho*emis_ant(i,k,j,p_e_voca)
-             chem(i,k,j,p_vocbb) = chem(i,k,j,p_vocbb) + conv_rho*emis_ant(i,k,j,p_e_vocbb)
+! 20130730 acd_ck_bugfix start
+! emissions should be CO_A and CO_BB with yields instead of VOC_A and VOC_BB
+!             chem(i,k,j,p_voca)  = chem(i,k,j,p_voca) + conv_rho*emis_ant(i,k,j,p_e_voca)
+!             chem(i,k,j,p_vocbb) = chem(i,k,j,p_vocbb) + conv_rho*emis_ant(i,k,j,p_e_vocbb)
+             chem(i,k,j,p_voca)  = chem(i,k,j,p_voca) + conv_rho_aer*emis_ant(i,k,j,p_e_co_a)*0.04*28./250.
+             chem(i,k,j,p_vocbb) = chem(i,k,j,p_vocbb) + conv_rho_aer*emis_ant(i,k,j,p_e_co_bb)*0.04*28./250.
+! 20130730 acd_ck_bugfix end
            endif
         else if( config_flags%chem_opt == CRIMECH_KPP &
           .or. config_flags%chem_opt == CRI_MOSAIC_8BIN_AQ_KPP &
@@ -319,8 +324,14 @@ CONTAINS
                   e_bio(i,j,lald)*conv_rho
         if(p_apinene.gt.1)chem(i,kts,j,p_apinene)=chem(i,kts,j,p_apinene)+ &
                   0.667*e_bio(i,j,loli)*conv_rho
+!       if(p_bpinene.gt.1)chem(i,kts,j,p_bpinene)=chem(i,kts,j,p_bpinene)+ &
+!                 0.333*e_bio(i,j,loli)*conv_rho
         if(p_bpinene.gt.1)chem(i,kts,j,p_bpinene)=chem(i,kts,j,p_bpinene)+ &
-                  0.333*e_bio(i,j,loli)*conv_rho
+                  0.333*e_bio(i,j,loli)*conv_rho + e_bio(i,j,lolt)*conv_rho
+        if(p_hcooh.gt.1)chem(i,kts,j,p_hcooh)=chem(i,kts,j,p_hcooh)+ &
+                  e_bio(i,j,lora1)*conv_rho
+        if(p_ch3co2h.gt.1)chem(i,kts,j,p_ch3co2h)=chem(i,kts,j,p_ch3co2h)+ &
+                  e_bio(i,j,lora2)*conv_rho
 
 !BSINGH -  Added for CBMZ
 !
@@ -407,8 +418,12 @@ CONTAINS
 
       enddo
       enddo
-     CASE (MEGAN2)
+     CASE (MEGAN2,MEGAN2_CLM)
+
       do j = jts,jte
+        !czhao:the unit of e_bio is ppm m/min
+        !which is from VOC(mole/m2/hour)/surface-air-density(mole/m3)
+        !it can be converted back to mole/m2/hour:e_bio [mole/m2/hour]=e_bio [ppm m/min]*1.e-6*air-density [kg/m3] / 0.02897 [kg/mole] * 60 [min/hour]
         con2ppm(its:ite,j) = dtstep/(dz8w(its:ite,kts,j)*60.)
       end do
       do n = 1,ne_area

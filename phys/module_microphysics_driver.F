@@ -7,13 +7,17 @@ CONTAINS
 SUBROUTINE microphysics_driver(                                          &
                        th, rho, pi_phy, p                                &
                       ,ht, dz8w, p8w, dt,dx,dy                           &
-                      ,mp_physics, spec_zone                             &
+                      !,mp_physics, spec_zone                             &
+                      ,sw_physics,mp_physics, spec_zone                &
                       ,specified, channel_switch                         &
                       ,warm_rain                                         &
                       ,t8w                                               &
-                      ,chem_opt, progn                                   &
+                      ,chem_opt, progn                         &
                       ,cldfra, cldfra_old, exch_h, nsource               &
-                      ,qlsink, precr, preci, precs, precg                &
+                      !czhao ,qlsink,precr, preci, precs, precg         &
+                      ,radeffc,radeffi &
+                      ,qlsink, ilsink,precr, preci, precs, precg         &
+                      ,r2evap3d,i2evap3d                                 &
                       ,xland,snowh,itimestep                             &
                       ,f_ice_phy,f_rain_phy,f_rimef_phy                  &
                       ,lowlyr,sr, id                                     &
@@ -26,8 +30,9 @@ SUBROUTINE microphysics_driver(                                          &
                       !Variables required for CAMMGMP Scheme
                       ,dlf,dlf2,t_phy,p_hyd,p8w_hyd,tke_pbl,z_at_w,qfx   &
                       ,rliq,turbtype3d,smaw3d,wsedl3d,cldfra_old_mp      &
-                      ,cldfra_mp,cldfra_mp_all,cldfrai,cldfral,cldfra_conv&
-                      ,alt       &
+                      ,cldfra_mp,cldfra_mp_all,lradius,iradius           &
+                      ,cldfrai,cldfral,cldfra_conv                       &
+                      ,alt                                               &
                       ,accum_mode,aitken_mode,coarse_mode                &
                       ,icwmrsh3d,icwmrdp3d,shfrc3d,cmfmc3d,cmfmc2_3d     &
                       ,config_flags,fnm,fnp,rh_old_mp,lcd_old_mp         &
@@ -38,16 +43,18 @@ SUBROUTINE microphysics_driver(                                          &
 #endif
 !======================                                   
                       ,qv_curr,qc_curr,qr_curr,qi_curr,qs_curr,qg_curr   &
-                      ,qndrop_curr,qni_curr,qh_curr,qnh_curr             &
+                      ,qndrop_curr,qniceaer_curr,qnicemix_curr,qni_curr,qh_curr,qnh_curr             &
                       ,qzr_curr,qzi_curr,qzs_curr,qzg_curr,qzh_curr      &
                       ,qns_curr,qnr_curr,qng_curr,qnn_curr,qnc_curr      &
                       ,qvolg_curr                                        &
-                      ,f_qv,f_qc,f_qr,f_qi,f_qs,f_qg,f_qndrop,f_qni      &
+                      ,f_qv,f_qc,f_qr,f_qi,f_qs,f_qg,f_qndrop,f_qniceaer,f_qnicemix,f_qni      &
                       ,f_qns,f_qnr,f_qng,f_qnc,f_qnn,f_qh,f_qnh          &
                       ,            f_qzr,f_qzi,f_qzs,f_qzg,f_qzh         &
                       ,f_qvolg                                           &
                       ,qrcuten, qscuten, qicuten, mu                     &
                       ,qt_curr,f_qt                                      &
+                      ,rndst1,rndst2,rndst3,rndst4                       & ! czhao for WRF-Chem
+                      ,nacon1,nacon2,nacon3,nacon4                       & ! czhao for WRF-Chem
                       ,mp_restart_state,tbpvs_state,tbpvs0_state         & ! for etampnew or etampold
                       ,hail,ice2                                         & ! for mp_gsfcgce
 !                     ,ccntype                                           & ! for mp_milbrandt2mom
@@ -230,6 +237,7 @@ SUBROUTINE microphysics_driver(                                          &
 !-- cldfra, cldfra_old, current, previous cloud fraction
 !-- exch_h        vertical diffusivity (m2/s)
 !-- qlsink        Fractional cloud water sink (/s)
+!-- ilsink        Fractional cloud ice sink (/s)
 !-- precr         rain precipitation rate at all levels (kg/m2/s)
 !-- preci         ice precipitation rate at all levels (kg/m2/s)
 !-- precs         snow precipitation rate at all levels (kg/m2/s)
@@ -281,7 +289,7 @@ SUBROUTINE microphysics_driver(                                          &
 !
 !======================================================================
    TYPE(grid_config_rec_type),  INTENT(IN   ) , OPTIONAL   :: config_flags
-   INTEGER,    INTENT(IN   )    :: mp_physics
+   INTEGER,    INTENT(IN   )    :: mp_physics,sw_physics
    LOGICAL,    INTENT(IN   )    :: specified
    INTEGER, OPTIONAL, INTENT(IN   )    :: chem_opt, progn
    INTEGER, OPTIONAL, INTENT(IN   )    :: hail, ice2 !, ccntype
@@ -352,6 +360,10 @@ SUBROUTINE microphysics_driver(                                          &
                                                        cldfra_old_mp, &    !Old Cloud fraction for CAMMGMP microphysics only
                                                            rh_old_mp, &    !Old RH
                                                           lcd_old_mp       !Old liquid cloud fraction
+
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme), INTENT(INOUT) ::   &
+                     radeffc,radeffi 
+
 !In-outs -optional
 #ifdef WRF_CHEM
  REAL, OPTIONAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem),     &
@@ -361,12 +373,14 @@ SUBROUTINE microphysics_driver(                                          &
 !outs
 REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
       INTENT(INOUT) , OPTIONAL::                                                 &
-                                                            wsedl3d, &        !Sedimentation velocity of stratiform liquid cloud droplet (m/s) 
+                                                            wsedl3d, &    !Sedimentation velocity of stratiform liquid cloud droplet (m/s) 
                                                           cldfra_mp, &    !Old Cloud fraction for CAMMGMP microphysics only
                                                       cldfra_mp_all, &    !Old Cloud fraction for CAMMGMP microphysics only
                                                             cldfrai, &    !Old Cloud fraction for CAMMGMP microphysics only
-                                                            cldfral, &       !Old Cloud fraction for CAMMGMP microphysics only
-                                                        cldfra_conv 
+                                                            cldfral, &    !Old Cloud fraction for CAMMGMP microphysics only
+                                                            lradius, &    !Old Cloud fraction for CAMMGMP microphysics only
+                                                            iradius, &    !Old Cloud fraction for CAMMGMP microphysics only
+                                                            cldfra_conv 
 
 #ifdef WRF_CHEM
 REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
@@ -381,11 +395,15 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                                      F_ICE_PHY,F_RAIN_PHY,F_RIMEF_PHY
 !!$#ifdef WRF_CHEM
 !  REAL, INTENT(OUT), DIMENSION(ims:ime, kms:kme, jms:jme ) ::     &
-   REAL, OPTIONAL, INTENT(OUT), DIMENSION(ims:ime, kms:kme, jms:jme ) ::     &
+   REAL, OPTIONAL, INTENT(INOUT), DIMENSION(ims:ime, kms:kme, jms:jme ) ::     &
 !!$#else
 !!$  REAL, DIMENSION(ims:ime, kms:kme, jms:jme ) ::     &
 !!$#endif
          qlsink, & ! cloud water sink (/s)
+         !czhao
+         ilsink, & ! cloud water sink (/s)
+         r2evap3d, & ! rain evaporation (/s) 
+         i2evap3d, & ! snow evaporation (/s)
          precr, & ! rain precipitation rate at all levels (kg/m2/s)
          preci, & ! ice precipitation rate at all levels (kg/m2/s)
          precs, & ! snow precipitation rate at all levels (kg/m2/s)
@@ -396,7 +414,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
    REAL , DIMENSION( ims:ime , jms:jme ) , INTENT(IN)   :: XLAND
    REAL , DIMENSION( ims:ime , jms:jme ) , INTENT(IN), OPTIONAL   :: SNOWH
 
-   REAL , DIMENSION( ims:ime , jms:jme ) , INTENT(OUT)   :: SR
+   REAL , DIMENSION( ims:ime , jms:jme ) , INTENT(INOUT)   :: SR
 
    REAL, INTENT(IN   ) :: dt,dx,dy
 
@@ -405,7 +423,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
 !
 ! Optional
 !
-   REAL, OPTIONAL, DIMENSION( ims:ime , kms:kme, jms:jme ) , INTENT(OUT) :: refl_10cm
+   REAL, OPTIONAL, DIMENSION( ims:ime , kms:kme, jms:jme ) , INTENT(INOUT) :: refl_10cm
 
    LOGICAL,  OPTIONAL,   INTENT(IN   )    :: channel_switch
    REAL, OPTIONAL,  INTENT(INOUT   ) :: naer  ! aerosol number concentration (/kg)
@@ -415,10 +433,16 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                   w, z, t8w                                       &
                  ,cldfra, cldfra_old, exch_h                      &
                  ,qv_curr,qc_curr,qr_curr,qi_curr,qs_curr,qg_curr &
-                 ,qt_curr,qndrop_curr,qni_curr,qh_curr,qnh_curr   &
+                 ,qt_curr,qndrop_curr,qniceaer_curr,qnicemix_curr,qni_curr,qh_curr,qnh_curr   &
                  ,qns_curr,qnr_curr,qng_curr,qnn_curr,qnc_curr    &
                  ,qzr_curr,qzi_curr,qzs_curr,qzg_curr,qzh_curr    &
                  ,qvolg_curr
+
+  REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                  &
+         OPTIONAL, INTENT(IN) ::                             &
+         rndst1,rndst2,rndst3,rndst4,   & 
+         nacon1,nacon2,nacon3,nacon4
+
 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                  &
          OPTIONAL,                                                &
@@ -441,7 +465,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
 
    REAL, DIMENSION(ims:ime, kms:kme, jms:jme ),                   &
          OPTIONAL,                                                &
-         INTENT(OUT ) ::                                          &
+         INTENT(INOUT ) ::                                          &
                   nsource
 
 !
@@ -465,7 +489,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                                          ,tbpvs_state,tbpvs0_state
 !
 
-   LOGICAL, OPTIONAL :: f_qv,f_qc,f_qr,f_qi,f_qs,f_qg,f_qndrop,f_qni,f_qt    &
+   LOGICAL, OPTIONAL :: f_qv,f_qc,f_qr,f_qi,f_qs,f_qg,f_qndrop,f_qniceaer,f_qnicemix,f_qni,f_qt    &
                        ,f_qns,f_qnr,f_qng,f_qnn,f_qnc,f_qh,f_qnh,f_qzr       &
                        ,f_qzi,f_qzs,f_qzg,f_qzh,f_qvolg
 
@@ -553,31 +577,47 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
 
 ! 2009-06009 rce - zero all these for safety
        IF( PRESENT(qlsink) ) qlsink(its:ite,kts:kte,jts:jte) = 0.
+       IF( PRESENT(ilsink) ) ilsink(its:ite,kts:kte,jts:jte) = 0. !czhao
+       IF( PRESENT(r2evap3d))r2evap3d(its:ite,kts:kte,jts:jte) = 0. !czhao
+       IF( PRESENT(i2evap3d))i2evap3d(its:ite,kts:kte,jts:jte) = 0. !czhao
        IF( PRESENT(precr ) ) precr(its:ite,kts:kte,jts:jte)  = 0.
        IF( PRESENT(preci ) ) preci(its:ite,kts:kte,jts:jte)  = 0.
        IF( PRESENT(precs ) ) precs(its:ite,kts:kte,jts:jte)  = 0.
        IF( PRESENT(precg ) ) precg(its:ite,kts:kte,jts:jte)  = 0.
 
+       radeffc(its:ite,kts:kte,jts:jte)=0.0 !czhao
+       radeffi(its:ite,kts:kte,jts:jte)=0.0 !czhao
+
 !-----------
        IF( PRESENT(chem_opt) .AND. PRESENT(progn) ) THEN
-       IF( chem_opt==0 .AND. progn==1 .AND. (mp_physics==LINSCHEME  .OR. mp_physics==MORR_TWO_MOMENT)) THEN
+       IF( (chem_opt==0 .AND. progn==1).AND.(mp_physics==LINSCHEME .OR. mp_physics==THOMPSON .OR. mp_physics==MORR_TWO_MOMENT)) THEN
           IF( PRESENT( QNDROP_CURR ) ) THEN
              CALL wrf_debug ( 100 , 'microphysics_driver: calling prescribe_aerosol_mixactivate' )
 ! 06-nov-2005 rce - id  & itimestep added to arg list
              call prescribe_aerosol_mixactivate (               &
                   id, itimestep, dt, naer,                      &
-                  rho, th, pi_phy, w, cldfra, cldfra_old,       &
+                  !rho, th, pi_phy, w, cldfra, cldfra_old,       &
+                  p,rho, th, pi_phy, w, cldfra, cldfra_old,       &
                   z, dz8w, p8w, t8w, exch_h,                    &
-                  qv_curr, qc_curr, qi_curr, qndrop_curr,       &
+                  !qv_curr, qc_curr, qi_curr, qndrop_curr,       &
+                  qv_curr, qc_curr, qi_curr,qs_curr, qndrop_curr,       &
                   nsource,                                      &
                   ids,ide, jds,jde, kds,kde,                    &
                   ims,ime, jms,jme, kms,kme,                    &
                   its,ite, jts,jte, kts,kte,                    &
-                  F_QC=f_qc, F_QI=f_qi                          )
+            f_qv,f_qc,f_qi,f_qs,f_ice_phy,f_rain_phy,sw_physics )
+                  !czhao set a temporary value for qnice
+                  qniceaer_curr(its:ite,kts:kte,jts:jte) = 100.0
+                  qnicemix_curr(its:ite,kts:kte,jts:jte) = 100.0
           END IF
-       ELSE IF( progn==1 .AND. mp_physics/=LINSCHEME .AND. mp_physics/=MORR_TWO_MOMENT) THEN
+
+          IF( PRESENT( QNICEAER_CURR) ) THEN     
+             call wrf_error_fatal("SETTINGS ERROR: Prognostic ice number can only be used with chemistry")
+          ENDIF
+
+       ELSE IF( progn==1 .AND. mp_physics/=LINSCHEME.AND. mp_physics/=THOMPSON.AND. mp_physics/=MORR_TWO_MOMENT) THEN
              call wrf_error_fatal( &
-             "SETTINGS ERROR: Prognostic cloud droplet number can only be used with the mp_physics=LINSCHEME or MORRISON.")
+             "SETTINGS ERROR: Prognostic cloud droplet number can only be used with the mp_physics=LINSCHEME or THOMPSON or MORRISON.")
        END IF
        END IF
 
@@ -712,11 +752,23 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                     ,mu=mu                          &  ! hm
                     ,F_QNDROP=f_qndrop                   &  ! hm for wrf-chem
                  ,QNDROP=qndrop_curr                     &  ! hm for wrf-chem
+                    ,F_QNICEAER=f_qniceaer                   &  ! czhao for wrf-chem
+                 ,QNICEAER=qniceaer_curr                     &  ! czhao for wrf-chem
+                    ,F_QNICEMIX=f_qnicemix                   &  ! czhao for wrf-chem
+                 ,QNICEMIX=qnicemix_curr                     &  ! czhao for wrf-chem
+#ifdef WRF_CHEM
+               ,rndst1=rndst1,rndst2=rndst2,rndst3=rndst3,rndst4=rndst4  & ! czhao added, wrf-chem 
+               ,nacon1=nacon1,nacon2=nacon2,nacon3=nacon3,nacon4=nacon4  & ! czhao added, wrf-chem
+#endif
                  ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde &
                  ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme &
                  ,ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte &
-                 ,QLSINK=qlsink                                     & ! jdf for wrf-chem
+!czhao                ,QLSINK=qlsink                                     & ! jdf for wrf-chem
+                 ,RADEFFC=radeffc,RADEFFI=radeffi &
+                 ,QLSINK=qlsink,ilsink=ilsink                       & ! jdf for wrf-chem
                  ,PRECR=precr,PRECI=preci,PRECS=precs,PRECG=precg   & ! jdf for wrf-chem
+                 ,R2EVAP3D=R2EVAP3D,I2EVAP3D=I2EVAP3D,f_mixcloud=config_flags%mixcloud   &        ! czhao for WRF-CHEM
+
                                                                     )
         ELSE
            Call wrf_error_fatal( 'arguments not present for calling morrison two moment')
@@ -1461,8 +1513,9 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
                      ,ITS=its,ITE=ite, JTS=jts,JTE=jte, KTS=kts,KTE=kte           &
 !Output variables from CAMMGMP
                      ,TH=th,CLDFRA_OLD_MP=cldfra_old_mp,CLDFRA_MP=cldfra_mp       &
-                     ,CLDFRA_MP_ALL=cldfra_mp_all,CLDFRAI=cldfrai,CLDFRAL=cldfral &
-                     ,CLDFRA_CONV=cldfra_conv,WSEDL3D=wsedl3d           &
+                     ,CLDFRA_MP_ALL=cldfra_mp_all,lradius=lradius,iradius=iradius &
+                     ,CLDFRAI=cldfrai,CLDFRAL=cldfral                             &
+                     ,CLDFRA_CONV=cldfra_conv,WSEDL3D=wsedl3d                     &
                      ,RAINNC=rainnc,RAINNCV=rainncv,SNOWNC=snownc,SNOWNCV=snowncv &
                      ,SR=sr,QV_CURR=qv_curr,QC_CURR=qc_curr,QI_CURR=qi_curr       &
                      ,QS_CURR=qs_curr,QR_CURR=qr_curr,NC3D=qnc_curr               &

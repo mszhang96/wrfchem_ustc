@@ -15,13 +15,16 @@ CONTAINS
          bioemdt,stepbioe,                                                 &
          config_flags,gmt,julday,alt,t_phy,moist,p8w,t8w,u_phy,            &
          v_phy,vvel,e_bio,p_phy,chem,rho_phy,dz8w,ne_area,emis_ant,        &
-         emis_vol,tsk,erod,g,emis_seas,emis_dust,tracer,                   &
+         emis_vol,tsk,erod,g,emis_seas,emis_dust,tracer,sstemp,            &
          ebu, ebu_in,mean_fct_agtf,mean_fct_agef,                          &
          mean_fct_agsv,mean_fct_aggr,firesize_agtf,firesize_agef,          &
          firesize_agsv,firesize_aggr,                                      &
          u10,v10,ivgtyp,isltyp,gsw,vegfra,rmol,ust,znt,dms_0,              &
          erup_beg,erup_end,                                                &
          xland,xlat,xlong,z_at_w,z,smois,dustin,seasin,                    &
+         landf,soilf,num_land,num_soil,sh2o,snowc,xlai,watsat2d,           &
+         hfx,tke_pbl,pblh,psfc,rainncv,raincv,            &
+         sigma_dry,sigma_wet,sigma_tke,k_shape,c_scale,           &
          sebio_iso,sebio_oli,sebio_api,sebio_lim,sebio_xyl,                &
          sebio_hc3,sebio_ete,sebio_olt,sebio_ket,sebio_ald,                &   
          sebio_hcho,sebio_eth,sebio_ora2,sebio_co,sebio_nr,                &
@@ -61,7 +64,7 @@ CONTAINS
          ic_flashrate, cg_flashrate,                                       &
          ! end stuff for LNOx emissions
          ! stuff for aircraft emissions
-         emis_aircraft,                                                    &
+         emis_aircraft,e_dust,e_seasalt,dmsflux,                          &
          ! stuff for GHG fluxes
          vprm_in,rad_vprm,lambda_vprm,alpha_vprm,resp_vprm,               &
          xtime,tslb,wet_in,rainc,rainnc,potevp,sfcevp,lu_index,            &
@@ -74,7 +77,7 @@ CONTAINS
   USE module_configure
   USE module_state_description
   USE module_data_radm2
-  USE module_data_sorgam, only : mw_so4_aer,anthfac,factnumn,factnuma,factnumc
+  USE module_data_sorgam, only : mw_so4_aer,anthfac,factnumn_ant,factnuma_ant,factnumc_ant
   USE module_model_constants, only : mwdry
   USE module_emissions_anthropogenics
   USE module_bioemi_simple
@@ -105,12 +108,16 @@ CONTAINS
                                   its,ite, jts,jte, kts,kte
    INTEGER,      INTENT(IN   ) ::                                          &
                                   ktau,stepbioe,stepfirepl
+   INTEGER,      INTENT(IN   ) :: num_land,num_soil
+
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_moist ),                &
          INTENT(IN ) ::                                   moist
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_chem ),                 &
          INTENT(INOUT ) ::                                   chem
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_tracer ),               &
          INTENT(INOUT ) ::                                   tracer
+   REAL, DIMENSION( ims:ime, jms:jme),               &
+         INTENT(IN) ::                                   sstemp
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_ebu ),                  &
          INTENT(INOUT ) ::                                   ebu
    REAL, DIMENSION( ims:ime, 1, jms:jme, num_ebu_in ),                     &
@@ -118,7 +125,7 @@ CONTAINS
    REAL, DIMENSION( ims:ime, jms:jme, ne_area ),                           &
          INTENT(INOUT ) ::                               e_bio
    REAL, DIMENSION( ims:ime, 1:config_flags%kemit, jms:jme,num_emis_ant),&
-         INTENT(IN ) ::                                                    &
+         INTENT(INOUT ) ::                                                    &
          emis_ant
    REAL, DIMENSION( ims:ime,  kms:kme, jms:jme,num_emis_vol),              &
          INTENT(INOUT ) ::                                                 &
@@ -139,6 +146,8 @@ CONTAINS
          OPTIONAL,                                                         &
          INTENT(INOUT ) ::                                                 &
          emis_seas
+
+   REAL, DIMENSION( ims:ime, jms:jme), INTENT(INOUT ) :: e_dust,e_seasalt
 
    REAL, DIMENSION( ims:ime,  jms:jme ),                                   &
          OPTIONAL,                                                         &
@@ -162,6 +171,13 @@ CONTAINS
           INTENT(IN   ) ::                                                 &
                                                      ivgtyp,               &
                                                      isltyp
+
+  REAL, DIMENSION(ims:ime,num_land,jms:jme),               &
+         INTENT(IN) ::  landf
+
+  REAL, DIMENSION(ims:ime,num_soil,jms:jme),               &
+         INTENT(IN) ::  soilf
+
    REAL,  DIMENSION( ims:ime , jms:jme )                   ,               &
           INTENT(IN   ) ::                                                 &
                                                      u10,                  &
@@ -193,8 +209,25 @@ CONTAINS
                                                      dust_smtune
   REAL, DIMENSION( config_flags%num_soil_layers ) ,                        &
       INTENT(IN   ) ::                               zs
+
+  REAL, DIMENSION( ims:ime, jms:jme ) ,      &
+      INTENT(IN) ::         snowc,xlai 
+
+  REAL, DIMENSION( ims:ime, jms:jme ) ,      &
+      INTENT(IN) ::         watsat2d 
+
   REAL, DIMENSION( ims:ime, config_flags%num_soil_layers, jms:jme ) ,      &
-      INTENT(INOUT ) ::                             smois, tslb    
+      INTENT(INOUT ) ::                             smois, tslb,sh2o    
+
+  real, dimension (ims:ime, jms:jme ) ,                               &
+        intent(in) ::                                                  &
+        hfx,pblh,psfc,rainncv,raincv 
+
+   REAL, DIMENSION(ims:ime, kms:kme, jms:jme ),                &
+         INTENT(IN ) :: tke_pbl                    
+
+   REAL,DIMENSION(ims:ime,jms:jme),INTENT(INOUT) :: sigma_dry,sigma_wet,sigma_tke
+   REAL,DIMENSION(ims:ime,jms:jme),INTENT(INOUT) :: k_shape,c_scale
 
    REAL,  DIMENSION( ims:ime , jms:jme )                   ,               &
          OPTIONAL,                                                         &
@@ -219,7 +252,9 @@ CONTAINS
                ebio_c5h8,ebio_apinene,ebio_bpinene,ebio_toluene,       &
                ebio_ch3cho,ebio_ch3co2h,ebio_tbut2ene,ebio_c2h5cho,    &
                ebio_nc4h10
-
+   ! added by Qing
+   REAL,  DIMENSION( ims:ime , jms:jme )   ,       & 
+          INTENT(INOUT   ) ::                     dmsflux
 
    ! stuff for MEGAN v2.04...most of these arrays are optional and package dependent 
    !  as declared in registry.chem
@@ -320,8 +355,19 @@ CONTAINS
       area=dx*dx
       dust_emiss_active    = 0
       seasalt_emiss_active = 0
-      if(config_flags%dust_opt >= 2 )dust_emiss_active    = 1
-      if(config_flags%seas_opt == 2 )seasalt_emiss_active = 1
+      !czhao 
+      !if(config_flags%dust_opt == 2 )dust_emiss_active    = 1
+      dust_emiss_active    = config_flags%dust_opt 
+      if (dust_emiss_active==3.and.config_flags%sf_surface_physics.ne.lsmscheme) then
+        call wrf_error_fatal("SETTINGS ERROR: Currently, the GOCART (dust_opt=3) dust emission scheme is only tested with the Noah land surface model!!!!!!")
+      endif
+      if (dust_emiss_active==4.and.config_flags%sf_surface_physics.ne.lsmscheme) then
+        call wrf_error_fatal("SETTINGS ERROR: Currently, the DEAD (dust_opt=4) dust emission scheme is only tested with the Noah land surface model!!!!!!")
+      endif
+
+      !czhao
+      !if (config_flags%seas_opt == 2 )seasalt_emiss_active = 1
+      seasalt_emiss_active = config_flags%seas_opt 
       if(config_flags%seas_opt == 3 )seasalt_emiss_active = 3
       if(config_flags%seas_opt == 4 )seasalt_emiss_active = 4
 
@@ -516,17 +562,17 @@ CONTAINS
                     chem(i,k,j,p_p25i) = chem(i,k,j,p_p25i)                &
                      +.25*emis_vol(i,k,j,p_e_vash10)*conv
                     chem(i,k,j,p_nu0) = chem(i,k,j,p_nu0)                  &
-                     +.25*anthfac*factnumn*emis_vol(i,k,j,p_e_vash10)*conv
+                     +.25*anthfac*factnumn_ant*emis_vol(i,k,j,p_e_vash10)*conv
                     chem(i,k,j,p_ac0) = chem(i,k,j,p_ac0)                  &
-                     +.75*anthfac*factnuma*emis_vol(i,k,j,p_e_vash10)*conv
+                     +.75*anthfac*factnuma_ant*emis_vol(i,k,j,p_e_vash10)*conv
                     chem(i,k,j,p_p25j) = chem(i,k,j,p_p25j)                &
                      +.75*emis_vol(i,k,j,p_e_vash10)*conv
                     chem(i,k,j,p_antha) = chem(i,k,j,p_antha)              &
                      +emis_vol(i,k,j,p_e_vash9)*conv !                      &
 !                     +.5*emis_vol(i,k,j,p_e_vash8)*conv
                     chem(i,k,j,p_corn) = chem(i,k,j,p_corn)                &
-                     +anthfac*factnumc*emis_vol(i,k,j,p_e_vash9)*conv !     & 
-!                     +anthfac*factnumc*.5*emis_vol(i,k,j,p_e_vash8)*conv
+                     +anthfac*factnumc_ant*emis_vol(i,k,j,p_e_vash9)*conv !     & 
+!                     +anthfac*factnumc*.5*emis_vol(i,k,j,p_e_vash2)*conv
                   enddo
       CASE (CHEM_VOLC)
               CALL wrf_debug(15,'Adding volcanic emissions to case chem_volc')
@@ -583,6 +629,7 @@ CONTAINS
       IF ( config_flags%biomass_burn_opt == BIOMASSB_MOZC .OR. &
            config_flags%biomass_burn_opt == BIOMASSB_MOZ  .OR. &
            config_flags%biomass_burn_opt == BIOMASSB_GHG  .OR. &
+           config_flags%biomass_burn_opt == biomassb_saprc99 .OR. &
            config_flags%biomass_burn_opt == BIOMASSB ) then
         IF ( ktau==1 ) then
            do_plumerisefire = .true.
@@ -640,7 +687,8 @@ CONTAINS
        call add_emis_burn(id,dtstep,ktau,dz8w,rho_phy,tracer,&
             julday,gmt,xlat,xlong,t_phy,p_phy,                           &
             ebu,0,config_flags%tracer_opt,config_flags%biomass_burn_opt,     &
-            num_tracer,ids,ide, jds,jde, kds,kde,                                   &
+            do_plumerisefire, & 
+            num_tracer,ids,ide, jds,jde, kds,kde,               &
             ims,ime, jms,jme, kms,kme,                                   &
             its,ite, jts,jte, kts,kte                                    )
       CASE DEFAULT
@@ -661,7 +709,7 @@ CONTAINS
          its,ite, jts,jte, kts,kte                                         )
 
       CASE DEFAULT 
-        if(seasalt_emiss_active.eq.1) then 
+        if(seasalt_emiss_active.gt.1) then 
            CALL wrf_debug(15,'MOSAIC or SORGAM sea salt emissions')
         elseif(seasalt_emiss_active.eq.3) then
            CALL wrf_debug(15,'MOSAIC sea salt emissions (Fuentes et al) - low activity')
@@ -691,7 +739,7 @@ CONTAINS
          ims,ime, jms,jme, kms,kme,                                        &
          its,ite, jts,jte, kts,kte                                         )
       CASE DEFAULT 
-        if(dust_emiss_active.eq.1) then
+        if(dust_emiss_active.gt.1) then
             CALL wrf_debug(15,'MOSAIC or SORGAM dust emissions')
         else
              CALL wrf_debug(15,'no dust emissions')
@@ -703,7 +751,7 @@ CONTAINS
         CALL wrf_debug(15,'Gocart dms emissions')
         call gocart_dmsemis(dtstep,config_flags,alt,t_phy,u_phy,  &
          v_phy,chem,rho_phy,dz8w,u10,v10,p8w,dms_0,tsk,                  &
-         ivgtyp,isltyp,xland,dx,g, &
+         ivgtyp,isltyp,xland,dx,g,dmsflux, &
          ids,ide, jds,jde, kds,kde,                                        &
          ims,ime, jms,jme, kms,kme,                                        &
          its,ite, jts,jte, kts,kte                                         )
@@ -715,7 +763,7 @@ CONTAINS
 !!! ***********   FIRE AND CHEM ****************************************
 !
     fire_select:  SELECT CASE(config_flags%biomass_burn_opt)
-     CASE (BIOMASSB,BIOMASSB_MOZC,BIOMASSB_MOZ,BIOMASSB_GHG)
+     CASE (BIOMASSB,BIOMASSB_MOZC,BIOMASSB_MOZ,BIOMASSB_GHG,biomassb_saprc99)
 !      if( do_plumerisefire )then
 !         CALL wrf_debug(15,'fire emissions: calling biomassb')
 !         write(0,*)ktau,stepfirepl
@@ -735,8 +783,9 @@ CONTAINS
        call add_emis_burn(id,dtstep,ktau,dz8w,rho_phy,chem,&
             julday,gmt,xlat,xlong,t_phy,p_phy,                           &
             ebu,config_flags%chem_opt,0,config_flags%biomass_burn_opt,     &
-            num_chem,ids,ide, jds,jde, kds,kde,                                   &
-            ims,ime, jms,jme, kms,kme,                                   &
+            do_plumerisefire, &
+            num_chem,ids,ide, jds,jde, kds,kde,                &
+            ims,ime, jms,jme, kms,kme,                           &
             its,ite, jts,jte, kts,kte                                    )
      CASE DEFAULT 
        CALL wrf_debug(15,'no biomass burning')
@@ -818,7 +867,7 @@ CONTAINS
                ims,ime, jms,jme, kms,kme,                              &
                its,ite, jts,jte, kts,kte                               )
        endif
-
+     CASE (MEGAN2_CLM)
      CASE DEFAULT 
        if( do_bioemiss ) &
             e_bio(its:ite,jts:jte,1:ne_area) = 0.
@@ -840,6 +889,7 @@ CONTAINS
          write(message,'(" WARNING: EMISSIONS_DRIVER: KEMIT > KTE ",3i6)') kme,kte-ksub,k
          CALL WRF_MESSAGE (message)
        ENDIF
+       if(config_flags%emiss_opt /= 0  ) then  ! anthropogenic
        call wrf_debug(15,'emissions_driver calling add_anthropogenics')
        call add_anthropogenics(id,dtstep,dz8w,config_flags,rho_phy,alt, &
             chem, emis_ant,emis_aircraft,                               &
@@ -847,6 +897,7 @@ CONTAINS
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
        call wrf_debug(15,'emissions_driver calling add_biogenics')
+       endif
        ! Do NOT call add_biogenics if using MEGAN v2.04 biogenic emissions
        ! module
        call add_biogenics(id,dtstep,dz8w,config_flags, rho_phy,chem,    &
@@ -875,40 +926,45 @@ CONTAINS
 
        end if ! emiss_inpt_opt /= 3
 
-    IF(config_flags%emiss_opt == 10 ) then
-       do j=jts,jte
-          do i=its,ite
-             do k=kts,min(config_flags%kemit,kte-ksub)
-                conv = 4.828e-4/rho_phy(i,k,j)*dtstep/(dz8w(i,k,j)*60.)
-
-                chem(i,k,j,p_voca)  = chem(i,k,j,p_voca)                       &
-                     +emis_ant(i,k,j,p_e_co_a)*conv*0.08*28./250.
-                chem(i,k,j,p_vocbb)  = chem(i,k,j,p_vocbb)                       &
-                     +emis_ant(i,k,j,p_e_co_bb)*conv*0.08*28./250.
-
-             end do
-          end do
-       end do
-     endif
+! 20130725 acd_ck_bugfix start
+! > double counting - already added in add_anthropogenics (module_emissions_anthropogenic.F)
+!    IF(config_flags%emiss_opt == 10 ) then
+!       do j=jts,jte
+!          do i=its,ite
+!             do k=kts,min(config_flags%kemit,kte-ksub)
+!                conv = 4.828e-4/rho_phy(i,k,j)*dtstep/(dz8w(i,k,j)*60.)
+!
+!                chem(i,k,j,p_voca)  = chem(i,k,j,p_voca)                       &
+!                     +emis_ant(i,k,j,p_e_co_a)*conv*0.08*28./250.
+!                chem(i,k,j,p_vocbb)  = chem(i,k,j,p_vocbb)                       &
+!                     +emis_ant(i,k,j,p_e_co_bb)*conv*0.08*28./250.
+!
+!             end do
+!          end do
+!       end do
+!     endif
+! 20130725 acd_ck_bugfix end
 
 !For SAPRC99 need to define SAPRC99_addemiss_anthro and SAPRC99_addemiss_bio
 !so did not add saprcnov packages here
     CASE (CBMZ, CBMZ_BB, CBMZ_BB_KPP, CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_8BIN, &
           CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, & 
           CBMZSORG, CBMZSORG_AQ, CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, &
-          CBMZ_MOSAIC_KPP, &
-          CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
+          CBMZ_SORGAM_KPP,CBMZ_MOSAIC_KPP, CBMZ_MOSAIC_8BIN_VBS9_KPP,CBMZ_MOSAIC_4BIN_VBS9_KPP,&
+          CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ,CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
           CBMZ_CAM_MAM3_NOAQ, CBMZ_CAM_MAM3_AQ, CBMZ_CAM_MAM7_NOAQ, CBMZ_CAM_MAM7_AQ)
        IF(config_flags%kemit .GT. kte-ksub) THEN
           message = ' EMISSIONS_DRIVER: KEMIT > KME '
           CALL WRF_ERROR_FATAL (message)
        ENDIF
+       if(config_flags%emiss_opt /= 0  ) then  ! anthropogenic
        call wrf_debug(15,'emissions_driver calling cbmz_addemiss_anthro')
        call cbmz_addemiss_anthro( id, dtstep, dz8w, config_flags,        &
             rho_phy, chem,                                               &
             emis_ant,alt,ids,ide, jds,jde, kds,kde,                      &
             ims,ime, jms,jme, kms,kme,                                   &
             its,ite, jts,jte, kts,kte                                    )
+       endif
        call wrf_debug(15,'emissions_driver calling cbmz_addemiss_bio')
        !**BSINGH- Should I delete this comment??
        ! Do NOT call add_biogenics if using MEGAN v2.04 biogenic emissions
@@ -1198,7 +1254,7 @@ CONTAINS
           end do
        end do
      endif
-    CASE (SAPRC99_MOSAIC_4BIN_VBS2_KPP) !FIX FOR SAPRC07A
+    CASE (SAPRC99_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_8BIN_VBS2_KPP,SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP) !FIX FOR SAPRC07A !BSINGH(12/11/2013): Added SAPRC 8 bin  
      if(config_flags%emiss_opt == 13 ) then
        do j=jts,jte
           do i=its,ite
@@ -1349,6 +1405,7 @@ CONTAINS
          write(message,'(" WARNING: EMISSIONS_DRIVER: KEMIT > KTE ",3i6)') kme,kte-ksub,k
          CALL WRF_MESSAGE (message)
        ENDIF
+       if(config_flags%emiss_opt /= 0  ) then  ! anthropogenic
        call wrf_debug(15,'emissions_driver calling add_anthropogenics')
        call add_anthropogenics(id,dtstep,dz8w,config_flags,rho_phy,alt, &
             chem, emis_ant,emis_aircraft,                               &
@@ -1356,6 +1413,7 @@ CONTAINS
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
        call wrf_debug(15,'emissions_driver calling add_biogenics')
+       endif
        ! Do NOT call add_biogenics if using MEGAN v2.04 biogenic emissions
        ! module
        call add_biogenics(id,dtstep,dz8w,config_flags,rho_phy,chem,     &
@@ -1473,17 +1531,17 @@ CONTAINS
     CASE (RADM2SORG,RADM2SORG_AQ,RADM2SORG_AQCHEM,RADM2SORG_KPP, &
           RACMSORG_AQ,RACMSORG_AQCHEM_KPP,RACM_ESRLSORG_AQCHEM_KPP,RACMSORG_KPP,RACM_ESRLSORG_KPP,CBMZSORG,CBMZSORG_AQ)
        call wrf_debug(15,'emissions_driver calling sorgam_addemiss')
-       call sorgam_addemiss( id, dtstep, u10, v10, alt, dz8w, xland, chem,  &
-            ebu,                                                        &
+       call sorgam_addemiss( id, dtstep, u10, v10, alt, dz8w, xlat,xlong,xland, chem,  &
+            ebu,sstemp,                                                  &
             slai,ust,smois,ivgtyp,isltyp,                               &
             emis_ant,dust_emiss_active,                                 &
             seasalt_emiss_active,config_flags%kemit,                    &
             config_flags%biomass_burn_opt,                              &
             config_flags%num_soil_layers,config_flags%emiss_opt,        &
-!jdf
-            config_flags%dust_opt,                                      &
-            ktau,p8w,u_phy,v_phy,rho_phy,g,dx,erod,                     &
-!jdf
+            !czhao 
+            ktau,p8w, u_phy,v_phy,rho_phy,g,dx,erod,config_flags%emis_dust_factor,  &
+            num_land,landf,num_soil,soilf,sh2o,snowc,xlai,   &
+            watsat2d,config_flags%sf_surface_physics,e_dust,e_seasalt,      &
             ids,ide, jds,jde, kds,kde,                                  &
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
@@ -1505,21 +1563,20 @@ CONTAINS
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !
 !Added the aerosol case SAPRC99_MOSAIC_4BIN_VBS2_KPP to call mosaic addemiss
-    CASE (CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_KPP, CBMZ_MOSAIC_8BIN, & 
-          CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
-          CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, & 
-          CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ,SAPRC99_MOSAIC_4BIN_VBS2_KPP,&
+    CASE (CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_KPP, CBMZ_MOSAIC_8BIN,CBMZ_MOSAIC_8BIN_VBS9_KPP, & 
+          CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, CBMZ_MOSAIC_4BIN_VBS9_KPP,&
+          CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, SAPRC99_MOSAIC_4BIN_VBS9_KPP,& 
+          CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ,CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE,SAPRC99_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_8BIN_VBS2_KPP,&
           CBMZ_MOSAIC_4BIN_VBS2_KPP,MOZART_MOSAIC_4BIN_VBS0_KPP, &
-          CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP   )
+          CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP   )
        call wrf_debug(15,'emissions_driver calling mosaic_addemiss')
-       call mosaic_addemiss( id, dtstep, u10, v10, alt, dz8w, xland,     &
+       call mosaic_addemiss( id, dtstep, u10, v10, alt, dz8w, xlat,xlong,xland,     &
             config_flags, chem, slai, ust, smois, ivgtyp, isltyp,        &
-!jdf
-            emis_ant,ebu,config_flags%biomass_burn_opt,                  &
-            config_flags%dust_opt,                                       &
-            ktau,p8w,u_phy,v_phy,rho_phy,g,dx,erod,                      &
-!jdf
-            dust_emiss_active, seasalt_emiss_active,                     &
+            emis_ant,ebu,sstemp,config_flags%biomass_burn_opt,           &
+            !czhao  
+            ktau,p8w, u_phy,v_phy,rho_phy,g,dx,erod,config_flags%emis_dust_factor,  &  ! GOCART dust
+            num_land,landf,num_soil,soilf,sh2o,snowc,xlai,   &
+            dust_emiss_active, seasalt_emiss_active,watsat2d,e_dust,e_seasalt,    &
             ids,ide, jds,jde, kds,kde,                                   &
             ims,ime, jms,jme, kms,kme,                                   &
             its,ite, jts,jte, kts,kte                                    )
@@ -1530,7 +1587,13 @@ CONTAINS
             id, dtstep, u10, v10, alt, dz8w, xland,                      &
             config_flags, chem, slai, ust, smois, ivgtyp, isltyp,        &
             emis_ant,ebio_iso,ebio_olt,ebio_oli,rho_phy,                 &
-            dust_emiss_active, seasalt_emiss_active,                     &
+            dust_emiss_active, seasalt_emiss_active,sstemp,    &
+            hfx,pblh,psfc,rainncv,raincv,tke_pbl,t2,                                       &
+            sigma_dry,sigma_wet,sigma_tke,k_shape,c_scale,           &
+            !czhao 
+            u_phy,v_phy,g,config_flags%emis_dust_factor,  &
+            num_land,landf,num_soil,soilf,sh2o,snowc,xlai,   &
+            watsat2d,config_flags%sf_surface_physics,e_dust,e_seasalt,      &
             ids,ide, jds,jde, kds,kde,                                   &
             ims,ime, jms,jme, kms,kme,                                   &
             its,ite, jts,jte, kts,kte                                    )

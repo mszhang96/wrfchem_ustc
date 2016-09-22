@@ -37,7 +37,8 @@ MODULE module_data_sorgam
 
       INTEGER laerdvc, lnonaerdvc, l1ae, laero, imodes, aspec
 !     PARAMETER (laerdvc=34,lnonaerdvc=8+lspcv)
-      PARAMETER (laerdvc=39,lnonaerdvc=8+lspcv)
+!     PARAMETER (laerdvc=39,lnonaerdvc=8+lspcv)  !czhao
+      PARAMETER (laerdvc=40,lnonaerdvc=9+lspcv)  !czhao
       PARAMETER (l1ae=laerdvc+lnonaerdvc)
       PARAMETER (laero=4,imodes=4,aspec=1)
 !     LAERDVC  number of advected aerosol dynamic parameters for a given
@@ -234,97 +235,105 @@ MODULE module_data_sorgam
       INTEGER vp25ai
       PARAMETER (vp25ai=32)
 
+! index for Accumulation mode dust concentration   !czhao
+      INTEGER vdustaj
+      PARAMETER (vdustaj=33)
+
+! index for Aitken mode dust concentration   !czhao
+      INTEGER vdustai
+      PARAMETER (vdustai=34)
+
 ! index for coarse mode anthropogenic aerososol
       INTEGER vantha
-      PARAMETER (vantha=33)
+      PARAMETER (vantha=35)
 
 ! index for coarse mode marine aerosol concentration
       INTEGER vseas
-      PARAMETER (vseas=34)
+      PARAMETER (vseas=36)
 
 ! index for coarse mode soil-derived aerosol
       INTEGER vsoila
-      PARAMETER (vsoila=35)
+      PARAMETER (vsoila=37)
 
 ! index for Aitken mode number              
       INTEGER vnu0
-      PARAMETER (vnu0=36)
+      PARAMETER (vnu0=38)
 
 ! index for accum  mode number              
       INTEGER vac0
-      PARAMETER (vac0=37)
+      PARAMETER (vac0=39)
 
 ! index for coarse mode number              
       INTEGER vcorn
-      PARAMETER (vcorn=38)
+      PARAMETER (vcorn=40)
 
 ! index for Accumulation mode aerosol water 
       INTEGER vh2oaj
-      PARAMETER (vh2oaj=39)
+      PARAMETER (vh2oaj=41)
 
 ! index for Aitken mode aerosol water concentration
       INTEGER vh2oai
-      PARAMETER (vh2oai=40)
+      PARAMETER (vh2oai=42)
 
 ! index for Aitken mode 3'rd moment         
       INTEGER vnu3
-      PARAMETER (vnu3=41)
+      PARAMETER (vnu3=43)
 
 ! index for Accumulation mode 3'rd moment   
       INTEGER vac3
-      PARAMETER (vac3=42)
+      PARAMETER (vac3=44)
 
 ! index for coarse mode 3rd moment          
       INTEGER vcor3
-      PARAMETER (vcor3=43)
+      PARAMETER (vcor3=45)
 
 ! index for sulfuric acid vapor concentration
       INTEGER vsulf
-      PARAMETER (vsulf=44)
+      PARAMETER (vsulf=46)
 
 ! index for nitric acid vapor concentration
       INTEGER vhno3
-      PARAMETER (vhno3=45)
+      PARAMETER (vhno3=47)
 
 ! index for ammonia gas concentration
       INTEGER vnh3
-      PARAMETER (vnh3=46)
+      PARAMETER (vnh3=48)
 
 ! index for HCL gas concentration
       INTEGER vhcl
-      PARAMETER (vhcl=47)
+      PARAMETER (vhcl=49)
 
 ! index for cond. vapor from aromatics   
       INTEGER vcvaro1
-      PARAMETER (vcvaro1=48)
+      PARAMETER (vcvaro1=50)
 
 ! index for cond. vapor from aromatics   
       INTEGER vcvaro2
-      PARAMETER (vcvaro2=49)
+      PARAMETER (vcvaro2=51)
 
 ! index for cond. vapor from anth. alkane
       INTEGER vcvalk1
-      PARAMETER (vcvalk1=50)
+      PARAMETER (vcvalk1=52)
 
 ! index for cond. vapor from anth. olefin
       INTEGER vcvole1
-      PARAMETER (vcvole1=51)
+      PARAMETER (vcvole1=53)
 
 ! index for cond. vapor from biogenics   
       INTEGER vcvapi1
-      PARAMETER (vcvapi1=52)
+      PARAMETER (vcvapi1=54)
 
 ! index for cond. vapor from biogenics   
       INTEGER vcvapi2
-      PARAMETER (vcvapi2=53)
+      PARAMETER (vcvapi2=55)
 
 ! index for cond. vapor from biogenics   
       INTEGER vcvlim1
-      PARAMETER (vcvlim1=54)
+      PARAMETER (vcvlim1=56)
 
 ! index for cond. vapor from biogenics   
       INTEGER vcvlim2
-      PARAMETER (vcvlim2=55)
+      PARAMETER (vcvlim2=57)
 
 !           COMMON /CBLKINDCS/
 !    &         VSO4AJ,VSO4AI,VNH4AJ,VNH4AI,VNO3AJ,VNO3AI,
@@ -730,11 +739,20 @@ MODULE module_data_sorgam
 
 !  initial sigma-G for accumulation mode          
       REAL sginia
-      PARAMETER (sginia=2.00)
+     !PARAMETER (sginia=2.00)  !czhao
+      !for dust -czhao
+      PARAMETER (sginia=2.2)
+      !following AEROCOM -czhao
+      !PARAMETER (sginia=1.80)
 
 ! initial sigma-G for coarse mode               
       REAL sginic
-      PARAMETER (sginic=2.5)
+     ! PARAMETER (sginic=2.5)  ! czhao
+     !PARAMETER (sginic=2.2)  !czhao
+      !for dust -czhao
+      PARAMETER (sginic=1.75)  
+      !following AEROCOM -czhao
+      !PARAMETER (sginic=2.0)  
 
 !  initial mean diameter for nuclei mode [ m ]    
       REAL dginin
@@ -742,12 +760,17 @@ MODULE module_data_sorgam
 
 !  initial mean diameter for accumulation mode [ m ]
       REAL dginia
-      PARAMETER (dginia=0.07E-6)
+      !for dust -czhao
+      PARAMETER (dginia=0.3E-6)
+      !following AEROCOM -czhao
+      !PARAMETER (dginia=0.07E-6)
 
 ! initial mean diameter for coarse mode [ m ]  
       REAL dginic
-      PARAMETER (dginic=1.0E-6)
-
+      !for dust -czhao
+      PARAMETER (dginic=2.0E-6)
+      !following AEROCOM -czhao
+      !PARAMETER (dginic=1.0E-6)
 
 
 !................   end   AERO3box.EXT   ...............................
@@ -917,6 +940,10 @@ MODULE module_data_sorgam
 ! *** Diameters and standard deviations for emissions
 !     the diameters are the volume (mass) geometric mean diameters
 
+!Now czhao use different parameter for different emission sources
+! special factor to compute mass transfer           
+
+! general emissions for CAM-MAM3
 ! *** Aitken mode:
 ! special factor to compute mass transfer           
       REAL dgvem_i
@@ -936,14 +963,113 @@ MODULE module_data_sorgam
       REAL sgem_c
       PARAMETER (sgem_c=2.2)
 
+! anthropogenic emissions
+! *** Aitken mode:
+      REAL ant_dgvem_i
+      PARAMETER (ant_dgvem_i=0.03E-6) ! [ m ]                            
+      !following AEROCOM -czhao
+      !PARAMETER (ant_dgvem_i=0.023E-6) ! [ m ]                            
+      REAL ant_sgem_i
+      PARAMETER (ant_sgem_i=1.7)
+      real ant_emass_ifrac
+      parameter (ant_emass_ifrac=0.20)
+      !following AEROCOM -czhao
+      !parameter (ant_emass_ifrac=0.02)
+! *** Accumulation mode:
+      REAL ant_dgvem_j
+      PARAMETER (ant_dgvem_j=0.30E-6) ! [ m ]                             
+      !following AEROCOM -czhao
+      !PARAMETER (ant_dgvem_j=0.20E-6) ! [ m ]                             
+      REAL ant_sgem_j
+      PARAMETER (ant_sgem_j=2.0)
+      !following AEROCOM -czhao
+      !PARAMETER (ant_sgem_j=1.8)
+      real ant_emass_jfrac
+      parameter (ant_emass_jfrac=0.80)
+      !following AEROCOM -czhao
+      !parameter (ant_emass_jfrac=0.98)
+! *** Coarse mode
+      REAL ant_dgvem_c
+      PARAMETER (ant_dgvem_c=6.0E-6) ! [ m ] <<< Corrected 11/19/97      
+      !following AEROCOM -czhao
+      !PARAMETER (ant_dgvem_c=4.23E-6) ! [m] 
+      REAL ant_sgem_c
+      PARAMETER (ant_sgem_c=2.2)
+      !following AEROCOM -czhao
+      !PARAMETER (ant_sgem_c=2.0)
+
+
+! biomass burning emissions
+! *** Aitken mode:
+      REAL bb_dgvem_i
+      PARAMETER (bb_dgvem_i=0.03E-6) ! [ m ]                            
+      !following AEROCOM -czhao
+      !PARAMETER (bb_dgvem_i=0.023E-6) ! [ m ]                            
+      REAL bb_sgem_i
+      PARAMETER (bb_sgem_i=1.7)
+      real bb_emass_ifrac
+      parameter (bb_emass_ifrac=0.25)
+      !following AEROCOM -czhao
+      !parameter (bb_emass_ifrac=0.02)
+! *** Accumulation mode:
+      REAL bb_dgvem_j
+      PARAMETER (bb_dgvem_j=0.30E-6) ! [ m ]                             
+      !following AEROCOM -czhao
+      !PARAMETER (bb_dgvem_j=0.20E-6) ! [ m ]                             
+      REAL bb_sgem_j
+      PARAMETER (bb_sgem_j=2.0)
+      !following AEROCOM -czhao
+      !PARAMETER (bb_sgem_j=1.8)
+      real bb_emass_jfrac
+      parameter (bb_emass_jfrac=0.75)
+      !following AEROCOM -czhao
+      !parameter (bb_emass_jfrac=0.98)
+! *** Coarse mode
+      REAL bb_dgvem_c
+      PARAMETER (bb_dgvem_c=6.0E-6) ! [ m ] <<< Corrected 11/19/97      
+      !PARAMETER (bb_dgvem_c=2.82E-6) ! [ m ] <<< Corrected 
+      !following AEROCOM -czhao
+      !PARAMETER (bb_dgvem_c=4.23E-6) ! [ m ]
+      REAL bb_sgem_c
+      PARAMETER (bb_sgem_c=2.2)
+      !following AEROCOM -czhao
+      !PARAMETER (bb_sgem_c=2.0)
+
+! dust emissions, for MADE/SORGAM coupled with GOCART only. Other scheme is assigned inside
+! *** Aitken mode:
+      REAL dust_dgvem_i
+      PARAMETER (dust_dgvem_i=0.023E-6) ! [ m ]                            
+      REAL dust_sgem_i
+      PARAMETER (dust_sgem_i=1.7)
+      real dust_emass_ifrac
+      parameter (dust_emass_ifrac=0.00)
+! *** Accumulation mode:
+      !following West Africa study Zhao et al. 2010
+      REAL dust_dgvem_j
+      PARAMETER (dust_dgvem_j=2.91E-6) ! [ m ]                             
+      REAL dust_sgem_j
+      PARAMETER (dust_sgem_j=2.2)
+      real dust_emass_jfrac
+      parameter (dust_emass_jfrac=0.15)
+! *** Coarse mode
+      !following West Africa study Zhao et al. 2010
+      REAL dust_dgvem_c
+      PARAMETER (dust_dgvem_c=6.91E-6) ! [ m ] <<< Corrected 11/19/97      
+      REAL dust_sgem_c
+      PARAMETER (dust_sgem_c=1.75)
+      real dust_emass_cfrac
+      parameter (dust_emass_cfrac=0.85)
+
+
 ! *** factors for getting number emissions rate from mass emissions rate
 ! Aitken mode                                       
-      REAL factnumn
+      REAL factnumn_ant,factnumn_bb,factnumn_dust
 ! accumulation mode                                 
-      REAL factnuma
-
-      REAL factnumc
+      REAL factnuma_ant,factnuma_bb,factnuma_dust
 ! coarse mode                                       
+      REAL factnumc_ant,factnumc_bb,factnumc_dust
+
+
       REAL facatkn_min, facacc_min
       PARAMETER (facatkn_min=0.04,facacc_min=1.0-facatkn_min)
       REAL conmin,xxm3
@@ -1017,7 +1143,8 @@ MODULE module_data_sorgam
       REAL ccofm
 ! minimum aerosol sulfate concentration          
       REAL aeroconcmin
-      PARAMETER (aeroconcmin=0.0001) 
+      !czhao PARAMETER (aeroconcmin=0.0001) 
+      PARAMETER (aeroconcmin=1.e-16) 
 
 
 
@@ -1089,7 +1216,8 @@ MODULE module_data_sorgam
 
 	integer, parameter :: maxd_atype = 2
 	integer, parameter :: maxd_asize = 2
-	integer, parameter :: maxd_acomp = 19
+	!integer, parameter :: maxd_acomp = 19   !czhao
+	integer, parameter :: maxd_acomp = 20
 	integer, parameter :: maxd_aphase = 2
 	integer, save :: ai_phase ! interstitial phase of aerosol
 	integer, save :: cw_phase ! cloud water phase of aerosol
@@ -1149,6 +1277,8 @@ MODULE module_data_sorgam
       	  lptr_orgpa_aer(maxd_asize,maxd_atype,maxd_aphase),      &
       	  lptr_ec_aer(maxd_asize,maxd_atype,maxd_aphase),         &
       	  lptr_p25_aer(maxd_asize,maxd_atype,maxd_aphase),        &
+          !czhao
+      	  lptr_dust_aer(maxd_asize,maxd_atype,maxd_aphase),        &
           lptr_anth_aer(maxd_asize,maxd_atype,maxd_aphase),       &
       	  lptr_cl_aer(maxd_asize,maxd_atype,maxd_aphase),         &
       	  lptr_na_aer(maxd_asize,maxd_atype,maxd_aphase),         &

@@ -373,7 +373,8 @@
 ! local variables
       integer ibin, igas, iphase, isize, itype
       real(kind=8) t_kdum, p_atmdum, rhdum, cairclmdum
-      real(kind=8) gasdum(4), aerdum(14,8)
+      !real(kind=8) gasdum(4), aerdum(14,8) !czhao dust 
+      real(kind=8) gasdum(4), aerdum(19,8)
 
 
 
@@ -444,10 +445,16 @@
         rsub(lptr_na_aer(isize,itype,iphase),k,m)  = aerdum(9,ibin)
         rsub(lptr_ca_aer(isize,itype,iphase),k,m)  = aerdum(10,ibin)
         rsub(lptr_oin_aer(isize,itype,iphase),k,m) = aerdum(11,ibin)
+        !czhao
+        rsub(lptr_dust_aer(isize,itype,iphase),k,m) = aerdum(12,ibin)
+        rsub(lptr_tr1r1_aer(isize,itype,iphase),k,m) = aerdum(13,ibin)
+        rsub(lptr_tr1r2_aer(isize,itype,iphase),k,m) = aerdum(14,ibin)
+        rsub(lptr_tr1r3_aer(isize,itype,iphase),k,m) = aerdum(15,ibin)
+        rsub(lptr_tr1r4_aer(isize,itype,iphase),k,m) = aerdum(16,ibin)
 
-        rsub(hyswptr_aer(isize,itype),k,m) = aerdum(12,ibin) ! kg/m^3(air)
-        rsub(waterptr_aer(isize,itype),k,m)       = aerdum(13,ibin)	! kg/m^3(air)
-        rsub(numptr_aer(isize,itype,iphase),k,m)          = aerdum(14,ibin)	! num_a is in #/cc
+        rsub(hyswptr_aer(isize,itype),k,m) = aerdum(17,ibin) ! kg/m^3(air)
+        rsub(waterptr_aer(isize,itype),k,m)       = aerdum(18,ibin)	! kg/m^3(air)
+        rsub(numptr_aer(isize,itype,iphase),k,m)          = aerdum(19,ibin)	! num_a is in #/cc
 10    continue
 
       return
@@ -605,6 +612,11 @@
 	else
 	    gas(inh3_g) = 0.0
 	end if
+        if (kmsa .ge. p1st) then
+            gas(imsa_g)   = rsub(kmsa,k,m)*conv1a
+        else
+            gas(imsa_g) = 0.0
+        end if
 	if (kn2o5 .ge. p1st) then
 	    gas(in2o5_g)   = rsub(kn2o5,k,m)*conv1a
 	else
@@ -1126,6 +1138,41 @@
             aer(ioin_a,jtotal,ibin)=rsub(l,k,m)*conv1a
         else
             aer(ioin_a,jtotal,ibin)=0.0
+        end if
+
+        l = lptr_dust_aer(isize,itype,iphase)
+        if (l .ge. p1st) then
+            aer(idust_a,jtotal,ibin)=rsub(l,k,m)*conv1a
+        else
+            aer(idust_a,jtotal,ibin)=0.0
+        end if
+
+        l = lptr_tr1r1_aer(isize,itype,iphase)
+        if (l .ge. p1st) then
+            aer(itr1r1_a,jtotal,ibin)=rsub(l,k,m)*conv1a
+        else
+            aer(itr1r1_a,jtotal,ibin)=0.0
+        end if
+
+        l = lptr_tr1r2_aer(isize,itype,iphase)
+        if (l .ge. p1st) then
+            aer(itr1r2_a,jtotal,ibin)=rsub(l,k,m)*conv1a
+        else
+            aer(itr1r2_a,jtotal,ibin)=0.0
+        end if
+
+        l = lptr_tr1r3_aer(isize,itype,iphase)
+        if (l .ge. p1st) then
+            aer(itr1r3_a,jtotal,ibin)=rsub(l,k,m)*conv1a
+        else
+            aer(itr1r3_a,jtotal,ibin)=0.0
+        end if
+
+        l = lptr_tr1r4_aer(isize,itype,iphase)
+        if (l .ge. p1st) then
+            aer(itr1r4_a,jtotal,ibin)=rsub(l,k,m)*conv1a
+        else
+            aer(itr1r4_a,jtotal,ibin)=0.0
         end if
 
         l = lptr_msa_aer(isize,itype,iphase)
@@ -1731,6 +1778,8 @@
 	    rsub(khcl,k,m)   = gas(ihcl_g)*conv1b
 	if (knh3 .ge. p1st)   &
 	    rsub(knh3,k,m)   = gas(inh3_g)*conv1b
+	if (kmsa .ge. p1st)   &
+	    rsub(kmsa,k,m)   = gas(imsa_g)*conv1b
 	if (kn2o5 .ge. p1st)   &
 	    rsub(kn2o5,k,m)   = gas(in2o5_g)*conv1b
 	if (kclno2 .ge. p1st)   &
@@ -1942,6 +1991,21 @@
 
         l = lptr_oin_aer(isize,itype,iphase)
         if (l .ge. p1st) rsub(l,k,m) = aer(ioin_a,jtotal,ibin)*conv1b
+
+        l = lptr_dust_aer(isize,itype,iphase)
+        if (l .ge. p1st) rsub(l,k,m) = aer(idust_a,jtotal,ibin)*conv1b
+
+        l = lptr_tr1r1_aer(isize,itype,iphase)
+        if (l .ge. p1st) rsub(l,k,m) = aer(itr1r1_a,jtotal,ibin)*conv1b
+
+        l = lptr_tr1r2_aer(isize,itype,iphase)
+        if (l .ge. p1st) rsub(l,k,m) = aer(itr1r2_a,jtotal,ibin)*conv1b
+
+        l = lptr_tr1r3_aer(isize,itype,iphase)
+        if (l .ge. p1st) rsub(l,k,m) = aer(itr1r3_a,jtotal,ibin)*conv1b
+
+        l = lptr_tr1r4_aer(isize,itype,iphase)
+        if (l .ge. p1st) rsub(l,k,m) = aer(itr1r4_a,jtotal,ibin)*conv1b
 
         l = lptr_msa_aer(isize,itype,iphase)
         if (l .ge. p1st) rsub(l,k,m) = aer(imsa_a,jtotal,ibin)*conv1b
@@ -2471,6 +2535,7 @@
                       rsub(lptr_na_aer(ibin,itype,iphase),k,m),   &
                       rsub(lptr_ca_aer(ibin,itype,iphase),k,m),   &
                       rsub(lptr_oin_aer(ibin,itype,iphase),k,m),	   &
+                      rsub(lptr_dust_aer(ibin,itype,iphase),k,m),	   &
                       rsub(hyswptr_aer(ibin,itype),k,m),   &
                       rsub(waterptr_aer(ibin,itype),k,m),   &
                       rsub(numptr_aer(ibin,itype,iphase),k,m)
@@ -2849,8 +2914,9 @@
 
         solids = electrolyte(jcaso4,jtotal,ibin) +   &
                  electrolyte(jcaco3,jtotal,ibin) +   &
-                 aer(ioin_a ,jtotal,ibin)
-
+                 !aer(ioin_a ,jtotal,ibin)
+                 !aer(ioin_a ,jtotal,ibin)+aer(idust_a ,jtotal,ibin)
+                 aer(ioin_a ,jtotal,ibin)+aer(idust_a ,jtotal,ibin)+aer(itr1r1_a,jtotal,ibin)+aer(itr1r2_a,jtotal,ibin)+aer(itr1r3_a,jtotal,ibin)+aer(itr1r4_a,jtotal,ibin)
 
         if(sum_soluble .lt. 1.e-15 .and. solids .gt. 0.0)then
 
@@ -2998,6 +3064,11 @@
                                 electrolyte(jcaso4,jsolid,ibin)
       aer(ibc_a, jsolid,ibin) = aer(ibc_a,jtotal,ibin)
       aer(ioin_a,jsolid,ibin) = aer(ioin_a,jtotal,ibin)
+      aer(idust_a,jsolid,ibin) = aer(idust_a,jtotal,ibin)
+      aer(itr1r1_a,jsolid,ibin) = aer(itr1r1_a,jtotal,ibin)
+      aer(itr1r2_a,jsolid,ibin) = aer(itr1r2_a,jtotal,ibin)
+      aer(itr1r3_a,jsolid,ibin) = aer(itr1r3_a,jtotal,ibin)
+      aer(itr1r4_a,jsolid,ibin) = aer(itr1r4_a,jtotal,ibin)
       aer(ipcg1_b_c_a,jsolid,ibin)= aer(ipcg1_b_c_a,jtotal,ibin)
       aer(ipcg2_b_c_a,jsolid,ibin)= aer(ipcg2_b_c_a,jtotal,ibin)
       aer(ipcg3_b_c_a,jsolid,ibin)= aer(ipcg3_b_c_a,jtotal,ibin)
@@ -3099,6 +3170,11 @@
                                  electrolyte(jcacl2,jtotal,ibin)
       aer(ibc_a, jliquid,ibin) = 0.0
       aer(ioin_a,jliquid,ibin) = 0.0
+      aer(idust_a,jliquid,ibin) = 0.0
+      aer(itr1r1_a,jliquid,ibin) = 0.0
+      aer(itr1r2_a,jliquid,ibin) = 0.0
+      aer(itr1r3_a,jliquid,ibin) = 0.0
+      aer(itr1r4_a,jliquid,ibin) = 0.0
       aer(ipcg1_b_c_a,jliquid,ibin)= 0.0
       aer(ipcg2_b_c_a,jliquid,ibin)= 0.0
       aer(ipcg3_b_c_a,jliquid,ibin)= 0.0
@@ -3664,10 +3740,13 @@
         na(ja_cl)  = aer(icl_a, jp,ibin)
         na(ja_msa) = aer(imsa_a,jp,ibin)
 
+        !czhao initialize nc(jc_h)
+        nc(jc_h)  = 0.0 
         nc(jc_ca)  = aer(ica_a, jp,ibin)
         nc(jc_na)  = aer(ina_a, jp,ibin)
         nc(jc_nh4) = aer(inh4_a,jp,ibin)
 
+        !czhao found undefined value of nc(1)
         cat_net =     &
             ( 2.d0*na(ja_so4)+na(ja_no3)+na(ja_cl)+na(ja_msa) ) -  &
             ( nc(jc_h)+2.d0*nc(jc_ca) +nc(jc_nh4)+nc(jc_na) )
@@ -4315,7 +4394,12 @@
 
       crustal_solids = electrolyte(jcaco3,jsolid,ibin) +  &
                        electrolyte(jcaso4,jsolid,ibin) +  &
-                       aer(ioin_a,jsolid,ibin)
+                       !aer(ioin_a,jsolid,ibin)
+                       aer(ioin_a,jsolid,ibin)+aer(idust_a,jsolid,ibin) + & 
+                       aer(itr1r1_a,jsolid,ibin) + &
+                       aer(itr1r2_a,jsolid,ibin) + &
+                       aer(itr1r3_a,jsolid,ibin) + &
+                       aer(itr1r4_a,jsolid,ibin) 
 
       if(sumflux .eq. 0.0 .and. crustal_solids .eq. 0.0)then
         idissolved = myes
@@ -4440,6 +4524,11 @@
                                 electrolyte(jcaso4,jsolid,ibin)
       aer(ibc_a,jsolid,ibin)  = aer(ibc_a,jtotal,ibin)
       aer(ioin_a,jsolid,ibin) = aer(ioin_a,jtotal,ibin)
+      aer(idust_a,jsolid,ibin) = aer(idust_a,jtotal,ibin)
+      aer(itr1r1_a,jsolid,ibin) = aer(itr1r1_a,jtotal,ibin)
+      aer(itr1r2_a,jsolid,ibin) = aer(itr1r2_a,jtotal,ibin)
+      aer(itr1r3_a,jsolid,ibin) = aer(itr1r3_a,jtotal,ibin)
+      aer(itr1r4_a,jsolid,ibin) = aer(itr1r4_a,jtotal,ibin)
       aer(ipcg1_b_c_a,jsolid,ibin)= aer(ipcg1_b_c_a,jtotal,ibin)
       aer(ipcg2_b_c_a,jsolid,ibin)= aer(ipcg2_b_c_a,jtotal,ibin)
       aer(ipcg3_b_c_a,jsolid,ibin)= aer(ipcg3_b_c_a,jtotal,ibin)
@@ -4546,6 +4635,11 @@
       aer(ica_a,jliquid,ibin)  = max(0.D0, aer(ica_a,jliquid,ibin))
       aer(ibc_a,jliquid,ibin)  = 0.0
       aer(ioin_a,jliquid,ibin) = 0.0
+      aer(idust_a,jliquid,ibin) = 0.0
+      aer(itr1r1_a,jliquid,ibin) = 0.0
+      aer(itr1r2_a,jliquid,ibin) = 0.0
+      aer(itr1r3_a,jliquid,ibin) = 0.0
+      aer(itr1r4_a,jliquid,ibin) = 0.0
       aer(ipcg1_b_c_a,jliquid,ibin)= 0.0
       aer(ipcg2_b_c_a,jliquid,ibin)= 0.0
       aer(ipcg3_b_c_a,jliquid,ibin)= 0.0
@@ -4743,7 +4837,7 @@
       !if (vbs_nbin.eq.0) then
       !call equilibrium_smp
       !else
-      call equilibrium
+      call equilibrium(dtchem,vbs_nbin)
       !Bend if
 ! template for error status checking
 !        if (iprint_mosaic_fe1 .gt. 0) then
@@ -4849,7 +4943,7 @@
 
 
 ! Calculates the equilibrium gas-particle partitioning for SOA species
-        subroutine  equilibrium
+        subroutine equilibrium(dtchem,vbs_nbin)
 ! This routine was implemented by Manish Shrivastava on 12/24/2009 to do gas-particle partitioning of SOA assuming thermodynamic equilibrium.
 ! This would give MOSAIC cpabilities of running both dynamic and equilibrium gas-particle partitioning
 ! Calls the subroutine soap. Subroutine soap calls subroutine spfcn
@@ -4858,25 +4952,27 @@
 
         implicit none
         real(kind=8), parameter :: tinys=1.0d-15
+        real(kind=8) :: dtchem
         integer, parameter :: N=ngas_soa !Total number of soa species
-        integer, parameter :: itermax=2000
+        integer, parameter :: itermax=8000
         integer idxfresh(N),idxaged(N)   !counter for fresh and aged soa species
-        real(kind=8) :: dq,frqfresh(nbin_a),frqaged(nbin_a)
-        real(kind=8) :: frqtotfresh,frqtotaged,frt
+        real(kind=8) :: dq,frqfresh(nbin_a),frqaged(nbin_a),frqtotfresh
+        real(kind=8) :: frqtotaged,frt
         real(kind=8) :: xsumfresh(nbin_a),xsumaged(nbin_a)
         real(kind=8) :: mnkfresh,mxkfresh,mnkaged,mxkaged
         real betak
-!        integer :: flagsoap(N) ! flagsoap determines if the species 'i' is fresh (flagsoap(i)=2) or aged(flagsoap(i)=1
+        integer,intent(in) :: vbs_nbin(1)
+         integer :: flagsoap(N),flagrev(N) ! flagsoap determines if the species 'i' is fresh (flagsoap(i)=2) or aged(flagsoap(i)=1
+!                                           flagrev(N) determines if evaporation is allowed (1) or not allowed(0)
         real(kind=8) ::  Csatfresh(N), Ctotfresh(N)
-        real(kind=8) ::  Cgasfresh(N),Caerfresh(N) ! Csat: Saturation conc., Ctot: Total organic mass
+        real(kind=8) :: Cgasfresh(N),Caerfresh(N) ! Csat: Saturation conc., Ctot: Total organic mass
 !       in gas+aerosol phase, Cgas:gas phase, Caer: Particle
-        real(kind=8) ::    Csataged(N), Ctotaged(N)
-        real(kind=8) ::  Cgasaged(N),Caeraged(N)
+        real(kind=8) :: Csataged(N), Ctotaged(N),Cgasaged(N),Caeraged(N)
         integer nsolfresh,nsolaged,ntrack,icontfresh,icontaged ! counters corresponding to fresh and aged species for mapping
         real(kind=8) :: cpxfresh,cpxaged !Moles of pre-existing fresh and aged particle phase organic mass
         integer ibin,iter ! Bin nos.
 ! local variables
-        integer iv, jp
+        integer i,iv, jp,irrev
          real(kind=8) :: dum, sum_dum, sum_soa, small_oc
 
 !        real, parameter :: tolmin = 1.E-12^M
@@ -4885,7 +4981,7 @@
         real(kind=8) :: cpx !pre-existing OA umol/m3^M
         real(kind=8) :: Ctot(N),Caer(N),Cgas(N),Csat(N)
         real(kind=8) :: Paer(ngas_volatile)
-        integer :: i
+   
 !       LOGICAL check
         jp=jtotal
         iter=0
@@ -4893,9 +4989,52 @@
         cpxfresh=0.0 ! Assume no pres-existing OA forms a solution
         nsolfresh=0
          nsolaged=0
+         ntrack=0
          icontfresh=0
          icontaged=0
          dq=0.0
+         ibin=0
+         i=0
+         iv=0
+         frqtotfresh=0.0
+         frqtotaged=0.0
+         frt=1.0
+         mnkfresh=0.0
+         mxkfresh=0.0
+         mnkaged=0.0
+         mxkaged=0.0
+         betak=0.0       
+         dum=0.0
+         sum_dum=0.0
+         sum_soa=0.0
+         small_oc=0.0   
+         cpx=0.0 
+        do ibin=1,nbin_a
+         frqfresh(ibin)=0.0
+         frqaged(ibin)=0.0
+         xsumfresh(ibin)=0.0
+         xsumaged(ibin)=0.0
+       enddo
+
+            do i=1,N
+            idxfresh(i)=0
+            idxaged(i)=0
+            flagsoap(i)=1
+            Csatfresh(i)=0.0
+            Ctotfresh(i)=0.0
+            Cgasfresh(i)=0.0
+            Caerfresh(i)=0.0
+            Csataged(i)=0.0
+            Ctotaged(i)=0.0
+            Cgasaged(i)=0.0
+            Caeraged(i)=0.0
+            Ctot(i)=0.0
+            Caer(i)=0.0
+            Cgas(i)=0.0
+            Csat(i)=0.0
+            enddo
+
+
 ! Paer holds the organic aerosol values in each volatility bin (sum of all size bins)
           do iv=1,ngas_volatile
            Paer(iv)=0.0
@@ -4935,32 +5074,48 @@
 
 
          do i=1,9
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+            flagsoap(i)=2 ! PCG1_B_C to PCG9_B_C
+            flagrev(i)= 0 ! 1 for reversible partitioning
           enddo
          do i=10,18
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+            flagsoap(i)=2 ! PCG1_B_O to PCG9_B_O
+            flagrev(i)= 0 ! 1 for reversible partitioning
           enddo
         do i=19,26
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+            flagsoap(i)=1 ! OPCG1_B_C to OPCG8_B_C
+            flagrev(i)= 0 ! no evaporation for SOA species
           enddo
         do i=27,34
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+            flagsoap(i)=1 ! OPCG1_B_O to OPCG8_B_O
+            flagrev(i)= 0 ! no evaporation for SOA species
           enddo
+       
         do i=35,43
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+            flagsoap(i)=2 ! PCG1_F_C to PCG9_F_C
+            flagrev(i)= 0 ! 1 for reversible partitioning
           enddo
+
          do i=44,52
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+            flagsoap(i)=2 ! PCG1_F_O to PCG9_F_O
+            flagrev(i)= 0 ! 1 for reversible partitioning
+
           enddo
         do i=53,60
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+            flagsoap(i)=1 ! OPCG1_F_C to OPCG8_F_C
+            flagrev(i)= 0 ! no evaporation for SOA species
+
           enddo
       do i=61,68
-            flagsoap(i)=1 ! Biomass burning(carbon and oxygen species) +traditional soa species
+            flagsoap(i)=1 ! OPCG1_F_O to OPCG8_F_O
+            flagrev(i)= 0 ! no evaporation for SOA species
+
           enddo
+
         do i=69,84
-            flagsoap(i)=1 !Oxidized fossil oxygen
-        enddo
+          flagsoap(i)=1 ! Traditional biogenic and ant SOA species
+          flagrev(i)= 0 ! no evaporation for SOA species
+         enddo
+        
 
 
       do i=1,N
@@ -4989,9 +5144,9 @@
 
 !       if fresh and aged species form seperate solutions
       if (nsolfresh.gt.0)  call soap(nsolfresh,Ctotfresh, &
-                    Csatfresh,Caerfresh,Cgasfresh,cpxfresh)
+             Csatfresh,Caerfresh,Cgasfresh,cpxfresh)
       if (nsolaged.gt.0)  call soap(nsolaged,Ctotaged, &
-                  Csataged,Caeraged,Cgasaged,cpxaged)
+                Csataged,Caeraged,Cgasaged,cpxaged)
 
 !     Map the fresh and aged species back into original arrays
 !     Now assign the equilibrium gas-particle partitioning arrays
@@ -5043,8 +5198,14 @@
 ! Calculate dq as (gas concentration) G(t)-G(t+h):
 ! Caluclate driving force at previous time step (Cgas,i-XiCsati) for both fresh and aged solutions
           do iv = ipcg1_b_c_g, ngas_volatile
+
            if (Ctot(iv-ipcg1_b_c_g+1).lt.1d-10) goto 120 ! If a given species concentration is too low skip
+            if (total_species(iv).lt.1d-10) goto 120
+
             dq=gas(iv)-Cgas(iv-ipcg1_b_c_g+1) !Since both fresh and aged species have been remapped to an array going from 1 to N
+
+
+
            frqtotfresh=0.0d0
            frqtotaged=0.0d0
            mnkfresh=0.0d0
@@ -5056,12 +5217,14 @@
 ! The weighting fractions frqfresh(ibin) amd frqaged(ibin) are caluclated assuming mole fractions from previous time step
 ! This assumtion could be relaxed by iterativetely solving this equation
            if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
+
               frqfresh(ibin)= kg(iv,ibin)*(gas(iv) & ! replaced fraceq(iv,ibin) by kg(iv,ibin) on 01/19/10
               -(aer(iv,jtotal,ibin))/xsumfresh(ibin) &
               *Csat(iv-ipcg1_b_c_g+1))
           endif
 
            if (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
+
               frqaged(ibin)= kg(iv,ibin)*(gas(iv) & ! replaced fraceq(iv,ibin) by kg(iv,ibin) on 01/19/10
              -(aer(iv,jtotal,ibin))/xsumaged(ibin) &
               *Csat(iv-ipcg1_b_c_g+1))
@@ -5170,7 +5333,7 @@
 ! Check if we should evaporate more
           dq=(1.0d0-frt)*dq
          if (flagsoap(iv-ipcg1_b_c_g+1).eq.2) then
-           if(dq.lt.-1.d-8) then ! check if d-8 is better
+           if(dq.lt.-1.d-12) then ! check if d-8 is better
              if(frqtotfresh.gt.tinys) then ! we have sections which are not empty
               if(iter.le.itermax) then ! check infinite loop
                 iter = iter + 1
@@ -5182,7 +5345,7 @@
           endif ! frqtotfresh.gt.tinys
            endif ! dq.lt.-1.d-7
           elseif (flagsoap(iv-ipcg1_b_c_g+1).eq.1) then
-           if(dq.lt.-1.d-8) then
+           if(dq.lt.-1.d-12) then
              if(frqtotaged.gt.tinys) then ! we have sections which are not empty
               if(iter.le.itermax) then ! check infinite loop
                 iter = iter + 1
@@ -5199,15 +5362,23 @@
             ! or exceeded itermax
            endif ! for flagsoap
 
+110        continue
+
 ! now set the gas species concentration conservatively
-           gas(iv)=Ctot(iv-ipcg1_b_c_g+1)
+
+            gas(iv)=Ctot(iv-ipcg1_b_c_g+1)
              do ibin=1,nbin_a
                gas(iv)=gas(iv)-aer(iv,jtotal,ibin)
              enddo
         endif ! if dq.gt.0
 
 120       continue
+
+
            enddo ! for iv=ipcg1_b_c_g
+
+
+
 
        end subroutine equilibrium
 
@@ -5563,14 +5734,17 @@
 
 !    This subroutine spfcn calculates the objective function fval to solve gas-particle partitioning of SOA
 !    Subroutine spfcn is called from within the subroutine soap
-        subroutine spfcn(N,Ctot,Csat,Ca,cpx,tom,fval)
+      subroutine spfcn(N,Ctot,Csat,Ca,cpx,tom,fval)
 !        use module_data_mosaic_main
 !        use module_data_mosaic_aero
       implicit none
        real(kind=8):: Ctot(N),Csat(N),Ca(N),tom,fval,cpx
-
-         integer i,N
+       integer,intent(in) :: N      
+         integer i
         fval=0.0
+               
+
+
          do i=1, N
          Ca(i)=Ctot(i)*tom/(tom+Csat(i)/1)! Replace the divisor 1 by Molecular Weights if the units for Csat(i) are ug/m3 or ng/m3
         fval=fval+Ca(i)/1 ! The divisor is set to 1 as the species are in nmol/m3
@@ -5586,13 +5760,20 @@
 ! SOAP calls subroutine spfcn which calculates the objective function for solving gas-particle partitioning
 !        use module_data_mosaic_main
 !        use module_data_mosaic_aero
-
+        implicit none
         real(kind=8),  parameter :: xtol = 5.0e-5
           real(kind=8):: Ctot(N),Csat(N),cpx,Ca(N),Cgas(N)
           real(kind=8):: xend,dx,xmid,fend,fmid,sun
-         integer i,N,znum
+         integer,intent(in):: N
+         integer i,znum
         
          sun=0.0
+         xend=0.0
+         dx=0.0
+         xmid=0.0
+         fend=0.0
+         fmid=0.0
+
           do i=1,N
             if (Csat(i).gt.0) then
             sun=sun+Ctot(i)/Csat(i) !If a species does not exist its Csat is zero
@@ -5638,7 +5819,7 @@
 99     xmid=xend
 100    continue
         do i=1, N
-        Ca(i)=min(Ctot(i), Ca(i))
+        Ca(i)=min((Ctot(i)), (Ca(i)))
         Cgas(i)=Ctot(i)-Ca(i)
        enddo
 900   continue
@@ -5647,7 +5828,7 @@
 !     write(2,*) xmid
      return
 
-       end subroutine soap
+      end subroutine soap
 
 
 
@@ -8663,6 +8844,11 @@
         comp_a(joc)  = aer(ioc_a,jtotal,ibin)*mw_comp_a(je)*1.e-15	! g/cc(air)
         comp_a(jbc)  = aer(ibc_a,jtotal,ibin)*mw_comp_a(je)*1.e-15	! g/cc(air)
         comp_a(join) = aer(ioin_a,jtotal,ibin)*mw_comp_a(je)*1.e-15	! g/cc(air)
+        comp_a(jdust) = aer(idust_a,jtotal,ibin)*mw_comp_a(je)*1.e-15	! g/cc(air)
+        comp_a(jtr1r1) = aer(itr1r1_a,jtotal,ibin)*mw_comp_a(je)*1.e-15	! g/cc(air)
+        comp_a(jtr1r2) = aer(itr1r2_a,jtotal,ibin)*mw_comp_a(je)*1.e-15	! g/cc(air)
+        comp_a(jtr1r3) = aer(itr1r3_a,jtotal,ibin)*mw_comp_a(je)*1.e-15	! g/cc(air)
+        comp_a(jtr1r4) = aer(itr1r4_a,jtotal,ibin)*mw_comp_a(je)*1.e-15	! g/cc(air)
          comp_a(jpcg1_b_c)= aer(ipcg1_b_c_a,jtotal,ibin)*mw_comp_a(je)*1.e-15 ! g/cc(air)
          comp_a(jpcg2_b_c)= aer(ipcg2_b_c_a,jtotal,ibin)*mw_comp_a(je)*1.e-15 ! g/cc(air)
          comp_a(jpcg3_b_c)= aer(ipcg3_b_c_a,jtotal,ibin)*mw_comp_a(je)*1.e-15 ! g/cc(air)
@@ -8750,9 +8936,100 @@
          comp_a(jbiog3_o)= aer(ibiog3_o_a,jtotal,ibin)*mw_comp_a(je)*1.e-15 ! g/cc(air)
          comp_a(jbiog4_o)= aer(ibiog4_o_a,jtotal,ibin)*mw_comp_a(je)*1.e-15 ! g/cc(air)
 
+! Components below are not part of electrolytes as nelectrolyte is just the first 22 components
+! Probably this part below has no role, need to check with Rahul
+! Bloe line changed by Manish Shrivastava on 4/20/2013
+! Replaced mw_comp_a(je) by mw_comp_a(joc) for organic and mw_comp_a(je) by mw_comp_a(jbc) or mw_comp_a(join)
+        comp_a(joc)  = aer(ioc_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15	! g/cc(air)
+        comp_a(jbc)  = aer(ibc_a,jtotal,ibin)*mw_comp_a(jbc)*1.e-15	! g/cc(air)
+        comp_a(join) = aer(ioin_a,jtotal,ibin)*mw_comp_a(join)*1.e-15	! g/cc(air)
 
+         comp_a(jpcg1_b_c)= aer(ipcg1_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg2_b_c)= aer(ipcg2_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg3_b_c)= aer(ipcg3_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg4_b_c)= aer(ipcg4_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg5_b_c)= aer(ipcg5_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg6_b_c)= aer(ipcg6_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg7_b_c)= aer(ipcg7_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg8_b_c)= aer(ipcg8_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg9_b_c)= aer(ipcg9_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg1_b_c)= aer(iopcg1_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg2_b_c)= aer(iopcg2_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg3_b_c)= aer(iopcg3_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg4_b_c)= aer(iopcg4_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg5_b_c)= aer(iopcg5_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg6_b_c)= aer(iopcg6_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg7_b_c)= aer(iopcg7_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg8_b_c)= aer(iopcg8_b_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg1_b_o)= aer(ipcg1_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg2_b_o)= aer(ipcg2_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg3_b_o)= aer(ipcg3_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg4_b_o)= aer(ipcg4_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg5_b_o)= aer(ipcg5_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg6_b_o)= aer(ipcg6_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg7_b_o)= aer(ipcg7_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg8_b_o)= aer(ipcg8_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg9_b_o)= aer(ipcg9_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg1_b_o)= aer(iopcg1_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg2_b_o)= aer(iopcg2_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg3_b_o)= aer(iopcg3_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg4_b_o)= aer(iopcg4_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg5_b_o)= aer(iopcg5_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg6_b_o)= aer(iopcg6_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg7_b_o)= aer(iopcg7_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg8_b_o)= aer(iopcg8_b_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg1_f_c)= aer(ipcg1_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg2_f_c)= aer(ipcg2_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg3_f_c)= aer(ipcg3_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg4_f_c)= aer(ipcg4_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg5_f_c)= aer(ipcg5_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg6_f_c)= aer(ipcg6_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg7_f_c)= aer(ipcg7_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg8_f_c)= aer(ipcg8_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg9_f_c)= aer(ipcg9_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg1_f_c)= aer(iopcg1_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg2_f_c)= aer(iopcg2_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg3_f_c)= aer(iopcg3_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg4_f_c)= aer(iopcg4_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg5_f_c)= aer(iopcg5_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg6_f_c)= aer(iopcg6_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg7_f_c)= aer(iopcg7_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg8_f_c)= aer(iopcg8_f_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg1_f_o)= aer(ipcg1_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg2_f_o)= aer(ipcg2_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg3_f_o)= aer(ipcg3_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg4_f_o)= aer(ipcg4_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg5_f_o)= aer(ipcg5_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg6_f_o)= aer(ipcg6_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg7_f_o)= aer(ipcg7_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg8_f_o)= aer(ipcg8_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jpcg9_f_o)= aer(ipcg9_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg1_f_o)= aer(iopcg1_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg2_f_o)= aer(iopcg2_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg3_f_o)= aer(iopcg3_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg4_f_o)= aer(iopcg4_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg5_f_o)= aer(iopcg5_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg6_f_o)= aer(iopcg6_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg7_f_o)= aer(iopcg7_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jopcg8_f_o)= aer(iopcg8_f_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jant1_c)= aer(iant1_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jant2_c)= aer(iant2_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jant3_c)= aer(iant3_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jant4_c)= aer(iant4_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jant1_o)= aer(iant1_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jant2_o)= aer(iant2_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jant3_o)= aer(iant3_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jant4_o)= aer(iant4_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jbiog1_c)= aer(ibiog1_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jbiog2_c)= aer(ibiog2_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jbiog3_c)= aer(ibiog3_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jbiog4_c)= aer(ibiog4_c_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jbiog1_o)= aer(ibiog1_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jbiog2_o)= aer(ibiog2_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jbiog3_o)= aer(ibiog3_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+         comp_a(jbiog4_o)= aer(ibiog4_o_a,jtotal,ibin)*mw_comp_a(joc)*1.e-15 ! g/cc(air)
+        comp_a(jh2o) = water_a(ibin)*1.e-3                              ! g/cc(air)
 
-        comp_a(jh2o) = water_a(ibin)*1.e-3				! g/cc(air)
 
         ri_dum = (0.0,0.0)
         do jc = 1, naercomp
@@ -11738,7 +12015,7 @@
 !     include 'v33com2'
 !     include 'mosaic.h'
 ! local variables
-      integer iaer, je, ja, j_index, ibin
+      integer iaer, je, ja, j_index, ibin,jc
 !     logical first
 !     save first
 !     data first/.true./
@@ -11844,24 +12121,24 @@
       iopcg6_f_o_g =71
       iopcg7_f_o_g =72
       iopcg8_f_o_g =73
-      ismpa_g =74
-      ismpbb_g =75
-      iant1_c_g =76
-      iant2_c_g =77
-      iant3_c_g =78
-      iant4_c_g =79
-      iant1_o_g =80
-      iant2_o_g =81
-      iant3_o_g =82
-      iant4_o_g =83
-      ibiog1_c_g =84
-      ibiog2_c_g =85
-      ibiog3_c_g =86
-      ibiog4_c_g =87
-      ibiog1_o_g =88
-      ibiog2_o_g =89
-      ibiog3_o_g =90
-      ibiog4_o_g =91
+      iant1_c_g =74
+      iant2_c_g =75
+      iant3_c_g =76
+      iant4_c_g =77
+      iant1_o_g =78
+      iant2_o_g =79
+      iant3_o_g =80
+      iant4_o_g =81
+      ibiog1_c_g =82
+      ibiog2_c_g =83
+      ibiog3_c_g =84
+      ibiog4_c_g =85
+      ibiog1_o_g =86
+      ibiog2_o_g =87
+      ibiog3_o_g =88
+      ibiog4_o_g =89
+     ismpa_g =90
+      ismpbb_g =91
       in2o5_g    =92  ! ioa --> NO3-
       iclno2_g   =93  ! ioa N2O5+Cl- -->
 
@@ -11942,30 +12219,35 @@
       iopcg6_f_o_a =71
       iopcg7_f_o_a =72
       iopcg8_f_o_a =73
-      ismpa_a =74
-      ismpbb_a =75
-      iant1_c_a =76
-      iant2_c_a =77
-      iant3_c_a =78
-      iant4_c_a =79
-      iant1_o_a =80
-      iant2_o_a =81
-      iant3_o_a =82
-      iant4_o_a =83
-      ibiog1_c_a =84
-      ibiog2_c_a =85
-      ibiog3_c_a =86
-      ibiog4_c_a =87
-      ibiog1_o_a =88
-      ibiog2_o_a =89
-      ibiog3_o_a =90
-      ibiog4_o_a =91
+      iant1_c_a =74
+      iant2_c_a =75
+      iant3_c_a =76
+      iant4_c_a =77
+      iant1_o_a =78
+      iant2_o_a =79
+      iant3_o_a =80
+      iant4_o_a =81
+      ibiog1_c_a =82
+      ibiog2_c_a =83
+      ibiog3_c_a =84
+      ibiog4_c_a =85
+      ibiog1_o_a =86
+      ibiog2_o_a =87
+      ibiog3_o_a =88
+      ibiog4_o_a =89
+      ismpa_a = 90
+      ismpbb_a = 91
       ico3_a    = 92    ! <-> ico2_g ! ico3_a was 14 earlier, changed to 82 by Manish Shrivastava
       ina_a     = 93
       ica_a     = 94
       ioin_a    = 95
-      ioc_a     = 96
-      ibc_a     = 97
+      idust_a	= 96
+      ioc_a     = 97
+      ibc_a     = 98
+      itr1r1_a	= 99
+      itr1r2_a	= 100 
+      itr1r3_a	= 101
+      itr1r4_a	= 102
 
 ! electrolyte indices (used for water content calculations)
 ! these indices are order sensitive
@@ -11995,93 +12277,98 @@
       joc	= 23	! insoluble - part of naercomp
       jbc	= 24	! insoluble - part of naercomp
       join	= 25	! insoluble - part of naercomp
-      jpcg1_b_c =26
-      jpcg2_b_c =27
-      jpcg3_b_c =28
-      jpcg4_b_c =29
-      jpcg5_b_c =30
-      jpcg6_b_c =31
-      jpcg7_b_c =32
-      jpcg8_b_c =33
-      jpcg9_b_c =34
-      jpcg1_b_o =35
-      jpcg2_b_o =36
-      jpcg3_b_o =37
-      jpcg4_b_o =38
-      jpcg5_b_o =39
-      jpcg6_b_o =40
-      jpcg7_b_o =41
-      jpcg8_b_o =42
-      jpcg9_b_o =43
-      jopcg1_b_c =44
-      jopcg2_b_c =45
-      jopcg3_b_c =46
-      jopcg4_b_c =47
-      jopcg5_b_c =48
-      jopcg6_b_c =49
-      jopcg7_b_c =50
-      jopcg8_b_c =51
-      jopcg1_b_o =52
-      jopcg2_b_o =53
-      jopcg3_b_o =54
-      jopcg4_b_o =55
-      jopcg5_b_o =56
-      jopcg6_b_o =57
-      jopcg7_b_o =58
-      jopcg8_b_o =59
-      jpcg1_f_c =60
-      jpcg2_f_c =61
-      jpcg3_f_c =62
-      jpcg4_f_c =63
-      jpcg5_f_c =64
-      jpcg6_f_c =65
-      jpcg7_f_c =66
-      jpcg8_f_c =67
-      jpcg9_f_c =68
-      jpcg1_f_o =69
-      jpcg2_f_o =70
-      jpcg3_f_o =71
-      jpcg4_f_o =72
-      jpcg5_f_o =73
-      jpcg6_f_o =74
-      jpcg7_f_o =75
-      jpcg8_f_o =76
-      jpcg9_f_o =77
-      jopcg1_f_c =78
-      jopcg2_f_c =79
-      jopcg3_f_c =80
-      jopcg4_f_c =81
-      jopcg5_f_c =82
-      jopcg6_f_c =83
-      jopcg7_f_c =84
-      jopcg8_f_c =85
-      jopcg1_f_o =86
-      jopcg2_f_o =87
-      jopcg3_f_o =88
-      jopcg4_f_o =89
-      jopcg5_f_o =90
-      jopcg6_f_o =91
-      jopcg7_f_o =92
-      jopcg8_f_o =93
-      jsmpa =94
-      jsmpbb =95
-      jant1_c =96
-      jant2_c =97
-      jant3_c =98
-      jant4_c =99
-      jant1_o =100
-      jant2_o =101
-      jant3_o =102
-      jant4_o =103
-      jbiog1_c =104
-      jbiog2_c =105
-      jbiog3_c =106
-      jbiog4_c =107
-      jbiog1_o =108
-      jbiog2_o =109
-      jbiog3_o =110
-      jbiog4_o =111
-      jh2o	= 112	! water - part of naercomp
+      jdust	= 26	! insoluble - part of naercomp
+      jpcg1_b_c =27
+      jpcg2_b_c =28
+      jpcg3_b_c =29
+      jpcg4_b_c =30
+      jpcg5_b_c =31
+      jpcg6_b_c =32
+      jpcg7_b_c =33
+      jpcg8_b_c =34
+      jpcg9_b_c =35
+      jpcg1_b_o =36
+      jpcg2_b_o =37
+      jpcg3_b_o =38
+      jpcg4_b_o =39
+      jpcg5_b_o =40
+      jpcg6_b_o =41
+      jpcg7_b_o =42
+      jpcg8_b_o =43
+      jpcg9_b_o =44
+      jopcg1_b_c =45
+      jopcg2_b_c =46
+      jopcg3_b_c =47
+      jopcg4_b_c =48
+      jopcg5_b_c =49
+      jopcg6_b_c =50
+      jopcg7_b_c =51
+      jopcg8_b_c =52
+      jopcg1_b_o =53
+      jopcg2_b_o =54
+      jopcg3_b_o =55
+      jopcg4_b_o =56
+      jopcg5_b_o =57
+      jopcg6_b_o =58
+      jopcg7_b_o =59
+      jopcg8_b_o =60
+      jpcg1_f_c =61
+      jpcg2_f_c =62
+      jpcg3_f_c =63
+      jpcg4_f_c =64
+      jpcg5_f_c =65
+      jpcg6_f_c =66
+      jpcg7_f_c =67
+      jpcg8_f_c =68
+      jpcg9_f_c =69
+      jpcg1_f_o =70
+      jpcg2_f_o =71
+      jpcg3_f_o =72
+      jpcg4_f_o =73
+      jpcg5_f_o =74
+      jpcg6_f_o =75
+      jpcg7_f_o =76
+      jpcg8_f_o =77
+      jpcg9_f_o =78
+      jopcg1_f_c =79
+      jopcg2_f_c =80
+      jopcg3_f_c =81
+      jopcg4_f_c =82
+      jopcg5_f_c =83
+      jopcg6_f_c =84
+      jopcg7_f_c =85
+      jopcg8_f_c =86
+      jopcg1_f_o =87
+      jopcg2_f_o =88
+      jopcg3_f_o =89
+      jopcg4_f_o =90
+      jopcg5_f_o =91
+      jopcg6_f_o =92
+      jopcg7_f_o =93
+      jopcg8_f_o =94
+      jant1_c =95
+      jant2_c =96
+      jant3_c =97
+      jant4_c =98
+      jant1_o =99
+      jant2_o =100
+      jant3_o =101
+      jant4_o =102
+      jbiog1_c =103
+      jbiog2_c =104
+      jbiog3_c =105
+      jbiog4_c =106
+      jbiog1_o =107
+      jbiog2_o =108
+      jbiog3_o =109
+      jbiog4_o =110
+      jsmpa =111
+      jsmpbb =112
+      jh2o = 113	! water - part of naercomp
+      jtr1r1  =114
+      jtr1r2  =115
+      jtr1r3  =116
+      jtr1r4  =117
 
 ! local aerosol ions
 ! cations
@@ -12117,6 +12404,11 @@
       aer_name(ica_a)  = 'ca '
       aer_name(ibc_a)  = 'bc '
       aer_name(ioin_a) = 'oin'
+      aer_name(idust_a) = 'dust'
+      aer_name(itr1r1_a) = 'tr1r1'
+      aer_name(itr1r2_a) = 'tr1r2'
+      aer_name(itr1r3_a) = 'tr1r3'
+      aer_name(itr1r4_a) = 'tr1r4'
       aer_name(ipcg1_b_c_a)="pcg1_b_c"
       aer_name(ipcg2_b_c_a)="pcg2_b_c"
       aer_name(ipcg3_b_c_a)="pcg3_b_c"
@@ -12424,93 +12716,99 @@
       dens_comp_a(joc)      = 1.0
       dens_comp_a(jbc)      = 1.8
       dens_comp_a(join)     = 2.6
+      dens_comp_a(jdust)     = 2.6
+      dens_comp_a(jtr1r1)     = 2.6
+      dens_comp_a(jtr1r2)     = 2.6
+      dens_comp_a(jtr1r3)     = 2.6
+      dens_comp_a(jtr1r4)     = 2.6
       dens_comp_a(jh2o)     = 1.0
-      dens_comp_a(ipcg1_b_c_a) =1.0
-      dens_comp_a(ipcg2_b_c_a) =1.0
-      dens_comp_a(ipcg3_b_c_a)=1.0
-      dens_comp_a(ipcg4_b_c_a)=1.0
-      dens_comp_a(ipcg5_b_c_a)=1.0
-      dens_comp_a(ipcg6_b_c_a)=1.0
-      dens_comp_a(ipcg7_b_c_a)=1.0
-      dens_comp_a(ipcg8_b_c_a)=1.0
-      dens_comp_a(ipcg9_b_c_a)=1.0
-      dens_comp_a(iopcg1_b_c_a)=1.0
-      dens_comp_a(iopcg2_b_c_a)=1.0
-      dens_comp_a(iopcg3_b_c_a)=1.0
-      dens_comp_a(iopcg4_b_c_a)=1.0
-      dens_comp_a(iopcg5_b_c_a)=1.0
-      dens_comp_a(iopcg6_b_c_a)=1.0
-      dens_comp_a(iopcg7_b_c_a)=1.0
-      dens_comp_a(iopcg8_b_c_a)=1.0
-      dens_comp_a(ipcg1_b_o_a)=1.0
-      dens_comp_a(ipcg2_b_o_a)=1.0
-      dens_comp_a(ipcg3_b_o_a)=1.0
-      dens_comp_a(ipcg4_b_o_a)=1.0
-      dens_comp_a(ipcg5_b_o_a)=1.0
-      dens_comp_a(ipcg6_b_o_a)=1.0
-      dens_comp_a(ipcg7_b_o_a)=1.0
-      dens_comp_a(ipcg8_b_o_a)=1.0
-      dens_comp_a(ipcg9_b_o_a)=1.0
-      dens_comp_a(iopcg1_b_o_a)=1.0
-      dens_comp_a(iopcg2_b_o_a)=1.0
-      dens_comp_a(iopcg3_b_o_a)=1.0
-      dens_comp_a(iopcg4_b_o_a)=1.0
-      dens_comp_a(iopcg5_b_o_a)=1.0
-      dens_comp_a(iopcg6_b_o_a)=1.0
-      dens_comp_a(iopcg7_b_o_a)=1.0
-      dens_comp_a(iopcg8_b_o_a)=1.0
-      dens_comp_a(ipcg1_f_c_a) =1.0
-      dens_comp_a(ipcg2_f_c_a) =1.0
-      dens_comp_a(ipcg3_f_c_a)=1.0
-      dens_comp_a(ipcg4_f_c_a)=1.0
-      dens_comp_a(ipcg5_f_c_a)=1.0
-      dens_comp_a(ipcg6_f_c_a)=1.0
-      dens_comp_a(ipcg7_f_c_a)=1.0
-      dens_comp_a(ipcg8_f_c_a)=1.0
-      dens_comp_a(ipcg9_f_c_a)=1.0
-      dens_comp_a(iopcg1_f_c_a)=1.0
-      dens_comp_a(iopcg2_f_c_a)=1.0
-      dens_comp_a(iopcg3_f_c_a)=1.0
-      dens_comp_a(iopcg4_f_c_a)=1.0
-      dens_comp_a(iopcg5_f_c_a)=1.0
-      dens_comp_a(iopcg6_f_c_a)=1.0
-      dens_comp_a(iopcg7_f_c_a)=1.0
-      dens_comp_a(iopcg8_f_c_a)=1.0
-      dens_comp_a(ipcg1_f_o_a)=1.0
-      dens_comp_a(ipcg2_f_o_a)=1.0
-      dens_comp_a(ipcg3_f_o_a)=1.0
-      dens_comp_a(ipcg4_f_o_a)=1.0
-      dens_comp_a(ipcg5_f_o_a)=1.0
-      dens_comp_a(ipcg6_f_o_a)=1.0
-      dens_comp_a(ipcg7_f_o_a)=1.0
-      dens_comp_a(ipcg8_f_o_a)=1.0
-      dens_comp_a(ipcg9_f_o_a)=1.0
-      dens_comp_a(iopcg1_f_o_a)=1.0
-      dens_comp_a(iopcg2_f_o_a)=1.0
-      dens_comp_a(iopcg3_f_o_a)=1.0
-      dens_comp_a(iopcg4_f_o_a)=1.0
-      dens_comp_a(iopcg5_f_o_a)=1.0
-      dens_comp_a(iopcg6_f_o_a)=1.0
-      dens_comp_a(iopcg7_f_o_a)=1.0
-      dens_comp_a(iopcg8_f_o_a)=1.0
-      dens_comp_a(ismpa_a)=1.0
-      dens_comp_a(ismpbb_a)=1.0
-      dens_comp_a(iant1_c_a)=1.0
-      dens_comp_a(iant2_c_a)=1.0
-      dens_comp_a(iant3_c_a)=1.0
-      dens_comp_a(iant4_c_a)=1.0
-      dens_comp_a(iant1_o_a)=1.0
-      dens_comp_a(iant2_o_a)=1.0
-      dens_comp_a(iant3_o_a)=1.0
-      dens_comp_a(iant4_o_a)=1.0
-      dens_comp_a(ibiog1_c_a)=1.0
-      dens_comp_a(ibiog2_c_a)=1.0
-      dens_comp_a(ibiog3_c_a)=1.0
-      dens_comp_a(ibiog4_c_a)=1.0
-      dens_comp_a(ibiog1_o_a)=1.0
-      dens_comp_a(ibiog2_o_a)=1.0
-      dens_comp_a(ibiog3_o_a)=1.0
-      dens_comp_a(ibiog4_o_a)=1.0
+! Replaced ipcg1 etc. lines below by jpcg1 etc.
+! This is done for consistency
+! Changed by Manish Shrivastava on 04/20/2013
+     dens_comp_a(jpcg1_b_c) =1.0
+      dens_comp_a(jpcg2_b_c) =1.0
+      dens_comp_a(jpcg3_b_c)=1.0
+      dens_comp_a(jpcg4_b_c)=1.0
+      dens_comp_a(jpcg5_b_c)=1.0
+      dens_comp_a(jpcg6_b_c)=1.0
+      dens_comp_a(jpcg7_b_c)=1.0
+      dens_comp_a(jpcg8_b_c)=1.0
+      dens_comp_a(jpcg9_b_c)=1.0
+      dens_comp_a(jopcg1_b_c)=1.0
+      dens_comp_a(jopcg2_b_c)=1.0
+      dens_comp_a(jopcg3_b_c)=1.0
+      dens_comp_a(jopcg4_b_c)=1.0
+      dens_comp_a(jopcg5_b_c)=1.0
+      dens_comp_a(jopcg6_b_c)=1.0
+      dens_comp_a(jopcg7_b_c)=1.0
+      dens_comp_a(jopcg8_b_c)=1.0
+      dens_comp_a(jpcg1_b_o)=1.0
+      dens_comp_a(jpcg2_b_o)=1.0
+      dens_comp_a(jpcg3_b_o)=1.0
+      dens_comp_a(jpcg4_b_o)=1.0
+      dens_comp_a(jpcg5_b_o)=1.0
+      dens_comp_a(jpcg6_b_o)=1.0
+      dens_comp_a(jpcg7_b_o)=1.0
+      dens_comp_a(jpcg8_b_o)=1.0
+      dens_comp_a(jpcg9_b_o)=1.0
+      dens_comp_a(jopcg1_b_o)=1.0
+      dens_comp_a(jopcg2_b_o)=1.0
+      dens_comp_a(jopcg3_b_o)=1.0
+      dens_comp_a(jopcg4_b_o)=1.0
+      dens_comp_a(jopcg5_b_o)=1.0
+      dens_comp_a(jopcg6_b_o)=1.0
+      dens_comp_a(jopcg7_b_o)=1.0
+      dens_comp_a(jopcg8_b_o)=1.0
+      dens_comp_a(jpcg1_f_c) =1.0
+      dens_comp_a(jpcg2_f_c) =1.0
+      dens_comp_a(jpcg3_f_c)=1.0
+      dens_comp_a(jpcg4_f_c)=1.0
+      dens_comp_a(jpcg5_f_c)=1.0
+      dens_comp_a(jpcg6_f_c)=1.0
+      dens_comp_a(jpcg7_f_c)=1.0
+      dens_comp_a(jpcg8_f_c)=1.0
+      dens_comp_a(jpcg9_f_c)=1.0
+      dens_comp_a(jopcg1_f_c)=1.0
+      dens_comp_a(jopcg2_f_c)=1.0
+      dens_comp_a(jopcg3_f_c)=1.0
+      dens_comp_a(jopcg4_f_c)=1.0
+      dens_comp_a(jopcg5_f_c)=1.0
+      dens_comp_a(jopcg6_f_c)=1.0
+      dens_comp_a(jopcg7_f_c)=1.0
+      dens_comp_a(jopcg8_f_c)=1.0
+      dens_comp_a(jpcg1_f_o)=1.0
+      dens_comp_a(jpcg2_f_o)=1.0
+      dens_comp_a(jpcg3_f_o)=1.0
+      dens_comp_a(jpcg4_f_o)=1.0
+      dens_comp_a(jpcg5_f_o)=1.0
+      dens_comp_a(jpcg6_f_o)=1.0
+      dens_comp_a(jpcg7_f_o)=1.0
+      dens_comp_a(jpcg8_f_o)=1.0
+      dens_comp_a(jpcg9_f_o)=1.0
+      dens_comp_a(jopcg1_f_o)=1.0
+      dens_comp_a(jopcg2_f_o)=1.0
+      dens_comp_a(jopcg3_f_o)=1.0
+      dens_comp_a(jopcg4_f_o)=1.0
+      dens_comp_a(jopcg5_f_o)=1.0
+      dens_comp_a(jopcg6_f_o)=1.0
+      dens_comp_a(jopcg7_f_o)=1.0
+      dens_comp_a(jopcg8_f_o)=1.0
+      dens_comp_a(jant1_c)=1.0
+      dens_comp_a(jant2_c)=1.0
+      dens_comp_a(jant3_c)=1.0
+      dens_comp_a(jant4_c)=1.0
+      dens_comp_a(jant1_o)=1.0
+      dens_comp_a(jant2_o)=1.0
+      dens_comp_a(jant3_o)=1.0
+      dens_comp_a(jant4_o)=1.0
+      dens_comp_a(jbiog1_c)=1.0
+      dens_comp_a(jbiog2_c)=1.0
+      dens_comp_a(jbiog3_c)=1.0
+      dens_comp_a(jbiog4_c)=1.0
+      dens_comp_a(jbiog1_o)=1.0
+      dens_comp_a(jbiog2_o)=1.0
+      dens_comp_a(jbiog3_o)=1.0
+      dens_comp_a(jbiog4_o)=1.0
 
 ! molecular weights of generic aerosol species
       mw_aer_mac(iso4_a) = 96.0
@@ -12522,6 +12820,11 @@
       mw_aer_mac(ina_a)  = 23.0
       mw_aer_mac(ica_a)  = 40.0
       mw_aer_mac(ioin_a) = 1.0          ! not used
+      mw_aer_mac(idust_a) = 1.0		! not used
+      mw_aer_mac(itr1r1_a) = 1.0		! not used
+      mw_aer_mac(itr1r2_a) = 1.0		! not used
+      mw_aer_mac(itr1r3_a) = 1.0		! not used
+      mw_aer_mac(itr1r4_a) = 1.0		! not used
       mw_aer_mac(ibc_a)  = 1.0          ! not used
       mw_aer_mac(ioc_a)  = 250.0  ! 200 assumed for primary organics
       mw_aer_mac(ipcg1_b_c_a) =250.0
@@ -12638,6 +12941,11 @@
       mw_comp_a(joc)	 = 250.0
       mw_comp_a(jbc)	 = 1.0
       mw_comp_a(join)    = 1.0
+      mw_comp_a(jdust)    = 1.0
+      mw_comp_a(jtr1r1)    = 1.0
+      mw_comp_a(jtr1r2)    = 1.0
+      mw_comp_a(jtr1r3)    = 1.0
+      mw_comp_a(jtr1r4)    = 1.0
       mw_comp_a(jh2o)    = 18.0
       mw_comp_a(jpcg1_b_c) =250.0
       mw_comp_a(jpcg2_b_c) =250.0
@@ -12736,6 +13044,11 @@
       dens_aer_mac(ina_a)  = 2.2	! used
       dens_aer_mac(ica_a)  = 2.6	! used
       dens_aer_mac(ioin_a) = 2.6	! used
+      dens_aer_mac(idust_a) = 2.6	! used
+      dens_aer_mac(itr1r1_a) = 2.6	! used
+      dens_aer_mac(itr1r2_a) = 2.6	! used
+      dens_aer_mac(itr1r3_a) = 2.6	! used
+      dens_aer_mac(itr1r4_a) = 2.6	! used
       dens_aer_mac(ioc_a)  = 1.0	! used
       dens_aer_mac(ibc_a)  = 1.7	! used
       dens_aer_mac(ipcg1_b_c_a) =1.0
@@ -12920,6 +13233,15 @@
       partial_molar_vol(in2o5_g)  = 200.0	! assumed...
       partial_molar_vol(iclno2_g) = 200.0	! assumed...
 
+! First set default refractive index
+! This sets the refractive index of all components to be equal to OC
+! Changed by Manish Shrivastava on 04/20/2013
+
+        do jc = 1, naercomp
+          ref_index_a(jc)= cmplx(1.45,0.)
+        enddo
+
+! Now reset the refractive indices as required
 ! refractive index
       ref_index_a(jnh4so4) = cmplx(1.52,0.)
       ref_index_a(jlvcite) = cmplx(1.50,0.)
@@ -12946,6 +13268,11 @@
       ref_index_a(joc)	   = cmplx(1.45,0.)
       ref_index_a(jbc)	   = cmplx(1.82,0.74)
       ref_index_a(join)    = cmplx(1.55,0.006)
+      ref_index_a(jdust)    = cmplx(1.55,0.003)
+      ref_index_a(jtr1r1)    = cmplx(1.55,0.003)
+      ref_index_a(jtr1r2)    = cmplx(1.55,0.003)
+      ref_index_a(jtr1r3)    = cmplx(1.55,0.003)
+      ref_index_a(jtr1r4)    = cmplx(1.55,0.003)
       ref_index_a(jh2o)    = cmplx(1.33,0.)
 
 ! jsalt_index
@@ -15402,7 +15729,9 @@
 !     implicit none
 !     include 'mosaic.h'
 ! local variables
-      integer iv, j_index, ibin, je,vbs_nbin(1)
+      integer iv, j_index, ibin, je
+     integer,intent(in) :: vbs_nbin(1)
+
       real(kind=8) :: tr, rt, term
       real(kind=8) :: gam_nh4no3_0, gam_nh4cl_0, m_nh4no3_0, m_nh4cl_0  ! raz update 6/25/2008
 ! function
@@ -15551,18 +15880,18 @@
       endif
 
       if (vbs_nbin(1).eq.2) then
-      po_soa(ipcg1_b_c_g) = fn_po(9.91d-8, 83.0d0, T_K) ! [Pascal]
-      po_soa(ipcg2_b_c_g) = fn_po(9.91d-1, 83.0d0, T_K) ! [Pascal]
-      po_soa(iopcg1_b_c_g) = fn_po(9.91d-8, 83.0d0, T_K) ! [Pascal]
-      po_soa(ipcg1_b_o_g) = fn_po(9.91d-8, 83.0d0, T_K) ! [Pascal]
-      po_soa(ipcg2_b_o_g) = fn_po(9.91d-1, 83.0d0, T_K) ! [Pascal]
-      po_soa(iopcg1_b_o_g) = fn_po(9.91d-8, 83.0d0, T_K) ! [Pascal]
-      po_soa(ipcg1_f_c_g) = fn_po(9.91d-8, 83.0d0, T_K) ! [Pascal]
-      po_soa(ipcg2_f_c_g) = fn_po(9.91d-1, 83.0d0, T_K) ! [Pascal]
-      po_soa(iopcg1_f_c_g) = fn_po(9.91d-8, 83.0d0, T_K) ! [Pascal]
-      po_soa(ipcg1_f_o_g) = fn_po(9.91d-8, 83.0d0, T_K) ! [Pascal]
-      po_soa(ipcg2_f_o_g) = fn_po(9.91d-1, 83.0d0, T_K) ! [Pascal]
-      po_soa(iopcg1_f_o_g) = fn_po(9.91d-8, 83.0d0, T_K) ! [Pascal]
+      po_soa(ipcg1_b_c_g) = fn_po(9.91d-9, 83.0d0, T_K) ! [Pascal]
+      po_soa(ipcg2_b_c_g) = fn_po(9.91d+4, 83.0d0, T_K) ! [Pascal]
+      po_soa(iopcg1_b_c_g) = fn_po(9.91d-9, 83.0d0, T_K) ! [Pascal]
+      po_soa(ipcg1_b_o_g) = fn_po(9.91d-9, 83.0d0, T_K) ! [Pascal]
+      po_soa(ipcg2_b_o_g) = fn_po(9.91d+4, 83.0d0, T_K) ! [Pascal]
+      po_soa(iopcg1_b_o_g) = fn_po(9.91d-9, 83.0d0, T_K) ! [Pascal]
+      po_soa(ipcg1_f_c_g) = fn_po(9.91d-9, 83.0d0, T_K) ! [Pascal]
+      po_soa(ipcg2_f_c_g) = fn_po(9.91d+4, 83.0d0, T_K) ! [Pascal]
+      po_soa(iopcg1_f_c_g) = fn_po(9.91d-9, 83.0d0, T_K) ! [Pascal]
+      po_soa(ipcg1_f_o_g) = fn_po(9.91d-9, 83.0d0, T_K) ! [Pascal]
+      po_soa(ipcg2_f_o_g) = fn_po(9.91d+4, 83.0d0, T_K) ! [Pascal]
+      po_soa(iopcg1_f_o_g) = fn_po(9.91d-9, 83.0d0, T_K) ! [Pascal]
       po_soa(iant1_c_g) = fn_po(9.91d-6, 83.0d0, T_K) ! [Pascal]
       po_soa(iant1_o_g) = fn_po(9.91d-6, 83.0d0, T_K) ! [Pascal]
       po_soa(ibiog1_c_g) = fn_po(9.91d-6, 83.0d0, T_K) ! [Pascal]
@@ -16465,6 +16794,7 @@
       		lptr_na_aer(isize,itype,iphase),   &
       		lptr_ca_aer(isize,itype,iphase),   &
       		lptr_oin_aer(isize,itype,iphase),   &
+      		lptr_dust_aer(isize,itype,iphase),   &
       		lptr_oc_aer(isize,itype,iphase),   &
       		lptr_bc_aer(isize,itype,iphase),   &
       		hyswptr_aer(isize,itype)
@@ -16609,6 +16939,7 @@
       		lptr_na_aer(isize,itype,iphase),   &
       		lptr_ca_aer(isize,itype,iphase),   &
       		lptr_oin_aer(isize,itype,iphase),   &
+      		lptr_dust_aer(isize,itype,iphase),   &
       		lptr_oc_aer(isize,itype,iphase),   &
       		lptr_bc_aer(isize,itype,iphase),   &
       		hyswptr_aer(isize,itype)

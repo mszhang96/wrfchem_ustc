@@ -19,9 +19,7 @@ CONTAINS
                    ,p3d,p8w3d,pi3d,cldfra3d,rswtoa                &
                    ,gmt,cp,g,julday,xtime,declin,solcon           &
                    ,radfrq,degrad,taucldi,taucldc,warm_rain       &
-                   ,tauaer300,tauaer400,tauaer600,tauaer999       & ! jcb
-                   ,gaer300,gaer400,gaer600,gaer999               & ! jcb
-                   ,waer300,waer400,waer600,waer999               & ! jcb
+                   ,tauaersw,gaersw,waersw      &
                    ,aer_ra_feedback                               &
                    ,f_qv,f_qc,f_qr,f_qi,f_qs,f_qg,f_qndrop        &
                    ,ids,ide, jds,jde, kds,kde                     & 
@@ -75,10 +73,8 @@ CONTAINS
 !
 ! Optional
 !
-   REAL, DIMENSION( ims:ime, kms:kme, jms:jme ), OPTIONAL ,       &
-         INTENT(IN    ) :: tauaer300,tauaer400,tauaer600,tauaer999, & ! jcb
-                                 gaer300,gaer400,gaer600,gaer999, & ! jcb
-                                 waer300,waer400,waer600,waer999    ! jcb
+   REAL, DIMENSION( ims:ime, kms:kme, jms:jme, 5 ), OPTIONAL ,       &
+         INTENT(IN    ) :: tauaersw,gaersw,waersw  !czhao
 
    INTEGER,    INTENT(IN  ), OPTIONAL   ::       aer_ra_feedback
 
@@ -368,18 +364,9 @@ CONTAINS
 #ifdef WRF_CHEM
    IF ( aer_ra_feedback == 1) then
    IF ( .NOT. &
-      ( PRESENT(tauaer300) .AND. &
-        PRESENT(tauaer400) .AND. &
-        PRESENT(tauaer600) .AND. &
-        PRESENT(tauaer999) .AND. &
-        PRESENT(gaer300) .AND. &
-        PRESENT(gaer400) .AND. &
-        PRESENT(gaer600) .AND. &
-        PRESENT(gaer999) .AND. &
-        PRESENT(waer300) .AND. &
-        PRESENT(waer400) .AND. &
-        PRESENT(waer600) .AND. &
-        PRESENT(waer999) ) ) THEN
+      ( PRESENT(tauaersw) .AND. &
+        PRESENT(gaersw) .AND. &
+        PRESENT(waersw) ) ) THEN
       CALL wrf_error_fatal ( 'Warning: missing fields required for aerosol radiation' )
    ENDIF
    ENDIF
@@ -625,22 +612,25 @@ CONTAINS
 ! convert optical properties at 300,400,600, and 999 to conform to the band wavelengths
 ! these are: 200,235,270,287.5,302.5,305,362.5,550,1920,1745,6135; why the emphasis on the UV?
 ! taual - use angstrom exponent
-        if(tauaer300(i,k+1,j).gt.thresh .and. tauaer999(i,k+1,j).gt.thresh) then
-           ang=log(tauaer300(i,k+1,j)/tauaer999(i,k+1,j))/log(999./300.)
+        if(tauaersw(i,k+1,j,2).gt.thresh .and. tauaersw(i,k+1,j,5).gt.thresh) then
+           !czhao use 600&400 nm now
+           !ang=log(tauaer300(i,k+1,j)/tauaer999(i,k+1,j))/log(999./300.)
+           ang=log(tauaersw(i,k+1,j,3)/tauaersw(i,k+1,j,4))/log(600./400.)
 !       write(6,*)i,k,ang,tauaer300(i,k+1,j),tauaer999(i,k+1,j)
-           taual(i,kte-k,ib)=tauaer400(i,k+1,j)*(0.4/midbands(ib))**ang ! notice reserved variable
+           !taual(i,kte-k,ib)=tauaer400(i,k+1,j)*(0.4/midbands(ib))**ang ! notice reserved variable
+           taual(i,kte-k,ib)=tauaersw(i,k+1,j,4)*(0.6/midbands(ib))**ang ! notice reserved variable
 !       write(6,10001)i,k,ang,tauaer300(i,k+1,j),tauaer999(i,k+1,j),midbands(ib),taual(i,k,ib)
 !10001      format(i3,i3,5f12.6)
 
 ! ssa - linear interpolation; extrapolation
-           slope=(waer600(i,k+1,j)-waer400(i,k+1,j))/.2
-           ssaal(i,kte-k,ib) = slope*(midbands(ib)-.6)+waer600(i,k+1,j) ! notice reversed variables
+           slope=(waersw(i,k+1,j,4)-waersw(i,k+1,j,3))/.2
+           ssaal(i,kte-k,ib) = slope*(midbands(ib)-.6)+waersw(i,k+1,j,4) ! notice reversed variables
            if(ssaal(i,kte-k,ib).lt.0.4) ssaal(i,kte-k,ib)=0.4
            if(ssaal(i,kte-k,ib).ge.1.0) ssaal(i,kte-k,ib)=1.0
 
 ! g - linear interpolation;extrapolation
-           slope=(gaer600(i,k+1,j)-gaer400(i,k+1,j))/.2
-           asyal(i,kte-k,ib) = slope*(midbands(ib)-.6)+gaer600(i,k+1,j) ! notice reversed varaibles
+           slope=(gaersw(i,k+1,j,4)-gaersw(i,k+1,j,3))/.2
+           asyal(i,kte-k,ib) = slope*(midbands(ib)-.6)+gaersw(i,k+1,j,4) ! notice reversed varaibles
            if(asyal(i,kte-k,ib).lt.0.5) asyal(i,kte-k,ib)=0.5
            if(asyal(i,kte-k,ib).ge.1.0) asyal(i,kte-k,ib)=1.0
         endif
@@ -666,22 +656,22 @@ CONTAINS
 
             call wrf_message("Diagnostics 1: k, tauaer300, tauaer400, tauaer600, tauaer999")
             do k=kts,kte
-               write(msg,'(i4,4f8.2)') k, tauaer300(i,k,j), tauaer400(i,k,j), &
-                    tauaer600(i,k,j), tauaer999(i,k,j)
+               write(msg,'(i4,4f8.2)') k, tauaersw(i,k,j,2), tauaersw(i,k,j,3), &
+                    tauaersw(i,k,j,4), tauaersw(i,k,j,5)
                call wrf_message(msg)
             end do
 
             call wrf_message("Diagnostics 2: k, gaer300, gaer400, gaer600, gaer999")
             do k=kts,kte
-               write(msg,'(i4,4f8.2)') k, gaer300(i,k,j), gaer400(i,k,j), &
-                    gaer600(i,k,j), gaer999(i,k,j)
+               write(msg,'(i4,4f8.2)') k, gaersw(i,k,j,2), gaersw(i,k,j,3), &
+                    gaersw(i,k,j,4), gaersw(i,k,j,5)
                call wrf_message(msg)
             end do
 
             call wrf_message("Diagnostics 3: k, waer300, waer400, waer600, waer999")
             do k=kts,kte
-               write(msg,'(i4,4f8.2)') k, waer300(i,k,j), waer400(i,k,j), &
-                    waer600(i,k,j), waer999(i,k,j)
+               write(msg,'(i4,4f8.2)') k, waersw(i,k,j,2), waersw(i,k,j,3), &
+                    waersw(i,k,j,4), waersw(i,k,j,5)
                call wrf_message(msg)
             end do
 

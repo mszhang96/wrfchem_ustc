@@ -532,7 +532,7 @@ BENCH_END(calc_tke_tim)
 
 #ifdef DM_PARALLEL
 #      include "PERIOD_BDY_EM_PHY_BC.inc"
-       IF ( config_flags%grid_fdda .eq. 1) THEN
+       IF ( config_flags%grid_fdda .ge. 1) THEN
 #      include "PERIOD_BDY_EM_FDDA_BC.inc"
        ENDIF
 #      include "PERIOD_BDY_EM_CHEM.inc"
