@@ -718,6 +718,7 @@ REAL, DIMENSION( ims:ime, kms:kme, jms:jme ),                        &
          PRESENT (Z      ) .AND.PRESENT ( W      )  ) THEN
          CALL mp_morr_two_moment(                            &
                      ITIMESTEP=itimestep,                &  !*
+                     DX=dx,                              &  !* !czhao
                      TH=th,                              &  !*
                      QV=qv_curr,                         &  !*
                      QC=qc_curr,                         &  !*

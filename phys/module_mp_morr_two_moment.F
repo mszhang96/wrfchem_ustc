@@ -540,7 +540,7 @@ END SUBROUTINE MORR_TWO_MOMENT_INIT
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
+SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,DX,                      &
                 TH, QV, QC, QR, QI, QS, QG, NI, NS, NR, NG, &
                 RHO, PII, P, DT_IN, DZ, HT, W,          &
                 RAINNC, RAINNCV, SR,                    &
@@ -631,6 +631,8 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
                                        its, ite, jts, jte, kts, kte
 ! Temporary changed from INOUT to IN
 
+   REAL, INTENT(IN   ) :: dx
+
    REAL, DIMENSION(ims:ime, kms:kme, jms:jme), INTENT(INOUT):: &
                           qv, qc, qr, qi, qs, qg, ni, ns, nr, TH, NG   
 !jdf                      qndrop ! hm added, wrf-chem
@@ -720,6 +722,10 @@ SUBROUTINE MP_MORR_TWO_MOMENT(ITIMESTEP,                       &
 
    LOGICAL, OPTIONAL, INTENT(IN) :: diagflag
    INTEGER, OPTIONAL, INTENT(IN) :: do_radar_ref
+
+   IF (DX.GT.1.e5) then ! 100 km 
+   DCS = 300.E-6   !czhao increase it for reducing ITCZ precipitation at 1-degree global simulation
+   ENDIF 
 
 ! below for wrf-chem
    flag_qndrop = .false.

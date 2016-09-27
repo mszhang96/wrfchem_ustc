@@ -719,7 +719,7 @@ CONTAINS
                  QSS,PPTMLT,DTMELT,RHH,EVAC,BINC
 !
       INTEGER :: INDLU,NU,NUCHM,NNN,KLFS
-   REAL    :: CHMIN,PM15,CHMAX,DTRH,RAD,DPPP
+   REAL    :: CHMIN,PM15,CHMAX,DTRH,RAD,DPPP,DPPP0
    REAL    :: TVDIFF,DTTOT,ABSOMG,ABSOMGTC,FRDP
 
       INTEGER :: KX,K,KL
@@ -1229,6 +1229,10 @@ updraft:    DO NK=K,KL-1
 !...REI IS THE RATE OF ENVIRONMENTAL INFLOW...
 !
               REI=VMFLCL*DP(NK1)*0.03/RAD          !    KF (1990) Eq. 1; Kain (2004) Eq. 5
+              !czhao increase REI to decrease ITCZ rain in global simulation at 1 degree+++
+              IF (DX.GT.1.e5) REI=3*REI
+              !czhao increase REI to decrease ITCZ rain in global simulation at 1 degree---
+
               TVQU(NK1)=TU(NK1)*(1.+0.608*QU(NK1)-QLIQ(NK1)-QICE(NK1))
               IF(NK.EQ.K)THEN
                 DILBE=((TVLCL+TVQU(NK1))/(TVEN+TV0(NK1))-1.)*DZZ
@@ -1597,9 +1601,21 @@ updraft:    DO NK=K,KL-1
 !       TIMEC=DX(I,J)/VCONV
         TIMEC=DX/VCONV
         TADVEC=TIMEC
-        TIMEC=AMAX1(1800.,TIMEC)         ! 30 minutes  >= TIMEC <= 60 minutes
-        TIMEC=AMIN1(3600.,TIMEC)
-        IF(ISHALL.EQ.1)TIMEC=2400.       ! shallow convection TIMEC = 40 minutes
+
+!for 1-degree global, czhao change it for ITCZ precipitation  +++++++
+        IF (DX.LE.1.e5) then 
+           TIMEC=AMAX1(1800.,TIMEC)         ! 30 minutes  >= TIMEC <= 60 minutes
+           TIMEC=AMIN1(3600.,TIMEC)
+           IF(ISHALL.EQ.1)TIMEC=2400.       ! shallow convection TIMEC = 40 minutes
+        ELSE 
+           TIMEC=AMAX1(3600.,TIMEC)         ! 30 minutes  >= TIMEC <= 60 minutes
+           TIMEC=AMIN1(5400.,TIMEC)
+           TIMEC=TIMEC*2  !czhao change it for ITCZ precipitation
+           IF(ISHALL.EQ.1)TIMEC=3600.       ! shallow convection TIMEC = 40 minutes
+        ENDIF 
+!czhao ----------------------------
+
+
         NIC=NINT(TIMEC/DT)
         TIMEC=FLOAT(NIC)*DT
 !     
@@ -1662,7 +1678,13 @@ updraft:    DO NK=K,KL-1
          DO NK = KSTART+1,KL
            DPPP = P0(KSTART)-P0(NK)
 !          IF(DPPP.GT.200.E2)THEN
-           IF(DPPP.GT.150.E2)THEN
+           IF (DX.LE.1.e5) THEN 
+            DPPP0=150.E2 ! default
+           ELSE  
+            DPPP0=300.E2 ! czhao increase it to reduce ITCZ rain in global 1-degree run
+           ENDIF 
+
+           IF(DPPP.GT.DPPP0)THEN 
              KLFS = NK
              EXIT 
            ENDIF
@@ -1705,6 +1727,9 @@ updraft:    DO NK=K,KL-1
           ENDDO
           RHBAR = RHBAR/DPTT
           DMFFRC = 2.*(1.-RHBAR)    ! Kain (2004) eq. 11
+          IF (DX.GT.1.e5) THEN
+          DMFFRC = 3*DMFFRC ! czhao increase it to reduce ITCZ rain in global 1-degree run 
+          ENDIF 
           DPDD = 0.
 !...Calculate melting effect
 !... first, compute total frozen precipitation generated...
@@ -1920,7 +1945,11 @@ d_mf:   IF(TDER.LT.1.)THEN
 !
 !...find the maximum TKE value between LC and KLCL...
 !         TKEMAX = 0.
-          TKEMAX = 5.
+          IF (DX.LE.1.e5) THEN 
+          TKEMAX = 5.  !default 
+          ELSE 
+          TKEMAX = 10.   ! czhao increase it to reduce ITCZ rain in global 1-degree run
+          ENDIF
 !          DO 173 K = LC,KLCL
 !            NK = KX-K+1
 !            TKEMAX = AMAX1(TKEMAX,Q2(I,J,NK))
