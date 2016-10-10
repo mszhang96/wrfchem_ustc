@@ -430,8 +430,8 @@ CC              =       $(DM_CC)
 LD              =       $(FC)
 RWORDSIZE       =       $(NATIVE_RWORDSIZE)
 PROMOTION       =       -i4
-#czhao change it for Tianhe HPC 
-#ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DCHUNK=64 -DXEON_OPTIMIZED_WSM5 -DOPTIMIZE_CFL_TEST -DWRF_USE_CLM
+#####czhao change it for Tianhe HPC 
+#####ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DCHUNK=64 -DXEON_OPTIMIZED_WSM5 -DOPTIMIZE_CFL_TEST -DWRF_USE_CLM
 ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_FUNC -DCHUNK=64 -DWRF_USE_CLM -DSNICAR_FRC
 OPTNOSIMD       =
 OPTAVX          =       -xAVX
@@ -439,8 +439,8 @@ CFLAGS_LOCAL    =       -w -O3 $(OPTAVX)
 LDFLAGS_LOCAL   =       $(OPTAVX)
 CPLUSPLUSLIB    =       
 ESMF_LDFLAG     =       $(CPLUSPLUSLIB)
-#czhao change it for Tianhe HPC 
-#FCOPTIM         =       -O3 $(OPTAVX)
+#####czhao change it for Tianhe HPC 
+#####FCOPTIM         =       -O3 $(OPTAVX)
 FCOPTIM         =       -O2 $(OPTAVX)
 FCREDUCEDOPT	=       $(FCOPTIM)
 FCNOOPT		=       -O0 -fno-inline -fno-ip
