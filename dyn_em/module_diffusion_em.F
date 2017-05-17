@@ -2013,11 +2013,26 @@ SUBROUTINE smag2d_km( config_flags,xkmh,xkmv,xkhh,xkhv,                        &
             alpha = max(sqrt(tmpzx*tmpzx+tmpzy*tmpzy),1.0)
 ! If deformation is large, further reduce the diffusion coefficient
             def_limit = max(10./mlen_h,1.e-3)
+
+!option 1
            if ( tmp .gt. def_limit ) then
              xkmh(i,k,j)=xkmh(i,k,j)/(alpha*alpha)
            else
              xkmh(i,k,j)=xkmh(i,k,j)/(alpha)
            endif
+
+!option 2
+!          if ( tmp .gt. def_limit ) then
+!            xkmh(i,k,j)=xkmh(i,k,j)*(2.-min(alpha*alpha,2.))
+!          else
+!            xkmh(i,k,j)=xkmh(i,k,j)*(2.-min(alpha, 2.))
+!          endif
+
+!option 3
+!          if (alpha .gt. 1.0 ) then
+!            xkmh(i,k,j)=0.0
+!          endif
+
            xkhh(i,k,j)=xkmh(i,k,j)/pr
          ENDIF
 !czhao add this part from v3.8.1 to increase stability -------
