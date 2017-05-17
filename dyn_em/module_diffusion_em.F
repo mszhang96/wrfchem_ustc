@@ -2002,6 +2002,26 @@ SUBROUTINE smag2d_km( config_flags,xkmh,xkmv,xkhh,xkhv,                        &
          xkmv(i,k,j)=0.
          xkhh(i,k,j)=xkmh(i,k,j)/pr
          xkhv(i,k,j)=0.
+
+!czhao add this part from v3.8.1 to increase stability ++++++++
+         IF(config_flags%diff_opt .EQ. 2)THEN
+! jd: reduce diffusion coefficient by slope factor (modified by JB August 2014)
+            dxm=dx/msftx(i,j)
+            dym=dy/msfty(i,j)
+            tmpzx = (0.25*( abs(zx(i,k,j))+ abs(zx(i+1,k,j  )) + abs(zx(i,k+1,j))+ abs(zx(i+1,k+1,j  )))*rdzw(i,k,j)*dxm)
+            tmpzy = (0.25*( abs(zy(i,k,j))+ abs(zy(i  ,k,j+1)) + abs(zy(i,k+1,j))+ abs(zy(i  ,k+1,j+1)))*rdzw(i,k,j)*dym)
+            alpha = max(sqrt(tmpzx*tmpzx+tmpzy*tmpzy),1.0)
+! If deformation is large, further reduce the diffusion coefficient
+            def_limit = max(10./mlen_h,1.e-3)
+           if ( tmp .gt. def_limit ) then
+             xkmh(i,k,j)=xkmh(i,k,j)/(alpha*alpha)
+           else
+             xkmh(i,k,j)=xkmh(i,k,j)/(alpha)
+           endif
+           xkhh(i,k,j)=xkmh(i,k,j)/pr
+         ENDIF
+!czhao add this part from v3.8.1 to increase stability -------
+
       ENDDO
       ENDDO
       ENDDO
