@@ -1200,7 +1200,7 @@
                                 dn, dnw, dx, dy, rdz, rdzw, isotropic,   &
                                 n_moist, cf1, cf2, cf3, warm_rain,       &
                                 mix_upper_bound,                         &
-                                msftx, msfty,                            &
+                                msftx, msfty,zx,zy,                      &
                                 ids, ide, jds, jde, kds, kde,            &
                                 ims, ime, jms, jme, kms, kme,            &
                                 its, ite, jts, jte, kts, kte             )
@@ -1247,7 +1247,7 @@
 
     REAL, DIMENSION( ims:ime , kms:kme, jms:jme ),  INTENT( IN )  &
     :: defor11, defor22, defor33, defor12, defor13, defor23,      &
-       div, rdz, rdzw, p8w, t8w, theta, t, p
+       div, rdz, rdzw, p8w, t8w, theta, t, p,zx,zy
 
     REAL, DIMENSION( ims:ime, kms:kme, jms:jme ), INTENT( INOUT )  &
     :: tke
@@ -1311,7 +1311,7 @@
       CASE (4)  
             CALL smag2d_km(    config_flags, xkmh, xkmv,                &
                                xkhh, xkhv, defor11, defor22, defor12,   &
-                               rdzw, dx, dy, msftx, msfty,              &
+                               rdzw, dx, dy, msftx, msfty,zx,zy,        &
                                ids, ide, jds, jde, kds, kde,            &
                                ims, ime, jms, jme, kms, kme,            &
                                its, ite, jts, jte, kts, kte             )
@@ -1916,7 +1916,7 @@ END SUBROUTINE smag_km
 
 SUBROUTINE smag2d_km( config_flags,xkmh,xkmv,xkhh,xkhv,                        &
                     defor11,defor22,defor12,                                   &
-                    rdzw,dx,dy,msftx, msfty,                                   &
+                    rdzw,dx,dy,msftx, msfty,zx,zy,                             &
                     ids,ide, jds,jde, kds,kde,                                 &
                     ims,ime, jms,jme, kms,kme,                                 &
                     its,ite, jts,jte, kts,kte                                  )
@@ -1935,7 +1935,8 @@ SUBROUTINE smag2d_km( config_flags,xkmh,xkmv,xkhh,xkhv,                        &
    REAL    ,          INTENT(IN   )           :: dx, dy
 
 
-   REAL, DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(IN   ) ::     rdzw
+   REAL, DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(IN   ) :: rdzw,zx,zy
+
 
    REAL, DIMENSION( ims:ime , kms:kme , jms:jme ) , INTENT(INOUT) ::     xkmh, &
                                                                          xkmv, &
@@ -1953,6 +1954,8 @@ SUBROUTINE smag2d_km( config_flags,xkmh,xkmv,xkhh,xkhv,                        &
 
    INTEGER :: i_start, i_end, j_start, j_end, ktf, i, j, k
    REAL    :: deltas, tmp, pr, mlen_h, c_s
+   REAL    :: dxm, dym, tmpzx, tmpzy, alpha, def_limit
+
 
    REAL, DIMENSION( its:ite , kts:kte , jts:jte )                 ::     def2
 
