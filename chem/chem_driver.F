@@ -551,6 +551,10 @@ END subroutine mechanism_driver
       CHARACTER (LEN=1000) :: msg !BSINGH:01/31/2013: For message string
       CHARACTER (LEN=256) :: current_date_char !shc
       integer :: current_month                 !shc
+
+      !Chun Zhao check the process time 
+      real :: startt, finisht
+
 ! ..
 ! .. Intrinsic Functions ..
       INTRINSIC max, min
@@ -1266,6 +1270,9 @@ END subroutine mechanism_driver
 
     if(config_flags%emiss_inpt_opt > 0 .or. config_flags%dust_opt > 0)then
       call wrf_debug(15,'calling emissions driver')
+ 
+      !czhao
+      call cpu_time(startt)
 
       call emissions_driver(grid%id,ktau,grid%dt,grid%DX,                                  &
               adapt_step_flag, curr_secs,                                                  &
@@ -1349,6 +1356,11 @@ END subroutine mechanism_driver
               ids,ide, jds,jde, kds,kde,                                                   &
               ims,ime, jms,jme, kms,kme,                                                   &
               its,ite,jts,jte,kts,kte)
+
+            call cpu_time(finisht)
+            print '("Chun Zhao check: emissions_driver, Time = ",f6.3," seconds.")',finisht-startt
+
+
               if( config_flags%chem_opt == MOZART_KPP .or. &
                   config_flags%chem_opt == MOZCART_KPP .or. &
                   config_flags%chem_opt == MOZART_MOSAIC_4BIN_VBS0_KPP ) then

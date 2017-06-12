@@ -173,6 +173,9 @@ SUBROUTINE solve_em ( grid , config_flags  &
    INTEGER                                    :: num, den
    TYPE(WRFU_TimeInterval)                    :: dtInterval, intervaltime,restartinterval
 
+!czhao check process time
+   REAL  :: startt, finisht
+
 ! Define benchmarking timers if -DBENCH is compiled
 #include <bench_solve_em_def.h>
 
@@ -3304,6 +3307,9 @@ BENCH_START(micro_driver_tim)
 !     WRITE(wrf_err_message,*)'diag_flag=',diag_flag
 !     CALL wrf_debug ( 0 , wrf_err_message )
 
+     !czhao
+     call cpu_time(startt)
+
      CALL microphysics_driver(                                            &
       &         DT=dtm             ,DX=grid%dx              ,DY=grid%dy   &
       &        ,DZ8W=dz8w          ,F_ICE_PHY=grid%f_ice_phy              &
@@ -3423,6 +3429,10 @@ BENCH_START(micro_driver_tim)
       &        , has_reqc=grid%has_reqc, has_reqi=grid%has_reqi, has_reqs=grid%has_reqs & ! G. Thompson
       &        , diagflag=diag_flag, do_radar_ref=config_flags%do_radar_ref &
                                                                           )
+
+      call cpu_time(finisht)
+      print '("Chun Zhao check: microphysics_driver, Time = ",f6.3," seconds.")',finisht-startt
+
 
 BENCH_END(micro_driver_tim)
 
