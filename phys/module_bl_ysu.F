@@ -21,7 +21,7 @@ contains
                   znt,ust,hpbl,psim,psih,                                      &
                   xland,hfx,qfx,wspd,br,                                       &
                   dt,kpbl2d,                                                   &
-                  exch_h,exch_m                                                      &
+                  exch_h,exch_m,                                               &
                   wstar,delta,                                                 &
                   u10,v10,                                                     &
                   ctopo,ctopo2,                                                &
@@ -285,7 +285,7 @@ contains
                   xland,hfx,qfx,wspd,br,                                       &
                   dusfc,dvsfc,dtsfc,dqsfc,                                     &
                   dt,rcl,kpbl1d,                                               &
-                  exch_hx,                                                     &
+                  exch_hx,exch_mx,                                             &
                   wstar,delta,                                                 &
                   u10,v10,                                                     &
                   ctopo,ctopo2,                                                &
@@ -364,7 +364,10 @@ contains
    real,parameter    ::  xka = 2.4e-5
    integer,parameter ::  imvdif = 1
 !wig : parameter added to set a minimum pbl height. To disable this option, set to 0
-      real, parameter :: hpblmin=200.        
+!  real, parameter :: hpblmin=200.        
+   !! czhao disable this option
+   real, parameter :: hpblmin=0.        
+
 !
    integer,  intent(in   )   ::     ids,ide, jds,jde, kds,kde,                 &
                                     ims,ime, jms,jme, kms,kme,                 &
