@@ -156,6 +156,10 @@ use module_scalar_tables
    CHARACTER (LEN=1000) :: message
    LOGICAL :: do_bioe
 
+   !czhao check the process time
+   REAL   ::   startt, finisht
+
+
 #if ( WRF_DFI_RADAR == 1 )
     INTEGER  do_capsupress   ! =1 do CAP supress, other = don't
 #endif
@@ -275,6 +279,9 @@ BENCH_END(phy_prep_tim)
 
       CALL wrf_debug ( 200 , ' call radiation_driver' )
 BENCH_START(rad_driver_tim)
+
+      !czhao
+      call cpu_time(startt)
 
       CALL radiation_driver(                                                  &
      &         ACFRCV=grid%acfrcv      ,ACFRST=grid%acfrst      ,ALBEDO=grid%albedo  &
@@ -476,6 +483,12 @@ BENCH_START(rad_driver_tim)
      &         ,radeffc=grid%radeffc,radeffi=grid%radeffi   &
      &        ,solarrad_opt=config_flags%solarrad_opt,paleoclimate=config_flags%paleoclimate &          
      &         ,IS_CAMMGMP_USED = grid%is_CAMMGMP_used    )
+
+     call cpu_time(finisht)
+     print '("Chun Zhao check: radiation_driver, Time = ",f6.3," seconds.")',finisht-startt
+
+BENCH_END(rad_driver_tim)
+
 
 BENCH_END(rad_driver_tim)
 
