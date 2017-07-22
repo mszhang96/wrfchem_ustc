@@ -1534,7 +1534,9 @@ call budget_calc2(0,config_flags%chem_opt,chem,rho,  &
 #if (EM_CORE == 1)
                  grid%gmt,ijulian,t_phy,moist,scalar,p8w,t8w,vvel,                &
 #endif
-                 rri,p_phy,chem,tracer,rho,dz8w,rh,grid%exch_h,grid%hfx,grid%dx,      & 
+!czhao modify to use exch_m for diffusion
+!cz                rri,p_phy,chem,tracer,rho,dz8w,rh,grid%exch_h,grid%hfx,grid%dx,      & 
+                 rri,p_phy,chem,tracer,rho,dz8w,rh,grid%exch_m,grid%hfx,grid%dx,      & 
                  grid%cldfra, grid%cldfra_old,grid%raincv_b,seasin,dustin,            &
 	         grid%ccn1, grid%ccn2, grid%ccn3, grid%ccn4, grid%ccn5, grid%ccn6,    &
                  grid%qndropsource,grid%ivgtyp,grid%tsk,grid%gsw,grid%vegfra,pbl_h,   &

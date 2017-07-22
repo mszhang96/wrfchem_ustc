@@ -1087,7 +1087,7 @@ CONTAINS
 !
               ,WSPD=wspd,BR=br,DT=dtbl,KPBL2D=kpbl                  &
               ,EP1=ep_1,EP2=ep_2,KARMAN=karman                      &
-              ,EXCH_H=exch_h,REGIME=regime                          &
+              ,EXCH_H=exch_h,EXCH_M=exch_m,REGIME=regime                          &
 ! for grims shallow convection with ysupbl
               ,WSTAR=wstar,DELTA=delta                        &
               ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde      &

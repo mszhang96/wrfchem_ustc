@@ -21,7 +21,7 @@ contains
                   znt,ust,hpbl,psim,psih,                                      &
                   xland,hfx,qfx,wspd,br,                                       &
                   dt,kpbl2d,                                                   &
-                  exch_h,                                                      &
+                  exch_h,exch_m                                                      &
                   wstar,delta,                                                 &
                   u10,v10,                                                     &
                   ctopo,ctopo2,                                                &
@@ -134,7 +134,7 @@ contains
                                                                      rqcblten
 !
    real,     dimension( ims:ime, kms:kme, jms:jme )                          , &
-             intent(inout)   ::                                        exch_h
+             intent(inout)   ::                               exch_h,exch_m
    real,     dimension( ims:ime, jms:jme )                                   , &
              intent(inout)   ::                                         wstar
    real,     dimension( ims:ime, jms:jme )                                   , &
@@ -253,6 +253,7 @@ contains
               ,dusfc=dusfc,dvsfc=dvsfc,dtsfc=dtsfc,dqsfc=dqsfc                 &
               ,dt=dt,rcl=1.0,kpbl1d=kpbl2d(ims,j)                              &
               ,exch_hx=exch_h(ims,kms,j)                                       &
+              ,exch_mx=exch_m(ims,kms,j)                                       &
               ,wstar=wstar(ims,j)                                              &
               ,delta=delta(ims,j)                                              &
               ,u10=u10(ims,j),v10=v10(ims,j)                                   &
@@ -464,7 +465,7 @@ contains
 !jdf added exch_hx
 !
    real,    dimension( ims:ime, kms:kme )                                    , &
-            intent(inout)   ::                                        exch_hx
+            intent(inout)   ::                               exch_hx,exch_mx
 !
    real,    dimension( ims:ime )                                             , &
             intent(inout)    ::                                           u10, &
@@ -1254,8 +1255,8 @@ contains
        al(i,k)   = -dtodsu*dsdz2
        ad(i,k)   = ad(i,k)-au(i,k)
        ad(i,k+1) = 1.-al(i,k)
-!czhao add momentum coefficient output
-!      exch_mx(i,k+1) = xkzm(i,k)
+!!!czhao add momentum coefficient output
+       exch_mx(i,k+1) = xkzm(i,k)
      enddo
    enddo
 !
