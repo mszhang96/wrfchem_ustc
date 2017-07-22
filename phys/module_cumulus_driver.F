@@ -105,6 +105,7 @@ CONTAINS
                      ,CFU1,CFD1,DFU1,EFU1,DFD1,EFD1,f_flux            &
                  ! Optional trigger function activation variable
                      ,kfeta_trigger                                   &
+                     ,kfoptz                                        &
 #if ( WRF_DFI_RADAR == 1 )
                  ! Optional CAP suppress option      --- 3.2 CLEANUP TODO -- THESE SHOULD BE OPTIONAL, NOT #IF/#ENDIF
                      ,do_capsuppress                                  &
@@ -344,6 +345,7 @@ CONTAINS
    INTEGER,      INTENT(IN   )    ::   cu_physics  
    INTEGER,      INTENT(IN   )    ::   STEPCU
    LOGICAL,      INTENT(IN   )    ::   warm_rain
+   LOGICAL,      INTENT(IN   )    ::   KFOPTZ 
    LOGICAL,      INTENT(IN   )    ::   is_CAMMGMP_used !BSINGH:01/31/2013: Added for CAMZM
 
    REAL, INTENT(IN), OPTIONAL :: pgcon,shal_pgcon,sas_mass_flux
@@ -817,7 +819,7 @@ CONTAINS
                ,IDS=ids,IDE=ide,JDS=jds,JDE=jde,KDS=kds,KDE=kde &
                ,IMS=ims,IME=ime,JMS=jms,JME=jme,KMS=kms,KME=kme &
                ,ITS=its,ITE=ite,JTS=jts,JTE=jte,KTS=kts,KTE=kte &
-               ,trigger=trigger_kf                              &
+               ,trigger=trigger_kf,  KFOPTZ=KFOPTZ              &
               ! optionals
                ,RTHCUTEN=rthcuten                               &
                ,RQVCUTEN=rqvcuten ,RQCCUTEN=rqccuten            &

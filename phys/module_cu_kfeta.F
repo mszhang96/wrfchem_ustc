@@ -40,7 +40,7 @@ CONTAINS
              !options for WRF-Chem, czhao
              ,UMF3D,UER3D,UDR3D,DMF3D,DER3D,DDR3D,WU3D       &
              ,LDB2D,LET2D,KSL2D,LFS2D,KLC2D            &
-             ,ISHALL2D,CHECK2D         )
+             ,ISHALL2D,CHECK2D,KFOPTZ         )
 
 !
 !-------------------------------------------------------------
@@ -54,6 +54,7 @@ CONTAINS
    INTEGER,      INTENT(IN   ) :: trigger
    INTEGER,      INTENT(IN   ) :: STEPCU
    LOGICAL,      INTENT(IN   ) :: warm_rain
+   LOGICAL,      INTENT(IN   ) :: KFOPTZ 
 
    REAL,         INTENT(IN   ) :: XLV0,XLV1,XLS0,XLS1
    REAL,         INTENT(IN   ) :: CP,R,G,EP1,EP2
@@ -461,7 +462,7 @@ CONTAINS
             CALL KF_eta_PARA(I, J,                  &
                  U1D,V1D,T1D,QV1D,P1D,DZ1D,W0AVG1D, &
                  tpart_h1D,tpart_v1D,               &
-                 trigger,                           &
+                 trigger, KFOPTZ,                   &
                  DT,DX,DXSQ,RHO1D,                  &
                  XLV0,XLV1,XLS0,XLS1,CP,R,G,        &
                  EP2,SVP1,SVP2,SVP3,SVPT0,          &
@@ -585,7 +586,7 @@ CONTAINS
    SUBROUTINE KF_eta_PARA (I, J,                           &
                       U0,V0,T0,QV0,P0,DZQ,W0AVG1D,         &
                       TPART_H0,TPART_V0,                   &
-                      trigger,                             &
+                      trigger, KFOPTZ,                     &
                       DT,DX,DXSQ,rhoe,                     &
                       XLV0,XLV1,XLS0,XLS1,CP,R,G,          &
                       EP2,SVP1,SVP2,SVP3,SVPT0,            &
@@ -619,6 +620,8 @@ CONTAINS
       LOGICAL, INTENT(IN   ) :: F_QI, F_QS
 
       LOGICAL, INTENT(IN   ) :: warm_rain
+
+      LOGICAL, INTENT(IN   ) :: KFOPTZ 
 !
       REAL, DIMENSION( kts:kte ),                          &
             INTENT(IN   ) ::                           U0, &
@@ -1230,7 +1233,11 @@ updraft:    DO NK=K,KL-1
 !
               REI=VMFLCL*DP(NK1)*0.03/RAD          !    KF (1990) Eq. 1; Kain (2004) Eq. 5
               !czhao increase REI to decrease ITCZ rain in global simulation at 1 degree+++
-              IF (DX.GT.1.e5) REI=3*REI
+              IF (DX.GT.1.e5) THEN 
+                REI=3*REI
+              ELSE IF (KFOPTZ) THEN 
+                REI=(2**(-0.6))*REI
+              ENDIF 
               !czhao increase REI to decrease ITCZ rain in global simulation at 1 degree---
 
               TVQU(NK1)=TU(NK1)*(1.+0.608*QU(NK1)-QLIQ(NK1)-QICE(NK1))
@@ -1604,9 +1611,16 @@ updraft:    DO NK=K,KL-1
 
 !for 1-degree global, czhao change it for ITCZ precipitation  +++++++
         IF (DX.LE.1.e5) then 
+          IF (KFOPTZ) THEN 
+           TIMEC=AMAX1(3600.,TIMEC)         ! 30 minutes  >= TIMEC <= 60 minutes
+           TIMEC=AMIN1(5400.,TIMEC)
+           TIMEC=TIMEC*2
+           IF(ISHALL.EQ.1)TIMEC=3600.       ! shallow convection TIMEC = 40 minutes
+          ELSE 
            TIMEC=AMAX1(1800.,TIMEC)         ! 30 minutes  >= TIMEC <= 60 minutes
            TIMEC=AMIN1(3600.,TIMEC)
            IF(ISHALL.EQ.1)TIMEC=2400.       ! shallow convection TIMEC = 40 minutes
+          ENDIF
         ELSE 
            TIMEC=AMAX1(3600.,TIMEC)         ! 30 minutes  >= TIMEC <= 60 minutes
            TIMEC=AMIN1(5400.,TIMEC)
@@ -1679,7 +1693,11 @@ updraft:    DO NK=K,KL-1
            DPPP = P0(KSTART)-P0(NK)
 !          IF(DPPP.GT.200.E2)THEN
            IF (DX.LE.1.e5) THEN 
+            IF (KFOPTZ) THEN
+            DPPP0=300.E2 ! default
+            ELSE 
             DPPP0=150.E2 ! default
+            ENDIF
            ELSE  
             DPPP0=300.E2 ! czhao increase it to reduce ITCZ rain in global 1-degree run
            ENDIF 
@@ -1729,6 +1747,8 @@ updraft:    DO NK=K,KL-1
           DMFFRC = 2.*(1.-RHBAR)    ! Kain (2004) eq. 11
           IF (DX.GT.1.e5) THEN
           DMFFRC = 3*DMFFRC ! czhao increase it to reduce ITCZ rain in global 1-degree run 
+          ELSE IF (KFOPTZ) THEN  
+          DMFFRC = (2**(0.98))*DMFFRC ! czhao increase it to reduce EAMonsoon rain 
           ENDIF 
           DPDD = 0.
 !...Calculate melting effect
@@ -1946,7 +1966,11 @@ d_mf:   IF(TDER.LT.1.)THEN
 !...find the maximum TKE value between LC and KLCL...
 !         TKEMAX = 0.
           IF (DX.LE.1.e5) THEN 
-          TKEMAX = 5.  !default 
+           IF (KFOPTZ) THEN 
+           TKEMAX = 6.  
+           ELSE 
+           TKEMAX = 5.  !default 
+           ENDIF
           ELSE 
           TKEMAX = 10.   ! czhao increase it to reduce ITCZ rain in global 1-degree run
           ENDIF
