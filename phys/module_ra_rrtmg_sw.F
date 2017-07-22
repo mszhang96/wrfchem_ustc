@@ -10898,40 +10898,40 @@ CONTAINS
             write(msg,'("ERROR: Negative total optical depth of ",f8.2," at point i,j,nb=",3i5)') slope,i,j,nb
             call wrf_error_fatal(msg)
          else if( slope > 5. ) then
-            call wrf_message("-------------------------")
-            write(msg,'("WARNING: Large total sw optical depth of ",f8.2," at point i,j,nb=",3i5)') slope,i,j,nb
-            call wrf_message(msg)
+!           call wrf_message("-------------------------")
+!           write(msg,'("WARNING: Large total sw optical depth of ",f8.2," at point i,j,nb=",3i5)') slope,i,j,nb
+!           call wrf_message(msg)
 
-            call wrf_message("Diagnostics 1: k, tauaer300, tauaer400, tauaer600, tauaer999, tauaer")
+!           call wrf_message("Diagnostics 1: k, tauaer300, tauaer400, tauaer600, tauaer999, tauaer")
             do k=kts,kte
-               write(msg,'(i4,5f8.2)') k, tauaersw(i,k,j,2), tauaersw(i,k,j,3), &
-                    tauaersw(i,k,j,4), tauaersw(i,k,j,5),tauaer(ncol,k,nb)
-               call wrf_message(msg)
+!              write(msg,'(i4,5f8.2)') k, tauaersw(i,k,j,2), tauaersw(i,k,j,3), &
+!                   tauaersw(i,k,j,4), tauaersw(i,k,j,5),tauaer(ncol,k,nb)
+!              call wrf_message(msg)
                !czhao set an up-limit here to avoid segmentation fault 
                !from extreme AOD
                tauaer(ncol,k,nb)=tauaer(ncol,k,nb)*5.0/slope 
             end do
 
-            call wrf_message("Diagnostics 2: k, gaer300, gaer400, gaer600, gaer999")
-            do k=kts,kte
-               write(msg,'(i4,4f8.2)') k, gaersw(i,k,j,2), gaersw(i,k,j,3), &
-                    gaersw(i,k,j,4), gaersw(i,k,j,5)
-               call wrf_message(msg)
-            end do
+!           call wrf_message("Diagnostics 2: k, gaer300, gaer400, gaer600, gaer999")
+!           do k=kts,kte
+!              write(msg,'(i4,4f8.2)') k, gaersw(i,k,j,2), gaersw(i,k,j,3), &
+!                   gaersw(i,k,j,4), gaersw(i,k,j,5)
+!              call wrf_message(msg)
+!           end do
 
-            call wrf_message("Diagnostics 3: k, waer300, waer400, waer600, waer999")
-            do k=kts,kte
-               write(msg,'(i4,4f8.2)') k, waersw(i,k,j,2), waersw(i,k,j,3), &
-                    waersw(i,k,j,4), waersw(i,k,j,5)
-               call wrf_message(msg)
-            end do
+!           call wrf_message("Diagnostics 3: k, waer300, waer400, waer600, waer999")
+!           do k=kts,kte
+!              write(msg,'(i4,4f8.2)') k, waersw(i,k,j,2), waersw(i,k,j,3), &
+!                   waersw(i,k,j,4), waersw(i,k,j,5)
+!              call wrf_message(msg)
+!           end do
 
-            call wrf_message("Diagnostics 4: k, ssaal, asyal, taual")
-            do k=kts,kte
-               write(msg,'(i4,3f8.2)') k, ssaaer(ncol,k,nb), asmaer(ncol,k,nb), tauaer(ncol,k,nb)
-               call wrf_message(msg)
-            end do
-            call wrf_message("-------------------------")
+!           call wrf_message("Diagnostics 4: k, ssaal, asyal, taual")
+!           do k=kts,kte
+!              write(msg,'(i4,3f8.2)') k, ssaaer(ncol,k,nb), asmaer(ncol,k,nb), tauaer(ncol,k,nb)
+!              call wrf_message(msg)
+!           end do
+!           call wrf_message("-------------------------")
          endif
       enddo  ! nb
       endif  ! aer_ra_feedback

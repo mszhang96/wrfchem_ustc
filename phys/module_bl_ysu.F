@@ -1254,6 +1254,8 @@ contains
        al(i,k)   = -dtodsu*dsdz2
        ad(i,k)   = ad(i,k)-au(i,k)
        ad(i,k+1) = 1.-al(i,k)
+!czhao add momentum coefficient output
+!      exch_mx(i,k+1) = xkzm(i,k)
      enddo
    enddo
 !

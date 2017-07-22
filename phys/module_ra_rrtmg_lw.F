@@ -12475,16 +12475,16 @@ CONTAINS
             write(msg,'("ERROR: Negative total lw optical depth of ",f8.2," at point i,j,nb=",3i5)') slope,i,j,nb
             call wrf_error_fatal(msg)
          else if( slope > 5. ) then
-            call wrf_message("-------------------------")
-            write(msg,'("WARNING: Large total lw optical depth of ",f8.2," at point i,j,nb=",3i5)') slope,i,j,nb
-            call wrf_message(msg)
+!           call wrf_message("-------------------------")
+!           write(msg,'("WARNING: Large total lw optical depth of ",f8.2," at point i,j,nb=",3i5)') slope,i,j,nb
+!           call wrf_message(msg)
 
-            call wrf_message("Diagnostics 1: k, tauaerlw1, tauaerlw16")
-            do k=kts,kte
-               write(msg,'(i4,2f8.2)') k, tauaerlw(i,k,j,2), tauaerlw(i,k,j,17)
-               call wrf_message(msg)
-            end do
-            call wrf_message("-------------------------")
+!           call wrf_message("Diagnostics 1: k, tauaerlw1, tauaerlw16")
+!           do k=kts,kte
+!              write(msg,'(i4,2f8.2)') k, tauaerlw(i,k,j,2), tauaerlw(i,k,j,17)
+!              call wrf_message(msg)
+!           end do
+!           call wrf_message("-------------------------")
          endif
       enddo  ! nb
       endif  ! aer_ra_feedback

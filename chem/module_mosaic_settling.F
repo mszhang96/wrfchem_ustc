@@ -159,10 +159,10 @@ SUBROUTINE gocart_settling_scheme(dt,t_phy,moist,  &
          end do ! comp
        end do ! isize 
 
-       if (i==20.and.j==20.and.(k==kts.or.k==3.or.k==10.or.k==kte)) then 
-       write(0,*) 'check grav settling budget for size 1,7,8',k,bstl_mass(k,1),bstl_mass(k,nbin_a-1),bstl_mass(k,nbin_a),totmass(k,nbin_a)/totmass0(k,nbin_a)
-       print*, 'check grav settling budget for size 1,7,8',k,bstl_mass(k,1),bstl_mass(k,nbin_a-1),bstl_mass(k,nbin_a),totmass(k,nbin_a)/totmass0(k,nbin_a)
-       endif
+!      if (i==20.and.j==20.and.(k==kts.or.k==3.or.k==10.or.k==kte)) then 
+!      write(0,*) 'check grav settling budget for size 1,7,8',k,bstl_mass(k,1),bstl_mass(k,nbin_a-1),bstl_mass(k,nbin_a),totmass(k,nbin_a)/totmass0(k,nbin_a)
+!      print*, 'check grav settling budget for size 1,7,8',k,bstl_mass(k,1),bstl_mass(k,nbin_a-1),bstl_mass(k,nbin_a),totmass(k,nbin_a)/totmass0(k,nbin_a)
+!      endif
 
       end do ! k
 

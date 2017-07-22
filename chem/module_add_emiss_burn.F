@@ -258,16 +258,16 @@ CONTAINS
           !kg/m2 to mole/m2
           total_air=total_air*1000.0/29
 
-           if (i==28.and.j==25) then 
-           do nk=1,firelevel
-           write(0,*) 'czhao check fire distribution ',nk,emisbot(nk),emistop(nk) 
-           print*, 'czhao check fire distribution ',nk,emisbot(nk),emistop(nk) 
-           enddo
+!          if (i==28.and.j==25) then 
+!          do nk=1,firelevel
+!          write(0,*) 'czhao check fire distribution ',nk,emisbot(nk),emistop(nk) 
+!          print*, 'czhao check fire distribution ',nk,emisbot(nk),emistop(nk) 
+!          enddo
 
-           write(0,*) 'czhao check fire emissions ',ebu(i,kts:kte,j,p_ebu_co)
-           print*, 'czhao check fire emissions ',ebu(i,kts:kte,j,p_ebu_co)
+!          write(0,*) 'czhao check fire emissions ',ebu(i,kts:kte,j,p_ebu_co)
+!          print*, 'czhao check fire emissions ',ebu(i,kts:kte,j,p_ebu_co)
 
-           endif
+!          endif
 
 
           do nk=1,firelevel
@@ -422,16 +422,16 @@ CONTAINS
           !kg/m2 to mole/m2
           total_air=total_air*1000.0/29
 
-           if (i==28.and.j==25) then
-           do nk=1,firelevel
-           write(0,*) 'czhao check fire distribution ',nk,emisbot(nk),emistop(nk)
-           print*, 'czhao check fire distribution ',nk,emisbot(nk),emistop(nk)
-           enddo
+!          if (i==28.and.j==25) then
+!          do nk=1,firelevel
+!          write(0,*) 'czhao check fire distribution ',nk,emisbot(nk),emistop(nk)
+!          print*, 'czhao check fire distribution ',nk,emisbot(nk),emistop(nk)
+!          enddo
 
-           write(0,*) 'czhao check fire emissions ',ebu(i,kts:kte,j,p_ebu_co)
-           print*, 'czhao check fire emissions ',ebu(i,kts:kte,j,p_ebu_co)
+!          write(0,*) 'czhao check fire emissions ',ebu(i,kts:kte,j,p_ebu_co)
+!          print*, 'czhao check fire emissions ',ebu(i,kts:kte,j,p_ebu_co)
 
-           endif
+!          endif
 
           do nk=1,firelevel
           do k=emisbot(nk),emistop(nk)
@@ -577,12 +577,12 @@ CONTAINS
       CASE (SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_4BIN_VBS9_KPP, &
            SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP, SAPRC99_MOSAIC_8BIN_VBS2_KPP)!czhao add biomass burning FINN speciation for SAPRC99, gas phase only
 
-        do k=kts,5
-        if (sum(ebu(its:ite,k,jts:jte,p_ebu_co)).gt.0) then 
-        write(0,*) 'czhao check plume fire in module_add_emiss_burn ',k,sum(ebu(its:ite,k,jts:jte,p_ebu_co))
-        print*, 'czhao check plume fire in module_add_emiss_burn ',k,sum(ebu(its:ite,k,jts:jte,p_ebu_co))
-        endif 
-        enddo
+!       do k=kts,5
+!       if (sum(ebu(its:ite,k,jts:jte,p_ebu_co)).gt.0) then 
+!       write(0,*) 'czhao check plume fire in module_add_emiss_burn ',k,sum(ebu(its:ite,k,jts:jte,p_ebu_co))
+!       print*, 'czhao check plume fire in module_add_emiss_burn ',k,sum(ebu(its:ite,k,jts:jte,p_ebu_co))
+!       endif 
+!       enddo
 
         do j=jts,jte
         do i=its,ite
