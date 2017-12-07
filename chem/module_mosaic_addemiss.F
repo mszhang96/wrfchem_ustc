@@ -3260,7 +3260,7 @@ alt,               &
                its,ite, jts,jte, kts,kte,                                  &
                nemit,                                                      &
                e01, e02, e03, e04, e05, e06, e07, e08, e09, e10,           &
-               e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21       )
+               e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22    )
 !
 ! produces test diagnostics for "addemiss" routines
 !
@@ -3303,12 +3303,12 @@ alt,               &
   REAL,  DIMENSION( ims:ime , kms:config_flags%kemit , jms:jme ),          &
           INTENT(IN   ) ::                                                 &
                e01, e02, e03, e04, e05, e06, e07, e08, e09, e10,           &
-               e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21
+               e11, e12, e13, e14, e15, e16, e17, e18, e19, e20, e21, e22
 
    character(len=*), intent(in) :: fromwhere
 
 ! local variables
-   integer, parameter :: nemit_maxd = 21
+   integer, parameter :: nemit_maxd = 22
    integer :: i, j, k, l
    double precision :: chem_sum_prev
    real :: fact
@@ -3368,6 +3368,7 @@ alt,               &
 	    if (l==20) emit_sum(l) = emit_sum(l) + e20(i,k,j)
 
 	    if (l==21) emit_sum(l) = emit_sum(l) + e21(i,k,j)
+	    if (l==22) emit_sum(l) = emit_sum(l) + e22(i,k,j)
 	end do
 	end do
 	end do

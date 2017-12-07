@@ -76,7 +76,7 @@ CONTAINS
                ids,ide, jds,jde, kds,kde,                                     &
                ims,ime, jms,jme, kms,kme,                                     &
                its,ite, jts,jte, kts,kte,                                     &
-               21,                                                            &
+               22,                                                            &
                emis_ant(ims,kms,jms,p_e_so2),emis_ant(ims,kms,jms,p_e_no),    &
                emis_ant(ims,kms,jms,p_e_co),emis_ant(ims,kms,jms,p_e_eth),    &
                emis_ant(ims,kms,jms,p_e_hc3),emis_ant(ims,kms,jms,p_e_hc5),   &
@@ -87,7 +87,7 @@ CONTAINS
                emis_ant(ims,kms,jms,p_e_ald),emis_ant(ims,kms,jms,p_e_ket),   &
                emis_ant(ims,kms,jms,p_e_ora2),emis_ant(ims,kms,jms,p_e_nh3),  &
                emis_ant(ims,kms,jms,p_e_no2),emis_ant(ims,kms,jms,p_e_ch3oh), &
-               emis_ant(ims,kms,jms,p_e_c2h5oh))
+               emis_ant(ims,kms,jms,p_e_c2h5oh),emis_ant(ims,kms,jms,p_e_mgly))
 
 
 
@@ -192,6 +192,9 @@ CONTAINS
                 + conv*emis_ant(i,k,j,p_e_ch3oh)
             chem(i,k,j,p_c2h5oh) = chem(i,k,j,p_c2h5oh)       &
                 + conv*emis_ant(i,k,j,p_e_c2h5oh)
+            !czhao add mgly
+            chem(i,k,j,p_mgly) = chem(i,k,j,p_mgly)       &
+                + conv*emis_ant(i,k,j,p_e_mgly)
         end if
 
         !PMA DMS emission [added by BSINGH - 01/20/2014]        
@@ -212,7 +215,7 @@ CONTAINS
                ids,ide, jds,jde, kds,kde,                                     &
                ims,ime, jms,jme, kms,kme,                                     &
                its,ite, jts,jte, kts,kte,                                     &
-               21,                                                            &
+               22,                                                            &
                emis_ant(ims,kms,jms,p_e_so2),emis_ant(ims,kms,jms,p_e_no),    &
                emis_ant(ims,kms,jms,p_e_co),emis_ant(ims,kms,jms,p_e_eth),    &
                emis_ant(ims,kms,jms,p_e_hc3),emis_ant(ims,kms,jms,p_e_hc5),   &
@@ -223,7 +226,7 @@ CONTAINS
                emis_ant(ims,kms,jms,p_e_ald),emis_ant(ims,kms,jms,p_e_ket),   &
                emis_ant(ims,kms,jms,p_e_ora2),emis_ant(ims,kms,jms,p_e_nh3),  &
                emis_ant(ims,kms,jms,p_e_no2),emis_ant(ims,kms,jms,p_e_ch3oh), &
-               emis_ant(ims,kms,jms,p_e_c2h5oh))
+               emis_ant(ims,kms,jms,p_e_c2h5oh),emis_ant(ims,kms,jms,p_e_mgly))
 
 
    END subroutine cbmz_addemiss_anthro

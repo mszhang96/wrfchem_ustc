@@ -640,7 +640,7 @@ state    real  cu_co_ten      ikj     misc        1         -      -        "CU_
 # the two groups. The two files need to be modified are:
 # Search for "modify tendncy list here" in all directories
 # czhao add aerosol diagnosis seperately (budgetdiag) 
-# czhao try to add terms for ddep_ct, wdep_ct, aerchem_ct, cldchem_ct, emis_ct 
+# czhao add terms for ddep_ct, wdep_ct, aerchem_ct, cldchem_ct, emis_ct 
 #-------------------------------------------------------------------------------
 state  real  -          ikjf    conv_ct    1    -   -     - 
 state  real  conv_co    ikjf    conv_ct    1    -   rh   "conv_co"      "ACCUMULATED CONV TRANSPORT FOR CO"    "ppmv"
@@ -651,6 +651,8 @@ state  real  conv_hno3  ikjf    conv_ct    1    -   rh   "conv_hno3"    "ACCUMUL
 state  real  conv_iso   ikjf    conv_ct    1    -   rh   "conv_iso"     "ACCUMULATED CONV TRANSPORT FOR ISO"   "ppmv"
 state  real  conv_ho    ikjf    conv_ct    1    -   rh   "conv_ho"      "ACCUMULATED CONV TRANSPORT FOR HO"    "ppmv"
 state  real  conv_ho2   ikjf    conv_ct    1    -   rh   "conv_ho2"     "ACCUMULATED CONV TRANSPORT FOR HO2"   "ppmv"
+state  real  conv_so2  ikjf    conv_ct    1    -   rh   "conv_so2"     "ACCUMULATED CONV TRANSPORT FOR SO2"   "ppmv"
+state  real  conv_sulf  ikjf    conv_ct    1    -   rh   "conv_sulf"     "ACCUMULATED CONV TRANSPORT FOR SULF"   "ppmv"
 
 state  real  -          ikjf    chem_ct    1    -   -    -
 state  real  chem_co    ikjf    chem_ct    1    -   rh   "chem_co"    "ACCUMULATED CHEM TENDENCY FOR CO"     "ppmv"
@@ -661,6 +663,8 @@ state  real  chem_hno3  ikjf    chem_ct    1    -   rh   "chem_hno3"  "ACCUMULAT
 state  real  chem_iso   ikjf    chem_ct    1    -   rh   "chem_iso"   "ACCUMULATED CHEM TENDENCY FOR ISO"    "ppmv"
 state  real  chem_ho    ikjf    chem_ct    1    -   rh   "chem_ho"    "ACCUMULATED CHEM TENDENCY FOR HO"     "ppmv"
 state  real  chem_ho2   ikjf    chem_ct    1    -   rh   "chem_ho2"   "ACCUMULATED CHEM TENDENCY FOR HO2"    "ppmv"
+state  real  chem_so2  ikjf    chem_ct    1    -   rh   "chem_so2"     "ACCUMULATED CHEM TENDENCY FOR SO2"   "ppmv"
+state  real  chem_sulf  ikjf    chem_ct    1    -   rh   "chem_sulf"     "ACCUMULATED CHEM TENDENCY FOR SULF"   "ppmv"
 
 state  real  -          ikjf    vmix_ct    1    -   -    -
 state  real  vmix_co    ikjf    vmix_ct    1    -   rh   "vmix_co"    "ACCUMULATED TENDENCY FOR CO BY VERTICAL MIXING"               "ppmv"
@@ -671,6 +675,8 @@ state  real  vmix_hno3  ikjf    vmix_ct    1    -   rh   "vmix_hno3"  "ACCUMULAT
 state  real  vmix_iso   ikjf    vmix_ct    1    -   rh   "vmix_iso"   "ACCUMULATED TENDENCY FOR ISO BY VERTICAL MIXING"              "ppmv"
 state  real  vmix_ho    ikjf    vmix_ct    1    -   rh   "vmix_ho"    "ACCUMULATED TENDENCY FOR HO BY VERTICAL MIXING"               "ppmv"
 state  real  vmix_ho2   ikjf    vmix_ct    1    -   rh   "vmix_ho2"   "ACCUMULATED TENDENCY FOR HO2 BY VERTICAL MIXING"              "ppmv"
+state  real  vmix_so2  ikjf    vmix_ct    1    -   rh   "vmix_so2"     "ACCUMULATED TENDENCY FOR SO2 BY VERTICAL MIXING"   "ppmv"
+state  real  vmix_sulf  ikjf    vmix_ct    1    -   rh   "vmix_sulf"     "ACCUMULATED  TENDENCY FOR SULF BY VERTICAL MIXING"   "ppmv"
 
 state  real  -          ikjf    advh_ct    1    -   -    -
 state  real  advh_co    ikjf    advh_ct    1    -   rh   "advh_co"    "ACCUMULATED TENDENCY FOR CO BY HORIZONTAL ADVECTION"          "ppmv"
@@ -681,6 +687,8 @@ state  real  advh_hno3  ikjf    advh_ct    1    -   rh   "advh_hno3"  "ACCUMULAT
 state  real  advh_iso   ikjf    advh_ct    1    -   rh   "advh_iso"   "ACCUMULATED TENDENCY FOR ISO BY HORIZONTAL ADVECTION"         "ppmv"
 state  real  advh_ho    ikjf    advh_ct    1    -   rh   "advh_ho"    "ACCUMULATED TENDENCY FOR HO BY HORIZONTAL ADVECTION"          "ppmv"
 state  real  advh_ho2   ikjf    advh_ct    1    -   rh   "advh_ho2"   "ACCUMULATED TENDENCY FOR HO2 BY HORIZONTAL ADVECTION"         "ppmv"
+state  real  advh_so2  ikjf    advh_ct    1    -   rh   "advh_so2"     "ACCUMULATED TENDENCY FOR SO2 BY HORIZONTAL ADVECTION"   "ppmv"
+state  real  advh_sulf  ikjf    advh_ct    1    -   rh   "advh_sulf"     "ACCUMULATED  TENDENCY FOR SULF BY HORIZONTAL ADVECTION"   "ppmv"
 
 state  real  -          ikjf    advz_ct    1    -   -    -
 state  real  advz_co    ikjf    advz_ct    1    -   rh   "advz_co"    "ACCUMULATED TENDENCY FOR CO BY VERTICAL ADVECTION"            "ppmv"
@@ -691,6 +699,21 @@ state  real  advz_hno3  ikjf    advz_ct    1    -   rh   "advz_hno3"  "ACCUMULAT
 state  real  advz_iso   ikjf    advz_ct    1    -   rh   "advz_iso"   "ACCUMULATED TENDENCY FOR ISO BY VERTICAL ADVECTION"           "ppmv"
 state  real  advz_ho    ikjf    advz_ct    1    -   rh   "advz_ho"    "ACCUMULATED TENDENCY FOR HO BY VERTICAL ADVECTION"            "ppmv"
 state  real  advz_ho2   ikjf    advz_ct    1    -   rh   "advz_ho2"   "ACCUMULATED TENDENCY FOR HO2 BY VERTICAL ADVECTION"           "ppmv"
+state  real  advz_so2  ikjf    advz_ct    1    -   rh   "advz_so2"     "ACCUMULATED TENDENCY FOR SO2 BY VERTICAL ADVECTION"   "ppmv"
+state  real  advz_sulf  ikjf    advz_ct    1    -   rh   "advz_sulf"     "ACCUMULATED  TENDENCY FOR SULF BY VERTICAL ADVECTION"   "ppmv"
+
+state  real  -          ikjf    ddep_ct    1    -   -    -
+state  real  ddep_co    ikjf    ddep_ct    1    -   rh   "advz_co"    "ACCUMULATED TENDENCY FOR CO BY VERTICAL ADVECTION"            "ppmv"
+state  real  advz_o3    ikjf    advz_ct    1    -   rh   "advz_o3"    "ACCUMULATED TENDENCY FOR O3 BY VERTICAL ADVECTION"            "ppmv"
+state  real  advz_no    ikjf    advz_ct    1    -   rh   "advz_no"    "ACCUMULATED TENDENCY FOR NO BY VERTICAL ADVECTION"            "ppmv"
+state  real  advz_no2   ikjf    advz_ct    1    -   rh   "advz_no2"   "ACCUMULATED TENDENCY FOR NO2 BY VERTICAL ADVECTION"           "ppmv"
+state  real  advz_hno3  ikjf    advz_ct    1    -   rh   "advz_hno3"  "ACCUMULATED TENDENCY FOR HNO3 BY VERTICAL ADVECTION"          "ppmv"
+state  real  advz_iso   ikjf    advz_ct    1    -   rh   "advz_iso"   "ACCUMULATED TENDENCY FOR ISO BY VERTICAL ADVECTION"           "ppmv"
+state  real  advz_ho    ikjf    advz_ct    1    -   rh   "advz_ho"    "ACCUMULATED TENDENCY FOR HO BY VERTICAL ADVECTION"            "ppmv"
+state  real  advz_ho2   ikjf    advz_ct    1    -   rh   "advz_ho2"   "ACCUMULATED TENDENCY FOR HO2 BY VERTICAL ADVECTION"           "ppmv"
+state  real  advz_so2  ikjf    advz_ct    1    -   rh   "advz_so2"     "ACCUMULATED TENDENCY FOR SO2 BY VERTICAL ADVECTION"   "ppmv"
+state  real  advz_sulf  ikjf    advz_ct    1    -   rh   "advz_sulf"     "ACCUMULATED  TENDENCY FOR SULF BY VERTICAL ADVECTION"   "ppmv"
+
 
 # deposition velocities for diagnostic package, feel free to add if you like!
 #
@@ -1499,7 +1522,7 @@ state   real   sulf        ikjftb   chem        1         -   i0{12}rh04usdf=(bd
 state   real   no2         ikjftb   chem        1         -   i0{12}rh04usdf=(bdy_interp:dt)  "no2"           "NO2 mixing ratio"         "ppmv"
 state   real   no          ikjftb   chem        1         -   i0{12}rh04usdf=(bdy_interp:dt)  "no"            "NO mixing ratio"          "ppmv"
 state   real   o3          ikjftb   chem        1         -   i0{12}rh04usdf=(bdy_interp:dt)  "o3"            "O3 mixing ratio"          "ppmv"
-state   real   hno3        ikjftb   chem        1         -   i0{12}rhusdf=(bdy_interp:dt)  "hno3"          "HNO3 mixing ratio"        "ppmv"
+state   real   hno3        ikjftb   chem        1         -   i0{12}rh04usdf=(bdy_interp:dt)  "hno3"          "HNO3 mixing ratio"        "ppmv"
 state   real   h2o2        ikjftb   chem        1         -   i0{12}rhusdf=(bdy_interp:dt)  "h2o2"          "H2O2 mixing ratio"        "ppmv"
 state   real   ald         ikjftb   chem        1         -   i0{12}rhusdf=(bdy_interp:dt)  "ald"           "ALD mixing ratio"         "ppmv"
 state   real   hcho        ikjftb   chem        1         -   i0{12}rh04usdf=(bdy_interp:dt)  "hcho"          "HCHO mixing ratio"        "ppmv"
@@ -3846,7 +3869,7 @@ package   cri_mosaic_4bin_aq_kpp  chem_opt==611          -             chem:dms,
 #czhao
 package   eradm           emiss_opt==2                   -             emis_ant:e_iso,e_so2,e_no,e_co,e_eth,e_hc3,e_hc5,e_hc8,e_xyl,e_ol2,e_olt,e_oli,e_tol,e_csl,e_hcho,e_ald,e_ket,e_ora2,e_nh3
 package   eradmsorg       emiss_opt==3                   -             emis_ant:e_iso,e_so2,e_no,e_no2,e_co,e_eth,e_hc3,e_hc5,e_hc8,e_xyl,e_ol2,e_olt,e_oli,e_tol,e_csl,e_hcho,e_ald,e_ket,e_ora2,e_nh3,e_pm25i,e_pm25j,e_pm_10,e_eci,e_ecj,e_orgi,e_orgj,e_so4i,e_so4j,e_no3i,e_no3j,e_naaj,e_naai,e_orgi_a,e_orgj_a,e_orgi_bb,e_orgj_bb
-package   ecbmz_mosaic    emiss_opt==4                   -             emis_ant:e_iso,e_so2,e_no,e_co,e_eth,e_hc3,e_hc5,e_hc8,e_xyl,e_ol2,e_olt,e_oli,e_tol,e_csl,e_hcho,e_ald,e_ket,e_ora2,e_nh3,e_no2,e_ch3oh,e_c2h5oh,e_mgly,e_pm25i,e_pm25j,e_pm_10,e_eci,e_ecj,e_orgi,e_orgj,e_so4i,e_so4j,e_no3i,e_no3j,e_so4c,e_no3c,e_orgc,e_ecc
+package   ecbmz_mosaic    emiss_opt==4                   -             emis_ant:e_iso,e_so2,e_no,e_co,e_eth,e_hc3,e_hc5,e_hc8,e_xyl,e_ol2,e_olt,e_oli,e_tol,e_csl,e_hcho,e_ald,e_ket,e_ora2,e_nh3,e_no2,e_ch3oh,e_c2h5oh,e_pm25i,e_pm25j,e_eci,e_ecj,e_orgi,e_orgj,e_so4i,e_so4j,e_no3i,e_no3j,e_so4c,e_no3c,e_orgc,e_ecc
 package   ecptec          emiss_opt==5                   -             emis_ant:e_iso,e_so2,e_no,e_no2,e_co,e_eth,e_hc3,e_hc5,e_hc8,e_xyl,e_ol2,e_olt,e_oli,e_tol,e_csl,e_hcho,e_ald,e_ket,e_ora2,e_nh3,e_pm_25,e_pm_10,e_oc,e_sulf,e_bc
 package   gocart_ecptec   emiss_opt==6                   -             emis_ant:e_so2,e_sulf,e_bc,e_oc,e_pm_25,e_pm_10
 package   mozem           emiss_opt==7                   -             emis_ant:e_co,e_no,e_no2,e_bigalk,e_bigene,e_c2h4,e_c2h5oh,e_c2h6,e_c3h6,e_c3h8,e_ch2o,e_ch3cho,e_ch3coch3,e_ch3oh,e_mek,e_so2,e_toluene,e_nh3,e_isop,e_c10h16,e_sulf
@@ -3968,7 +3991,7 @@ package   tracer_test3  tracer_opt==4       -             tracer:tr17_1,tr17_2,t
 package   aircraft1      aircraft_emiss_opt==1             -       emis_aircraft:eac_no,eac_co,eac_so2,eac_ch4
 
 package   nochemdiag     chemdiag==0         -                -
-package   usechemdiag    chemdiag==1         -                conv_ct:conv_co,conv_o3,conv_no,conv_no2,conv_hno3,conv_iso,conv_ho,conv_ho2;chem_ct:chem_co,chem_o3,chem_no,chem_no2,chem_hno3,chem_iso,chem_ho,chem_ho2;vmix_ct:vmix_co,vmix_o3,vmix_no,vmix_no2,vmix_hno3,vmix_iso,vmix_ho,vmix_ho2;advh_ct:advh_co,advh_o3,advh_no,advh_no2,advh_hno3,advh_iso,advh_ho,advh_ho2;advz_ct:advz_co,advz_o3,advz_no,advz_no2,advz_hno3,advz_iso,advz_ho,advz_ho2
+package   usechemdiag    chemdiag==1         -                conv_ct:conv_co,conv_o3,conv_no,conv_no2,conv_hno3,conv_iso,conv_ho,conv_ho2,conv_so2,conv_sulf;chem_ct:chem_co,chem_o3,chem_no,chem_no2,chem_hno3,chem_iso,chem_ho,chem_ho2,chem_so2,chem_sulf;vmix_ct:vmix_co,vmix_o3,vmix_no,vmix_no2,vmix_hno3,vmix_iso,vmix_ho,vmix_ho2,vmix_so2,vmix_sulf;advh_ct:advh_co,advh_o3,advh_no,advh_no2,advh_hno3,advh_iso,advh_ho,advh_ho2,advh_so2,advh_sulf;advz_ct:advz_co,advz_o3,advz_no,advz_no2,advz_hno3,advz_iso,advz_ho,advz_ho2,advz_so2,advz_sulf
 
 package   nobudgetdiag     budgetdiag==0         -                -
 #the order for these species tendency must be the same for different processes -czhao
