@@ -350,7 +350,7 @@ CONTAINS
            stop
           endif
 
-          if (config_flags%plumerisefire_climate) then !AEROCOM climate plume height 
+          if (plumerisefire_climate) then !AEROCOM climate plume height 
 
           fireheight(1)=0
           fireheight(2)=100
