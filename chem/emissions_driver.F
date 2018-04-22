@@ -686,8 +686,8 @@ CONTAINS
 !
        call add_emis_burn(id,dtstep,ktau,dz8w,rho_phy,tracer,&
             julday,gmt,xlat,xlong,t_phy,p_phy,                           &
-            ebu,0,config_flags%tracer_opt,config_flags%biomass_burn_opt,     &
-            do_plumerisefire, & 
+            ebu,0,config_flags%tracer_opt,config_flags%biomass_burn_opt,  &
+            do_plumerisefire, config_flags%plumerisefire_climate, & 
             num_tracer,ids,ide, jds,jde, kds,kde,               &
             ims,ime, jms,jme, kms,kme,                                   &
             its,ite, jts,jte, kts,kte                                    )
@@ -783,7 +783,7 @@ CONTAINS
        call add_emis_burn(id,dtstep,ktau,dz8w,rho_phy,chem,&
             julday,gmt,xlat,xlong,t_phy,p_phy,                           &
             ebu,config_flags%chem_opt,0,config_flags%biomass_burn_opt,     &
-            do_plumerisefire, &
+            do_plumerisefire,config_flags%plumerisefire_climate, &
             num_chem,ids,ide, jds,jde, kds,kde,                &
             ims,ime, jms,jme, kms,kme,                           &
             its,ite, jts,jte, kts,kte                                    )

@@ -402,7 +402,14 @@ CONTAINS
 
 ! compute mass emissions [(ug/m3)*m/s] for each species
 ! using the apportioning fractions
-! czhao add biomass burning emissions here for MOSAIC aerosols
+! czhao add biomass burning emissions here for MOSAIC aerosols, plumerise or climate
+         fire_oc=0.0
+         fire_bc=0.0
+         fire_oin=0.0
+         fire_num=0.0
+
+         if (config_flags%plumerisefire_climate) then !AEROCOM climate plume height 
+
           fireheight(1)=0
           fireheight(2)=100
           fireheight(3)=500
@@ -483,10 +490,6 @@ CONTAINS
           enddo
           enddo
 
-          fire_oc=0.0
-          fire_bc=0.0
-          fire_oin=0.0
-          fire_num=0.0
           do nk=1,firelevel
           do k=emisbot(nk),emistop(nk)
 
@@ -511,19 +514,51 @@ CONTAINS
 
            !number
            total_emis(nk)= bbemis_frac(nk)*dtstep* &
-      (fr_aem_sorgam_i(n)*bb_emass_ifrac*sum(ebu(i,kts:kte,j,p_ebu_bc))/dens_bc_aer + &
-       fr_aem_sorgam_j(n)*bb_emass_jfrac*sum(ebu(i,kts:kte,j,p_ebu_bc))/dens_bc_aer + &
-       fr_aem_sorgam_i(n)*bb_emass_ifrac*sum(ebu(i,kts:kte,j,p_ebu_oc))/dens_oc_aer + &
-       fr_aem_sorgam_j(n)*bb_emass_jfrac*sum(ebu(i,kts:kte,j,p_ebu_oc))/dens_oc_aer + &
-       fr_aem_sorgam_i(n)*bb_emass_ifrac*sum(ebu(i,kts:kte,j,p_ebu_pm25))/dens_oin_aer + &
-       fr_aem_sorgam_j(n)*bb_emass_jfrac*sum(ebu(i,kts:kte,j,p_ebu_pm25))/dens_oin_aer + &
-       fr_aem_sorgam_c(n)*sum(ebu(i,kts:kte,j,p_ebu_pm10))/dens_oin_aer )* &
-       ! then multiply by 1.0e-6 to convert ug to g
-       ! and divide by particle volume at center of section (cm3)
-       1.0e-6/volumcen_sect(n,itype)
+           (fr_aem_sorgam_i(n)*bb_emass_ifrac*sum(ebu(i,kts:kte,j,p_ebu_bc))/dens_bc_aer + &
+           fr_aem_sorgam_j(n)*bb_emass_jfrac*sum(ebu(i,kts:kte,j,p_ebu_bc))/dens_bc_aer + &
+           fr_aem_sorgam_i(n)*bb_emass_ifrac*sum(ebu(i,kts:kte,j,p_ebu_oc))/dens_oc_aer + &
+           fr_aem_sorgam_j(n)*bb_emass_jfrac*sum(ebu(i,kts:kte,j,p_ebu_oc))/dens_oc_aer + &
+           fr_aem_sorgam_i(n)*bb_emass_ifrac*sum(ebu(i,kts:kte,j,p_ebu_pm25))/dens_oin_aer + &
+           fr_aem_sorgam_j(n)*bb_emass_jfrac*sum(ebu(i,kts:kte,j,p_ebu_pm25))/dens_oin_aer + &
+           fr_aem_sorgam_c(n)*sum(ebu(i,kts:kte,j,p_ebu_pm10))/dens_oin_aer )* &
+           ! then multiply by 1.0e-6 to convert ug to g
+           ! and divide by particle volume at center of section (cm3)
+           1.0e-6/volumcen_sect(n,itype)
            fire_num(k)=fire_num(k)+total_emis(nk)/total_air(nk) !#/kg
           enddo !k
           enddo !nk
+
+         else  !plumerisefire_climate=false, online plumerise
+
+          do k=kts,kte
+           !apply the emissions and convert from flux to mixing ratio
+            fact = (dtstep/dz8w(i,k,j))*alt(i,k,j)
+ 
+            fire_oc(k)=fact*ebu(i,k,j,p_ebu_oc)* &
+                       (fr_aem_sorgam_i(n)*bb_emass_ifrac+ &
+                       fr_aem_sorgam_j(n)*bb_emass_jfrac)
+
+            fire_bc(k)=fact*ebu(i,k,j,p_ebu_bc)* &
+                       (fr_aem_sorgam_i(n)*bb_emass_ifrac+ &
+                       fr_aem_sorgam_j(n)*bb_emass_jfrac)
+
+            fire_oin(k)=fact*ebu(i,k,j,p_ebu_pm25)* &
+                        (fr_aem_sorgam_i(n)*bb_emass_ifrac+ &
+                         fr_aem_sorgam_j(n)*bb_emass_jfrac) + & 
+                        fact*ebu(i,k,j,p_ebu_pm10)*fr_aem_sorgam_c(n)
+
+            fire_num(k)=(fact*(fr_aem_sorgam_i(n)*bb_emass_ifrac+fr_aem_sorgam_j(n)*bb_emass_jfrac)* & 
+                        (ebu(i,k,j,p_ebu_bc)/dens_bc_aer+  &
+                         ebu(i,k,j,p_ebu_oc)/dens_oc_aer+  &
+                         ebu(i,k,j,p_ebu_pm25)/dens_oin_aer) +  &
+                        fact*fr_aem_sorgam_c(n)*ebu(i,k,j,p_ebu_pm10)/dens_oin_aer) *  &
+                        ! then multiply by 1.0e-6 to convert ug to g
+                        ! and divide by particle volume at center of section (cm3)
+                        1.0e-6/volumcen_sect(n,itype)
+
+          enddo 
+
+         endif !plumerisefire_climate
 
         !apply fire emissions
         do k =  kts,kte 

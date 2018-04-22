@@ -3,7 +3,7 @@ CONTAINS
        subroutine add_emis_burn(id,dtstep,ktau,dz8w,rho_phy,chem,       &
             julday,gmt,xlat,xlong,t_phy,p_phy,                          &
             ebu,chem_opt,tracer_opt,biomass_burn_opt,                   &
-            do_plumerisefire,   &
+            do_plumerisefire,plumerisefire_climate,  &
             num_c,ids,ide, jds,jde, kds,kde,                            &
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
@@ -20,7 +20,7 @@ CONTAINS
                                   its,ite, jts,jte, kts,kte,tracer_opt
    INTEGER,      INTENT(IN   ) ::                                          &
                                   ktau
-   LOGICAL,      INTENT(IN   ) ::  do_plumerisefire 
+   LOGICAL,      INTENT(IN   ) ::  do_plumerisefire,plumerisefire_climate 
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_c ),                 &
          INTENT(INOUT ) ::                                   chem
    REAL, DIMENSION( ims:ime, kms:kme, jms:jme, num_ebu ),                 &
@@ -49,7 +49,7 @@ CONTAINS
                              dtstep,gmt
     integer ::imonth1,idate1,iyear1,itime1
     integer :: i,j,k
-    real :: time,conv_rho
+    real :: time,conv_rho,fact
     integer :: iweek,idays
     real :: tign,timeq,r_q,r_antro
     real, dimension(7) :: week_CYCLE
@@ -350,6 +350,8 @@ CONTAINS
            stop
           endif
 
+          if (config_flags%plumerisefire_climate) then !AEROCOM climate plume height 
+
           fireheight(1)=0
           fireheight(2)=100
           fireheight(3)=500
@@ -491,6 +493,52 @@ CONTAINS
 
           enddo !k
           enddo !nk
+       
+        else  !plumerisefire_climate=false, online plumerise
+
+
+          do k=kts,kte
+           !mole/km2/hr to ppm
+           conv_rho=r_q*dtstep*29.0/(rho_phy(i,k,j)*1000.0*dz8w(i,k,j)*3600.0)
+
+           chem(i,k,j,p_so2)=chem(i,k,j,p_so2)+ebu(i,k,j,p_ebu_so2)*conv_rho
+
+           chem(i,k,j,p_sulf)=chem(i,k,j,p_sulf)+ebu(i,k,j,p_ebu_sulf)*conv_rho
+
+           chem(i,k,j,p_csl)=chem(i,k,j,p_csl)+ebu(i,k,j,p_ebu_csl)*conv_rho
+
+           chem(i,k,j,p_iso)=chem(i,k,j,p_iso)+ebu(i,k,j,p_ebu_iso)*conv_rho
+
+           chem(i,k,j,p_no)=chem(i,k,j,p_no)+ebu(i,k,j,p_ebu_no)*conv_rho
+
+           chem(i,k,j,p_ald)=chem(i,k,j,p_ald)+ebu(i,k,j,p_ebu_ald)*conv_rho
+
+           chem(i,k,j,p_hcho)=chem(i,k,j,p_hcho)+ebu(i,k,j,p_ebu_hcho)*conv_rho
+
+           chem(i,k,j,p_ora2)=chem(i,k,j,p_ora2)+ebu(i,k,j,p_ebu_ora2)*conv_rho
+
+           chem(i,k,j,p_eth)=chem(i,k,j,p_eth)+ebu(i,k,j,p_ebu_eth)*conv_rho
+
+           chem(i,k,j,p_co)=chem(i,k,j,p_co)+ebu(i,k,j,p_ebu_co)*conv_rho
+
+           chem(i,k,j,p_olt)=chem(i,k,j,p_olt)+ebu(i,k,j,p_ebu_olt)*conv_rho
+
+           chem(i,k,j,p_oli)=chem(i,k,j,p_oli)+ebu(i,k,j,p_ebu_oli)*conv_rho
+
+           chem(i,k,j,p_tol)=chem(i,k,j,p_tol)+ebu(i,k,j,p_ebu_tol)*conv_rho
+
+           chem(i,k,j,p_par)=chem(i,k,j,p_par)+conv_rho*  & 
+                             (0.4*ebu(i,k,j,p_ebu_ald) &
+                             +2.9*ebu(i,k,j,p_ebu_hc3) &
+                             +4.8*ebu(i,k,j,p_ebu_hc5) &
+                             +7.9*ebu(i,k,j,p_ebu_hc8) & 
+                             +0.9*ebu(i,k,j,p_ebu_ket) & 
+                             +2.8*ebu(i,k,j,p_ebu_oli) &
+                             +1.8*ebu(i,k,j,p_ebu_olt) &
+                             +1.0*ebu(i,k,j,p_ebu_ora2))  
+          enddo
+ 
+        endif !plumerisefire_climate 
 
         enddo !j
         enddo !i

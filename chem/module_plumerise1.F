@@ -310,7 +310,9 @@ subroutine plumerise_driver (id,ktau,dtstep,                           &
 !             endif
 
             do nv=1,num_ebu
-              do k=kts+1,kte
+!czhao correct for potential bug
+!             do k=kts+1,kte
+              do k=kts,kte
                 ebu(i,k,j,nv)=eburn_out(k,nv)*(z_at_w(i,k+1,j)-z_at_w(i,k,j))
               enddo
             enddo

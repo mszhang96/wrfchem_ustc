@@ -101,9 +101,12 @@ subroutine plumerise(m1,m2,m3,ia,iz,ja,jz,firesize,mean_fct   &
  	   zzcon (k)=zm_rams(k)               ! W-point height
 !	   print*,'PL:',k,zcon(k),picon (k),thtcon(k),1000.*rvcon (k)
  	 enddo
-         do ispc=1,nspecies
-	      eburn_out(1,ispc) = eburn_in(ispc)
-         enddo
+
+         !czhao+++++++
+         !do ispc=1,nspecies
+	 !     eburn_out(1,ispc) = eburn_in(ispc)
+         !enddo
+         !czhao-------
  	
          !- get envinronmental state (temp, water vapor mix ratio, ...)
  	 call get_env_condition(1,m1,kmt,wind_eff)
