@@ -1393,6 +1393,10 @@ END subroutine mechanism_driver
 !
 ! calculate aerosol optical properities
 !
+
+      !czhao
+      call cpu_time(startt)
+
       !czhao initialize totoa
       if (ktau==1.or.config_flags%restart) then 
       grid%totoa_a01(its:ite,kts:kte,jts:jte)=0.0
@@ -1433,9 +1437,17 @@ END subroutine mechanism_driver
               its,ite, jts,jte, kts,kte)
       endif
 
+      call cpu_time(finisht)
+      print '("Chun Zhao check: optical_driver, Time = ",f6.3," seconds.")',finisht-startt
+
+
 !
 ! calculate photolysis rates
 !
+
+      !czhao
+      call cpu_time(startt)
+
       if( do_photstep .and. &
            config_flags%chem_opt /= CHEM_TRACER .and. &
            config_flags%chem_opt /= CHEM_VASH .and. &
@@ -1505,6 +1517,9 @@ END subroutine mechanism_driver
 #endif
       endif
 
+      call cpu_time(finisht)
+      print '("Chun Zhao check: photolysis_driver, Time = ",f6.3," seconds.")',finisht-startt
+
 
 !
 ! do vertical mixing with dry deposition
@@ -1523,6 +1538,9 @@ call budget_calc2(0,config_flags%chem_opt,chem,rho,  &
      grid%drydep_flux, &
      ims,ime, jms,jme, kms,kme,                              &
      its,ite, jts,jte, kts,kte                                )
+ 
+      !czhao
+      call cpu_time(startt)
 
       if (config_flags%vertmix_onoff>0) then
          if (ktau.gt.2) then
@@ -1664,9 +1682,15 @@ call budget_calc2(1,config_flags%chem_opt,chem,rho,  &
      ims,ime, jms,jme, kms,kme,                              &
      its,ite, jts,jte, kts,kte                                )
 
+      call cpu_time(finisht)
+      print '("Chun Zhao check: drydep_driver, Time = ",f6.3," seconds.")',finisht-startt
+
 !
 !   convective transport/wet deposition
 !
+
+      !czhao
+      call cpu_time(startt)
 
 call budget_calc(0,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
      grid%tmp_budget,grid%tend_wetdcv,  &
@@ -1838,6 +1862,8 @@ grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocphi)= &
 grid%drydep_flux(its:ite,jts:jte,1:4,p_drydep_ocphi)+ &
 (-1.)*tend_rate_dep(its:ite,jts:jte,1:4,4)
 
+      call cpu_time(finisht)
+      print '("Chun Zhao check: ctrans_driver, Time = ",f6.3," seconds.")',finisht-startt
 !
 ! For the chemistry tracer mode, only emissions and vertical mixing are done.
 ! So, finish any remaining tiles and then skip to the end of chem_driver.
@@ -1857,6 +1883,9 @@ if( do_chemstep .and.                           &
 !
 ! chemical mechanisms
 !
+
+      !czhao
+      call cpu_time(startt)
 
 ! save old concentrations for chemistry tendencies
 #if (EM_CORE == 1)
@@ -2110,10 +2139,14 @@ if ( cam_mam_aerosols ) &
         
         !BSINGH - Ends
         
-
+      call cpu_time(finisht)
+      print '("Chun Zhao check: gaschemistry_driver, Time = ",f6.3," seconds.")',finisht-startt
 
 !
 !   now do cloud chemistry
+
+      !czhao
+      call cpu_time(startt)
 !
 ! call budget_calc(0,config_flags%chem_opt,chem,rho,dz8w,grid%dt,  &
 !      grid%tmp_budget,grid%tend_cldchem,  &
@@ -2147,6 +2180,8 @@ if ( cam_mam_aerosols ) &
 !      ims,ime, jms,jme, kms,kme,                              &
 !      its,ite, jts,jte, kts,kte                                )
 
+      call cpu_time(finisht)
+      print '("Chun Zhao check: cloudchemistry_driver, Time = ",f6.3," seconds.")',finisht-startt
 
 !------------
 !   now do aerosols
@@ -2157,6 +2192,9 @@ if ( cam_mam_aerosols ) &
 !      ims,ime, jms,jme, kms,kme,                              &
 !      its,ite, jts,jte, kts,kte                                )
 
+
+      !czhao
+      call cpu_time(startt)
 
 	if(config_flags%aerchem_onoff>0)then
 
@@ -2212,9 +2250,15 @@ if ( cam_mam_aerosols ) &
 !      ims,ime, jms,jme, kms,kme,                              &
 !      its,ite, jts,jte, kts,kte                                )
 
+      call cpu_time(finisht)
+      print '("Chun Zhao check: aerosolchemistry_driver, Time = ",f6.3," seconds.")',finisht-startt
 
 !
 !   now do wet removal
+
+      !czhao
+      call cpu_time(startt)
+
 call budget_calc(0,config_flags%chem_opt,chem,rho,dz8w,dtstepc, &
      grid%tmp_budget,grid%tend_wetdls, &
      tend_rate_dep,snowchem_old,  &
@@ -2336,6 +2380,12 @@ end if !Chemistry time step check!
                 ims,ime, jms,jme, kms,kme,                                        &
                 its,ite, jts,jte, kts,kte                                         )
          endif
+
+      !czhao
+      call cpu_time(finisht)
+      print '("Chun Zhao check: wetdep_driver, Time = ",f6.3," seconds.")',finisht-startt
+
+
 !
 ! Sum up the aerosol mass for radiation and diagnostic purposes. Unlike
 ! aerosol_driver, which is called every dtchem, this must be done every

@@ -31,6 +31,10 @@ SUBROUTINE solve_interface ( grid )
 
    INTEGER     :: idum1, idum2
 
+!czhao check process time
+   REAL  :: startt, finisht
+
+
    CALL model_to_grid_config_rec ( grid%id , model_config_rec , config_flags )
    CALL set_scalar_indices_from_config ( grid%id , idum1 , idum2 )
 
@@ -42,14 +46,19 @@ SUBROUTINE solve_interface ( grid )
                )
 
 # ifdef WRF_CHEM
+     !czhao
+     call cpu_time(startt)
    IF ( config_flags%chem_opt > 0  ) THEN
 
      CALL chem_driver  ( grid , config_flags  &
+
 !
 # include <actual_new_args.inc>
 !
                )
    ENDIF
+     call cpu_time(finisht)
+     print '("Chun Zhao check: chem_driver, Time = ",f6.3," seconds.")',finisht-startt
 # endif
 #endif
 #if (NMM_CORE == 1)

@@ -1,0 +1,12 @@
+#!/bin/csh
+####PBS -A WYOM0057
+#PBS -N apr 
+#PBS -q batch 
+#PBS -l nodes=3:ppn=28 
+#PBS -l walltime=1:00:00
+#PBS -j oe 
+date
+cd $PBS_O_WORKDIR
+mpirun -n 84 ./wrf.exe
+date
+

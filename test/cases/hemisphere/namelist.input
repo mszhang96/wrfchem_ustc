@@ -1,0 +1,285 @@
+&time_control
+run_days                            = 01,
+run_hours                           = 0,
+run_minutes                         = 0,
+run_seconds                         = 0,
+start_year                          = 2018, 2018, 2018,
+start_month                         = 02,   02,   02,
+start_day                           = 02,   02,   02,
+start_hour                          = 00,   00,   00,
+start_minute                        = 00,   00,   00,
+start_second                        = 00,   00,   00,
+end_year                            = 2018, 2018, 2018,
+end_month                           = 02,   02,   02,
+end_day                             = 03,   03,   03,
+end_hour                            = 00,   00,   00,
+end_minute                          = 00,   00,   00,
+end_second                          = 00,   00,   00,
+interval_seconds                    = 21600
+input_from_file                     = .true.,.true.,.true.,
+history_interval                    = 360, 360, 360,
+frames_per_outfile                  = 4, 4, 4,
+write_hist_at_0h_rst                = .true.
+iofields_filename                   = "streams_io.txt","streams_io.txt","streams_io.txt"
+ignore_iofields_warning             = .true.,
+restart                             = .false., 
+restart_interval                    = 1440,
+io_form_history                     = 2
+io_form_restart                     = 2, 
+io_form_input                       = 2
+io_form_boundary                    = 2
+io_form_auxinput1                   = 2,
+io_form_auxinput2                   = 2,
+io_form_auxinput4                   = 2,
+io_form_auxinput5                   = 2,
+io_form_auxinput7                   = 2,
+io_form_auxinput8                   = 2,
+io_form_auxinput10                  = 2,
+auxinput1_inname                    = "metdata/met_em.d<domain>.<date>",
+auxinput4_inname                    = "wrflowinp_d<domain>",
+auxinput7_inname                    = 'wrffirechemi_d<domain>',
+auxinput8_inname                    = 'wrfchemi_gocart_bg_d<domain>',
+auxinput10_inname                   = "wrffdda_d<domain>",
+auxinput5_interval_m                = 60, 60, 60,
+frames_per_auxinput5                = 24, 24, 24,
+auxinput7_interval_m                = 60, 60, 60,
+frames_per_auxinput7                = 1, 1, 1,
+auxinput8_interval_m                = 864000, 864000, 864000,
+auxinput10_interval_m               = 360, 360, 360,
+io_form_auxhist2                    = 2,
+auxhist2_outname                    = "wrf1hr_d<domain>_<date>"
+auxhist2_interval                   = 60, 60, 60
+frames_per_auxhist2                 = 24, 24, 24,
+io_form_auxhist3                    = 2,
+auxhist3_outname                    = "wrf3hr_d<domain>_<date>"
+auxhist3_interval                   = 180, 180, 180
+frames_per_auxhist3                 = 8, 8, 8,
+io_form_auxhist4                    = 2,
+auxhist4_outname                    = "wrfchemistry_d<domain>_<date>"
+auxhist4_interval                   = 180, 180, 180
+frames_per_auxhist4                 = 8, 8, 8,
+debug_level                         = 0,
+/
+
+&domains
+time_step                           = 300,
+time_step_fract_num                 = 0,
+time_step_fract_den                 = 1,
+max_dom                             = 3,
+s_we                                = 1,     1,     1,
+e_we                                = 361, 113,   111,
+s_sn                                = 1,     1,     1, 
+e_sn                                = 146, 106,   111,
+s_vert                              = 1,     1,     1,
+e_vert                              = 41,   41,    41,
+eta_levels                          = 1.000,0.9965,0.9930,0.9880,0.9830,0.9765,
+                                      0.970,0.9620,0.9540,0.9440,0.9340,0.9215,
+                                      0.909,0.8945,0.8800,0.8664,0.8527,0.8391,
+                                      0.825,0.7982,0.7709,0.7202,0.6718,0.6258,
+                                      0.582,0.5404,0.5008,0.4632,0.4275,0.3935,
+                                      0.361,0.3308,0.2744,0.2239,0.1787,0.1384,
+                                      0.103,0.0707,0.0432,0.0199,0.000
+p_top_requested                     = 10000,
+num_metgrid_levels                  = 38,
+num_metgrid_soil_levels             = 4,
+dx                                  = 111177.5, 15882.5,  3176.5,
+dy                                  = 111177.5, 15882.5,  3176.5,
+grid_id                             = 1,     2,     3,
+parent_id                           = 0,     1,     2,
+i_parent_start                      = 1,   290,    57,
+j_parent_start                      = 1,    93,    38,
+parent_grid_ratio                   = 1,     7,     5,
+parent_time_step_ratio              = 1,     4,     5,
+feedback                            = 0,
+smooth_option                       = 0
+zap_close_levels                    = 50
+interp_theta                        = .true.
+interp_type                         = 1
+t_extrap_type                       = 2
+force_sfc_in_vinterp                = 0
+use_levels_below_ground             = .true.
+use_surface                         = .true.
+lagrange_order                      = 1
+sfcp_to_sfcp                        = .true.,
+/
+nproc_x                             = 6,    
+nproc_y                             = 4,    
+
+
+&physics
+mp_physics                          = 10,     10,     10,
+progn                               = 1,       1,      1,
+progn_ice                           = 0,       0,      0
+ice_para                            = 1,
+mixcloud                            = 0,
+wsubscheme                          = 0,
+ra_lw_physics                       = 4,     4,     4,
+ra_sw_physics                       = 4,     4,     4,
+radt                                = 30,    15,    5,
+sf_sfclay_physics                   = 1,     1,     1,
+sf_surface_physics                  = 5,     5,     5,
+bl_pbl_physics                      = 1,     1,     1,
+bldt                                = 0,     0,     0,
+topo_wind                           = 1,
+cu_physics                          = 1,     1,     0,
+cudt                                = 5,     5,     5,
+isfflx                              = 1,
+ifsnow                              = 1,
+icloud                              = 1,
+surface_input_source                = 1,
+num_soil_layers                     = 10,
+sf_urban_physics                    = 0,     0,     0,
+mp_zero_out                         = 2,
+mp_zero_out_thresh                  = 1.e-12
+maxiens                             = 1,
+maxens                              = 3,
+maxens2                             = 3,
+maxens3                             = 16,
+ensdim                              = 144,
+cu_rad_feedback                     = .false.,
+sst_update                          = 1
+sst_skin                            = 1
+tmn_update                          = 1
+usemonalb                           = .true.
+megan_factors_file                  = 'megan21_emis_factors_c20130304.nc'
+input_pft                           = .false.
+/
+bucket_mm                           = 1.e6
+bucket_J                            = 1.e9
+
+&fdda
+grid_fdda                           = 1, 1, 0,
+xwavenum                            = 3
+ywavenum                            = 3
+gfdda_inname                        = "wrffdda_d<domain>",
+gfdda_interval_m                    = 360,   360,   360,
+gfdda_end_h                         = 720000,  720000,    720000,
+if_no_pbl_nudging_uv                = 1,     1,     1,
+if_no_pbl_nudging_t                 = 1,     1,     1,
+if_no_pbl_nudging_q                 = 1
+if_no_pbl_nudging_ph                = 1
+guv                                 = 0.0003,     0.0003,     0.0003,
+gt                                  = 0.0003,     0.0003,     0.0003,
+gq                                  = 0.00001,    0.00001,   0.00001,
+gph                                 = 0.00001,    0.00001,   0.00001,
+if_ramping                          = 1,
+dtramp_min                          = 60.0,
+io_form_gfdda                       = 2,
+
+obs_nudge_opt                       = 0
+max_obs                             = 1000000,
+obs_nudge_wind                      = 1
+obs_coef_wind                       = 1.E-4
+obs_nudge_temp                      = 1
+obs_coef_temp                       = 1.E-4
+obs_nudge_mois                      = 1
+obs_coef_mois                       = 1.E-4
+obs_rinxy                           = 100
+obs_rinsig                          = 0.05,
+obs_twindo                          = 0.33
+obs_npfi                            = 1,
+obs_ionf                            = 72, 2, 2, 2, 2
+obs_idynin                          = 0,
+obs_dtramp                          = 60.,
+obs_ipf_errob                       = .true.
+obs_ipf_nudob                       = .true.
+obs_ipf_in4dob                      = .true.
+obs_ipf_init                        = .true.
+/
+
+&dynamics
+rk_ord                              = 3,
+w_damping                           = 1,
+diff_opt                            = 1,
+km_opt                              = 4,
+diff_6th_opt                        = 0,      0,      0,
+diff_6th_factor                     = 0.12,   0.12,   0.12,
+base_temp                           = 290.
+damp_opt                            = 3,
+zdamp                               = 1000.,  1000.,  1000.,
+dampcoef                            = 0.2,    0.2,    0.2
+khdif                               = 0,      0,      0,
+kvdif                               = 0,      0,      0,
+non_hydrostatic                     = .true., .true., .true.,
+moist_adv_opt                       = 2,      2,      2,     
+scalar_adv_opt                      = 2,      2,      2,     
+chem_adv_opt                        = 2,      2,      2,
+tke_adv_opt                         = 2,      2,      2,
+time_step_sound                     = 4,      4,      4,
+h_mom_adv_order                     = 5,      5,      5,
+v_mom_adv_order                     = 3,      3,      3,
+h_sca_adv_order                     = 5,      5,      5,
+v_sca_adv_order                     = 3,      3,      3,
+fft_filter_lat                      = 45.,
+/
+
+&bdy_control
+periodic_x                          = .true., .false.,.false.,
+symmetric_xs                        = .false.,.false.,.false.,
+symmetric_xe                        = .false.,.false.,.false.,
+open_xs                             = .false.,.false.,.false.,
+open_xe                             = .false.,.false.,.false.,
+periodic_y                          = .false.,.false.,.false.,
+symmetric_ys                        = .false.,.false.,.false.,
+symmetric_ye                        = .false.,.false.,.false.,
+open_ys                             = .false.,.false.,.false.,
+open_ye                             = .false.,.false.,.false.,
+specified                           = .true., .false.,.false.,
+spec_bdy_width                      = 5,
+spec_zone                           = 1,
+relax_zone                          = 4,
+nested                              = .false., .true., .true.,
+polar                               = .false. ,.false.,.false.,
+/
+
+&grib2
+/
+
+&namelist_quilt
+nio_tasks_per_group = 0,
+nio_groups = 1,
+/
+
+&chem
+kemit                               = 20,
+kfire                               = 1,
+chem_opt                            = 34,      34,      34,
+chem_in_opt                         = 1,        1,        1,
+io_style_emissions                  = 101,
+io_style_fireemissions              = 101,
+chemdt                              = 5,       2.5,        1,
+bioemdt                             = 60,       60,       60,
+photdt                              = 60,       60,       30,
+emiss_inpt_opt                      = 1,        1,         1,
+emiss_opt                           = 4,        4,         4,
+phot_opt                            = 2,        2,         2,
+gas_drydep_opt                      = 1,        1,         1,
+aer_drydep_opt                      = 101,    101,       101,
+settling_option                     = 1,
+aer_op_opt                          = 1,        1,         1,        
+bio_emiss_opt                       = 4,        4,         4,
+terrain_effect                      = .false.
+gas_bc_opt                          = 1,        1,        1,   
+gas_ic_opt                          = 1,        1,        1,
+aer_bc_opt                          = 1,        1,        1,
+aer_ic_opt                          = 1,        1,        1,
+gaschem_onoff                       = 1,        1,        1,
+aerchem_onoff                       = 1,        1,        1,
+wetscav_onoff                       = 1,        1,        1,
+cldchem_onoff                       = 1,        1,        1,
+vertmix_onoff                       = 1,        1,        1,
+chem_conv_tr                        = 4,        4,        0,
+chem_conv_scav                      = 1,        1,        0,
+seas_opt                            = 3,
+dust_opt                            = 11,
+emis_dust_factor                    = 1.0,
+dmsemis_opt                         = 1,
+biomass_burn_opt                    = 1,        1,        1,
+plumerisefire_frq                   = 60,      60,       60,
+plumerisefire_climate               = .true., 
+have_bcs_chem                       = .false., .false., .false.
+aer_ra_feedback                     = 1,  1,  1,
+aer_aerodynres_opt                  = 2,  2,  2
+ne_area                             = 67 
+/
+

@@ -1,0 +1,31 @@
+Running notes:
+1) damp_opt and dampcoef must be set correctly for extremely high resolution (see namelist for TP)
+2) ice_para must be 1 or 2, otherwise crash. progn_ice is used for control.
+if ice_para is set to 0, the model will crash after two time step when reaching dry deposition 
+3) The namelist in hemisphere can be followed for nested run 
+4) real.exe speed sometimes depends on how many nodes used. Using a single node sometimes can be much faster than using more nodes. 
+5) Compiling flags can significantly affect the simulation speed
+Much faster:
+CFLAGS_LOCAL    =       -w -O3 -ip -xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -no-multibyte-chars
+LDFLAGS_LOCAL   =       -ip -xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -align all -fno-alias -fno-common
+Slower:
+CFLAGS_LOCAL    =       -w -O3 -ip #-xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -no-multibyte-chars
+LDFLAGS_LOCAL   =       -ip #-xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -align all -fno-alias -fno-common
+6) Compiling with different modules may significantly affect the simulation speed (real.exe can be 10 Times different, wrf.exe can be 2 times different). 
+For examples, on AEMOL, the modules below can be much faster than the modules with intel MPI:
+##Faster
+module load intelcompiler-15.0.1
+module load mpi/openmpi-2.1.0
+module load hdf5-1.10.1
+module load netcdf-4.6.0
+module load pnetcdf-1.9.0
+##Slower
+module load mpi/mpich3.1-icc
+module load cmake-3.5.1
+module load intelcompiler-15.0.1
+module load mpas/pnetcdf-1.9.0
+module load mpas/netcdf-4.4.1
+Another examples, compiling flags can 
+CFLAGS_LOCAL    =       -w -O3 -ip #-xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -no-multibyte-chars
+LDFLAGS_LOCAL   =       -ip #-xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -align all -fno-alias -fno-common
+

@@ -1,0 +1,12 @@
+#!/bin/csh
+####PBS -A WYOM0057
+#PBS -N updatebc 
+#PBS -q batch 
+#PBS -l nodes=1:ppn=1 
+#PBS -l walltime=1:00:00
+#PBS -j oe 
+date
+cd $PBS_O_WORKDIR
+./wrfchembc < namelist.input > updatebc.out
+date
+
