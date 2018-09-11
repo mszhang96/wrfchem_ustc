@@ -25,7 +25,11 @@ module load cmake-3.5.1
 module load intelcompiler-15.0.1
 module load mpas/pnetcdf-1.9.0
 module load mpas/netcdf-4.4.1
-Another examples, compiling flags can 
-CFLAGS_LOCAL    =       -w -O3 -ip #-xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -no-multibyte-chars
-LDFLAGS_LOCAL   =       -ip #-xHost -fp-model fast=2 -no-prec-div -no-prec-sqrt -ftz -align all -fno-alias -fno-common
+7) WRF-Chem sometimes has the error message below, it may due to the compiling switch, in particular if the error occurs at the beginning of run. It can be improved with adding "FCDEBUG = -heap-arrays" in configure.wrf
+ -------------- FATAL CALLED ---------------
+ FATAL CALLED FROM FILE:  <stdin>  LINE:      76
+  *** exceeded lsodes failure limit =        1000
+ -------------------------------------------
+8) It is found that sometimes the model runs very slow particularly for real.exe, it may be due to the parallel communication is through ethernet instead of infiniband (IB) that is required for parallel computing. In addition, openmpi can use IB for parallel with some running parameters after mpirun, while mpich is more difficult to use IB. 
+9) Some switches in configure.wrf can cause WRF run with unstable speed, it has to be used with caution if the default switches need to be adjusted.
 
