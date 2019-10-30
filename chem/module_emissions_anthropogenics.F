@@ -304,7 +304,7 @@ CONTAINS
                   e_bio(i,j,p_co-1)*conv_rho
         chem(i,kts,j,p_no)=chem(i,kts,j,p_no)+ &
                   e_bio(i,j,p_no-1)*conv_rho
-!
+!                                                                
 ! RADM only
 !
         if(p_hc3.gt.1) chem(i,kts,j,p_hc3)=chem(i,kts,j,p_hc3)+ &
@@ -346,6 +346,12 @@ CONTAINS
                 + e_bio(i,j,p_hc3-1)*4.8*conv_rho
  100  continue
 !     enddo
+! mszhang check the isoprene e_bio and chem in Guenther1
+  write(0,*) 'mszhang check the e_bio and chem for isoprene in Guenther1',p_iso,e_bio(74,23,p_iso-1),e_bio(74,23,38),&
+                                                                 chem(74,0,23,p_iso),chem(74,0,23,38)
+  print*, 'mszhang check the e_bio and chem for isoprene in Guenther1',p_iso,e_bio(74,23,p_iso-1),e_bio(74,23,38),&
+                                                                 chem(74,0,23,p_iso),chem(74,0,23,38)
+
      CASE (BEIS314)
      CALL wrf_debug(100,'adding biogenic emissions: beis3.1.4')
       do j=jts,jte  

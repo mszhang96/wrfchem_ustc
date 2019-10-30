@@ -15,6 +15,8 @@ MODULE module_bioemi_simple
     CONTAINS
       SUBROUTINE bio_emissions(id,ktau,dtstep,DX,                         &
                config_flags,                                              &
+               !mszhang add adjust factor
+               af_iso,                                                   &
                gmt,julday,t_phy,moist,p8w,t8w,                            &
                e_bio,p_phy,chem,rho_phy,dz8w,ne_area,                     &
                ivgtyp,gsw,vegfra,rmol,ust,znt,xlat,xlong,z_at_w,          &
@@ -57,6 +59,10 @@ MODULE module_bioemi_simple
                                                      znt
       REAL,      INTENT(IN   ) ::                                         &
                              dtstep,dx,gmt
+ 
+ !  mszhang add gamma for Guenther1
+     REAL, DIMENSION(ims:ime,jms:jme),INTENT(OUT) :: af_iso
+     
 !--- deposition and emissions stuff
 ! .. Parameters ..
    TYPE(grid_config_rec_type),  INTENT(IN   )    :: config_flags
@@ -75,7 +81,7 @@ MODULE module_bioemi_simple
       REAL ::  clwchem,eiso,eisoc,emter,emterc,eovoc,eovocc,e_n,e_nn,  &
         pa,rad, rhchem, ta, ustar, vegfrac, vocsc, xtimin, z1,zntt
       INTEGER :: i,j,iland, iprt, iseason, n, nr, ipr,jpr,nvr
-
+      real :: ecf_iso1d
 
 ! .. Intrinsic Functions ..
       INTRINSIC max, min
@@ -125,7 +131,9 @@ MODULE module_bioemi_simple
 !--- biogenic emissions
       emiss_bio=0.
       CALL biogen(iland,ta,rad,eiso,emter,eovoc,e_n,vocsc,eisoc,emterc,eovocc, &
-        e_nn,pa,luse_typ,iseason,vegflag)
+        e_nn,pa,luse_typ,iseason,vegflag,ecf_iso1d)
+
+        af_iso(i,j) = ecf_iso1d
 !     if(i.eq.5.and.j.eq.5)then
 !         print *,iland
 !         print *,ta,rad,vocsc,pa,luse_typ,aefiso,aefovoc,aefmter, &
@@ -135,14 +143,16 @@ MODULE module_bioemi_simple
 
 !     PRINT *, eiso, emter, eovoc, e_n, eisoc, eovocc                 
       CALL biosplit(iland,eiso,emter,eovoc,e_n,emiss_bio,ne_area,vegfrac, &
-        luse_typ,vegflag)
+        luse_typ,vegflag,config_flags%chem_opt)
 !     PRINT *, 'emiss_bio(liso)  emiss_bio(lald)  emiss_bio(lhcho) ', &
 !       ' emiss_bio(lhc3)'
 !     PRINT *, emiss_bio(liso), emiss_bio(lald), emiss_bio(lhcho), &
 !       emiss_bio(lhc3)
-      DO n = 1, ne_area-2
+      DO n = 1, ne_area
         e_bio(i,j,n) = emiss_bio(n)
 !       if(i.eq.5.and.j.eq.5)print *,emiss_bio(n)
+!   write(0,*) 'mszhang check e_bio in Guenther1',p_iso,e_bio(i,j,p_iso-1)
+!   print*, 'mszhang check e_bio in Guenther1',p_iso,e_bio(i,j,p_iso-1)
       END DO
  100  continue
 END SUBROUTINE bio_emissions
@@ -951,7 +961,7 @@ END SUBROUTINE bio_emissions
 ! ***********************  SUBROUTINE BIOGEN  **************************
 ! **********************************************************************
       SUBROUTINE biogen(iland,ta,rad,eiso,emter,eovoc,e_n,vocsc,eisoc,emterc, &
-          eovocc,e_nn,pa,mminlu,isn,vegflag)
+          eovocc,e_nn,pa,mminlu,isn,vegflag,ecf_iso1d)
 
 !     THIS PROGRAMM COMPUTES THE ACTUAL BIOGENIC EMISSION RATE FOR
 !     ISOPRENE, MONTERPENES, OTHER ORGANIC COMPOUNDS, AND NITROGEN FOR
@@ -999,6 +1009,7 @@ END SUBROUTINE bio_emissions
         INTEGER :: iland, isn
         LOGICAL :: vegflag
         CHARACTER (4) :: mminlu
+        real :: ecf_iso1d
 ! ..
 ! .. Array Arguments ..
 !       REAL :: aefiso(nlu), aefmter(nlu), aefovoc(nlu), aef_n(nlu)
@@ -1006,7 +1017,7 @@ END SUBROUTINE bio_emissions
 ! ..
 ! .. Local Scalars ..
         REAL :: alpha, beta, cl, cl1, coniso, conn, conovoc, conter, ct, ct1, &
-          ct2, ecf_iso, ecf_mter, ecf_n, ecf_ovoc, par, r, rat, tm, ts, tsoil
+          ct2,ecf_iso, ecf_mter, ecf_n, ecf_ovoc, par, r, rat, tm, ts, tsoil
 ! ..
 ! .. Intrinsic Functions ..
         INTRINSIC exp, sqrt
@@ -1094,6 +1105,7 @@ END SUBROUTINE bio_emissions
           ecf_ovoc = 0.
           ecf_n = 0.
         END IF
+         ecf_iso1d = ecf_iso
 !**********************************************************************
 !**********************************************************************
 !  Calculation of Emissions
@@ -1153,7 +1165,7 @@ END SUBROUTINE bio_emissions
 ! ***********************  SUBROUTINE BIOSPLIT *************************
 ! **********************************************************************
       SUBROUTINE biosplit(iland,eiso,emter,eovoc,e_n,emiss_bio,ne_area, &
-          vegfrc,mminlu,vegflag)
+          vegfrc,mminlu,vegflag,chemopt)
 !     THIS PROGRAMM SPLITS THE BIOGENIC EMISSION RATES FOR
 !     MONOTERPENES AND OTHER ORGANIC COMPOUNDS INTO THE
 !     COMPOUND CLASSES OF THE CHEMISTRY MODEL
@@ -1206,12 +1218,16 @@ END SUBROUTINE bio_emissions
 !        XYL -- p-cymene
 !        The other VOCs are grouped according to Middleton et al. (1990)
 !***********************************************************************
+!mszhang 2019
+  USE module_configure
+  USE module_state_description
 ! .. Scalar Arguments ..
         REAL :: eiso, emter, eovoc, e_n, vegfrc
         INTEGER :: iland, ne_area
 !       INTEGER :: lald, lhc3, lhc5, lhc8, lhcho, liso, lket, lno, &
 !         loli, lolt, lora1, lora2, lxyl
-! ..
+!mszhang add chemopt to select chemistry scheme
+        INTEGER :: chemopt
 ! .. Array Arguments ..
         REAL :: emiss_bio(ne_area)
 !       INTEGER :: ixxxlu(nlu)
@@ -1221,6 +1237,31 @@ END SUBROUTINE bio_emissions
         CHARACTER (4) :: mminlu
 ! ..
 !     *****************************************************************
+!     Correction for vegetation fraction
+        IF ((mminlu=='USGS') .AND. (vegflag)) THEN
+          eiso = eiso*vegfrc/100.
+          emter = emter*vegfrc/100.
+          eovoc = eovoc*vegfrc/100.
+        END IF
+
+!     ****************************************************************
+! mszhang add this program to select chemistry option, original version
+! was only adapted to RADM2, which compounds pointer(defined in module_data_radm2)
+! is different from other chemsitry options(CBMZ and so on) (2019/8/30)
+! i.e. liso = 39 in RADM2 defined in module_data_radm2 and p_iso = 32 in CBMZ
+! But we only add CBMZ scheme, and retain original RADM scheme,
+! other chemsitry scheme will display error message!!!
+! We suggest use uniform pointer(defined in registry.chem) !!!
+!***************************************************************************
+GAS_MECH_SELECT: select case(chemopt)
+  
+  CASE ( MOZART_KPP, MOZCART_KPP, MOZART_MOSAIC_4BIN_VBS0_KPP )
+
+   call wrf_error_fatal("SETTINGS ERROR: Currently, the MOZART chemistry scheme is not tested in Guenther1!!!")
+  
+  CASE (RADM2, RADM2_KPP, RADM2SORG, RADM2SORG_AQ, RADM2SORG_AQCHEM, RADM2SORG_KPP,GOCARTRADM2, GOCARTRADM2_KPP)
+
+   !     *****************************************************************
 !     Correction for vegetation fraction
         IF ((mminlu=='USGS') .AND. (vegflag)) THEN
           eiso = eiso*vegfrc/100.
@@ -1300,6 +1341,131 @@ END SUBROUTINE bio_emissions
         IF ((mminlu=='OLD ') .AND. (iland==12)) THEN
           emiss_bio(loli) = emiss_bio(loli) + emter
         END IF
+  
+  CASE (RACMSORG_AQ, RACMSORG_AQCHEM_KPP, RACM_ESRLSORG_AQCHEM_KPP, RACM_ESRLSORG_KPP, RACM_KPP, GOCARTRACM_KPP, &
+                 RACMSORG_KPP, RACM_MIM_KPP, RACMPM_KPP,RACM_SOA_VBS_KPP)
+
+   call wrf_error_fatal("SETTINGS ERROR: Currently, the RACM chemistry scheme is not tested in Guenther1!!!")
+
+  CASE (CBMZ, CBMZ_BB, CBMZ_BB_KPP, CBMZ_MOSAIC_KPP, &
+                CBMZ_MOSAIC_4BIN_VBS2_KPP, CBMZ_MOSAIC_4BIN, &
+                CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, CBMZ_MOSAIC_8BIN_AQ, &
+                CBMZ_MOSAIC_DMS_4BIN, CBMZ_MOSAIC_DMS_8BIN, &
+                CBMZ_MOSAIC_DMS_4BIN_AQ,CBMZ_MOSAIC_DMS_8BIN_AQ,CBMZSORG, CBMZSORG_AQ, &
+                CBMZ_MOSAIC_DMS_4BIN_AQ_SOURCE,CBMZ_MOSAIC_DMS_8BIN_AQ_SOURCE, &
+                CBMZ_CAM_MAM3_NOAQ, CBMZ_CAM_MAM3_AQ, CBMZ_CAM_MAM7_NOAQ, CBMZ_CAM_MAM7_AQ)
+!     *****************************************************************
+!     Isoprene and NO
+
+        emiss_bio(p_iso-1) = eiso
+        emiss_bio(p_no) = emiss_bio(p_no) + e_n
+
+!     *****************************************************************
+!     Agricultural land
+
+        IF (ixxxlu(iland)==2) THEN
+          emiss_bio(p_oli-1) = emiss_bio(p_oli-1) + 0.80*emter
+          emiss_bio(p_iso-1) = emiss_bio(p_iso-1) + 0.20*emter
+       !mszhang(CBMZ does not contain hc5 and hc8,so convert to par species!)
+          !emiss_bio(lhc5) = emiss_bio(lhc5) + 0.16*eovoc
+          !emiss_bio(lhc8) = emiss_bio(lhc8) + 0.27*eovoc
+          emiss_bio(p_olt-1) = emiss_bio(p_olt-1) + 0.05*eovoc
+          emiss_bio(p_oli-1) = emiss_bio(p_oli-1) + 0.37*eovoc
+          emiss_bio(p_ket-1) = emiss_bio(p_ket-1) + 0.03*eovoc
+          emiss_bio(p_ald-1) = emiss_bio(p_ald-1) + 0.12*eovoc
+          emiss_bio(p_par-1) = ( 0.4*emiss_bio(p_ald-1) + (4.8*0.16*eovoc)            &
+                                    +(7.9*0.27*eovoc) + 0.9*emiss_bio(p_ket-1)        &
+                                    +2.8*emiss_bio(p_oli-1) + 1.8*emiss_bio(p_olt-1))
+        END IF
+
+!     *****************************************************************
+!     Grassland
+
+        IF (ixxxlu(iland)==3) THEN
+          emiss_bio(p_oli-1) = emiss_bio(p_oli-1) + 0.98*emter
+          emiss_bio(p_iso-1) = emiss_bio(p_iso-1) + 0.02*emter
+          !emiss_bio(lhc5) = emiss_bio(lhc5) + 0.09*eovoc
+          emiss_bio(p_olt-1) = emiss_bio(p_olt-1) + 0.07*eovoc
+          emiss_bio(p_oli-1) = emiss_bio(p_oli-1) + 0.51*eovoc
+          emiss_bio(p_ket-1) = emiss_bio(p_ket-1) + 0.15*eovoc
+          emiss_bio(p_ald-1) = emiss_bio(p_ald-1) + 0.18*eovoc
+          emiss_bio(p_par-1) = ( 0.4*emiss_bio(p_ald-1) + (4.8*0.09*eovoc)        &
+                                    + 0.9*emiss_bio(p_ket-1)                      &
+                                    +2.8*emiss_bio(p_oli-1) + 1.8*emiss_bio(p_olt-1) )
+        END IF
+
+!     *****************************************************************
+!     Deciduous forest
+
+        IF (ixxxlu(iland)==4) THEN
+          emiss_bio(p_oli-1)  = emiss_bio(p_oli-1)  + 0.94*emter
+          emiss_bio(p_iso-1)  = emiss_bio(p_iso-1)  + 0.02*emter
+          emiss_bio(p_hcho-1) = emiss_bio(p_hcho-1) + 0.19*eovoc
+          emiss_bio(p_ald-1)  = emiss_bio(p_ald-1)  + 0.13*eovoc
+          !CBMZ contain xyl,can not comment!(mszhang 2019/9/3)
+          !emiss_bio(lxyl)  = emiss_bio(lxyl)  + 0.04*emter
+          emiss_bio(p_xyl-1)  = emiss_bio(p_xyl-1)  + 0.04*emter
+          !emiss_bio(lhc5) = emiss_bio(lhc5) + 0.03*eovoc
+          emiss_bio(p_oli-1)  = emiss_bio(p_oli-1)  + 0.07*eovoc
+          emiss_bio(p_ora1-1) = emiss_bio(p_ora1-1) + 0.23*eovoc
+          emiss_bio(p_ora2-1) = emiss_bio(p_ora2-1) + 0.35*eovoc
+          emiss_bio(p_par-1)  = ( 0.4*emiss_bio(p_ald-1) + (4.8*0.03*eovoc)          &
+                                    + 0.9*emiss_bio(p_ket-1)                         &
+                                    +2.8*emiss_bio(p_oli-1) + 1.8*emiss_bio(p_olt-1) &
+                                    +1.0*emiss_bio(p_ora2-1))
+        END IF
+
+!     *****************************************************************
+!     Coniferous forest and mixed forest
+
+
+        IF (ixxxlu(iland)==5) THEN
+          emiss_bio(p_oli-1)  = emiss_bio(p_oli-1)  + 0.85*emter
+          emiss_bio(p_iso-1)  = emiss_bio(p_iso-1)  + 0.15*emter
+          emiss_bio(p_hcho-1) = emiss_bio(p_hcho-1) + 0.04*eovoc
+          emiss_bio(p_ald-1)  = emiss_bio(p_ald-1)  + 0.14*eovoc
+          !emiss_bio(lhc3) = emiss_bio(lhc3) + 0.07*eovoc
+          !emiss_bio(lhc5) = emiss_bio(lhc5) + 0.07*eovoc
+          emiss_bio(p_olt-1)  = emiss_bio(p_olt-1)  + 0.07*eovoc
+          emiss_bio(p_oli-1)  = emiss_bio(p_oli-1)  + 0.50*eovoc
+          emiss_bio(p_ket-1)  = emiss_bio(p_ket-1)  + 0.03*eovoc
+          emiss_bio(p_ora1-1) = emiss_bio(p_ora1-1) + 0.03*eovoc
+          emiss_bio(p_ora2-1) = emiss_bio(p_ora2-1) + 0.05*eovoc
+          emiss_bio(p_par-1) = ( 0.4*emiss_bio(p_ald-1) + (2.9*0.07*eovoc)            &
+                                    +(4.8*0.07*eovoc) + 0.9*emiss_bio(p_ket-1)        &
+                                    +2.8*emiss_bio(p_oli-1) +1.8*emiss_bio(p_olt-1)   &
+                                    +1.0*emiss_bio(p_ora2-1))
+        END IF
+
+!     *****************************************************************
+!     Tropical forest (not available in SiB and USGS)
+
+        IF ((mminlu=='OLD ') .AND. (iland==12)) THEN
+          emiss_bio(p_oli) = emiss_bio(p_oli) + emter
+        END IF
+
+!mszhang check e_bio outputs in Guenther1 coupled with CBMZ chemistry scheme
+
+   write(0,*) 'mszhang check emiss_bio in Guenther1',p_iso,emiss_bio(p_iso-1)
+   print*, 'mszhang check emiss_bio in Guenther1',p_iso,emiss_bio(p_iso-1)
+
+
+   CASE (SAPRC99_KPP,SAPRC99_MOSAIC_4BIN_VBS2_KPP,SAPRC99_MOSAIC_4BIN_VBS9_KPP, &
+               SAPRC99_MOSAIC_8BIN_VBS2_AQ_KPP,SAPRC99_MOSAIC_8BIN_VBS2_KPP)
+
+    call wrf_error_fatal("SETTINGS ERROR: Currently, the SAPRC99 chemistry scheme is not tested in Guenther1!!!")
+
+   CASE ( CRIMECH_KPP, CRI_MOSAIC_8BIN_AQ_KPP, CRI_MOSAIC_4BIN_AQ_KPP )
+
+   call wrf_error_fatal("SETTINGS ERROR: Currently, the CRIM chemistry scheme is not tested in Guenther1!!!")
+   
+
+   CASE DEFAULT 
+
+     CALL wrf_error_fatal('Species conversion table for Guenther1 not available. ')
+      
+
+     END SELECT GAS_MECH_SELECT
 
       END SUBROUTINE biosplit
 

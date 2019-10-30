@@ -1352,6 +1352,10 @@ END subroutine mechanism_driver
               grid%potevp,grid%SFCEVP,grid%LU_INDEX,                                       &
               grid%biomt_par,grid%emit_par,grid%ebio_co2oce,                               &
               eghg_bio,                                                                    &
+              !mszhang add adjust factor for MEGAN2.04 and Guenther1
+              grid%af,grid%gamt,grid%gaml,grid%gamp,grid%gama,                             &
+              grid%af_iso,                                                                 &
+             ! grid%gamma,grid%gamma_p,grid%gamma_l,grid%gamma_t,grid%gamma_a,              &
 
               ids,ide, jds,jde, kds,kde,                                                   &
               ims,ime, jms,jme, kms,kme,                                                   &

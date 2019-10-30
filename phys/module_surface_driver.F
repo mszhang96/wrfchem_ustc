@@ -104,7 +104,9 @@ CONTAINS
      &           Q2subgrid,SABVsubgrid,SABGsubgrid,NRAsubgrid,       &
      &           SWUPsubgrid,LHsoi,LHveg,LHtran,                     &
      &           t_veg24, t_veg240, fsun24, fsun240,                 &
-     &           fsd24, fsd240, fsi24, fsi240, laip                  &
+     &           fsd24, fsd240, fsi24, fsi240, laip,                 &
+     !mszhang add adjust factor for megan2.1
+     &           gamma2d,gamma_p2d,gamma_l2d,gamma_t2d,gamma_a2d               &
 #ifdef CN
 !ADD_NEW_VAR for crop and cn
      &           ,dyntlai,dyntsai,dyntop,dynbot                              &
@@ -982,6 +984,13 @@ CONTAINS
                 LHsoi,LHveg,LHtran
   real,    optional,  dimension(ims:ime,jms:jme,1:ne_area ),intent(inout) ::  &
                 e_bio
+  !mszhang add adjust factor for megan2.1
+  real,optional,dimension(ims:ime,jms:jme),intent(inout)  :: gamma2d
+  real,optional,dimension(ims:ime,jms:jme),intent(inout)  :: gamma_p2d
+  real,optional,dimension(ims:ime,jms:jme),intent(inout)  :: gamma_l2d
+  real,optional,dimension(ims:ime,jms:jme),intent(inout)  :: gamma_t2d
+  real,optional,dimension(ims:ime,jms:jme),intent(inout)  :: gamma_a2d
+
 #ifdef CN
 !ylu 05/31/2011
 
@@ -3039,7 +3048,9 @@ CONTAINS
                 alswvisdir, alswvisdif, alswnirdir, alswnirdif,      & ! clm
                 swvisdir, swvisdif, swnirdir, swnirdif,              & ! clm
                 t_veg24, t_veg240, fsun24, fsun240,                  &
-                fsd24, fsd240, fsi24, fsi240, laip                   &
+                fsd24, fsd240, fsi24, fsi240, laip,                   &
+                !mszhang add adjust factor for megan2.1
+                gamma2d,gamma_p2d,gamma_l2d,gamma_t2d,gamma_a2d                 &
 #ifdef CN
 !CROP&CN RESTART AND OUTPUTS
                 ,dyntlai,dyntsai,dyntop,dynbot &

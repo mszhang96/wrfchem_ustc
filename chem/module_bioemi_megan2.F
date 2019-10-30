@@ -52,6 +52,7 @@ CONTAINS
        ebio_ethene, ebio_hcooh, ebio_terp, ebio_bald,                  &    
        ebio_cco_oh, ebio_rco_oh,                                       &    
        e_bio,                                                          &
+       af,gamt,gaml,gamp,gama,                                         &
        ids,ide, jds,jde, kds,kde,                                      &
        ims,ime, jms,jme, kms,kme,                                      &
        its,ite, jts,jte, kts,kte                                       )
@@ -74,6 +75,14 @@ CONTAINS
          ids,ide, jds,jde, kds,kde,                                    &
          ims,ime, jms,jme, kms,kme,                                    &
          its,ite, jts,jte, kts,kte
+    
+    !... mzhang add adjust factor ..
+    REAL, DIMENSION(ims:ime , jms:jme),INTENT(OUT) :: af
+    REAL, DIMENSION(ims:ime , jms:jme),INTENT(OUT) :: gamt
+    REAL, DIMENSION(ims:ime , jms:jme),INTENT(OUT) :: gaml
+    REAL, DIMENSION(ims:ime , jms:jme),INTENT(OUT) :: gamp
+    REAL, DIMENSION(ims:ime , jms:jme),INTENT(OUT) :: gama
+
 
     ! ...current julian day
     INTEGER, INTENT (IN) :: julday   
@@ -671,6 +680,15 @@ CONTAINS
 
              adjust_factor(i_class) = gam_TMP * gam_AGE * gam_LHT * gam_SMT * rho * &
                   ( (1.0-LDF) + gam_PHO*LDF )
+
+!mszhang add adjust factor
+        if(i_class == imgn_isop)then
+             af(i,j)   = adjust_factor(imgn_isop)  
+             gamt(i,j) = gam_TMP
+             gama(i,j) = gam_AGE
+             gaml(i,j) = gam_LHT
+             gamp(i,j) = (1.0-LDF) + gam_PHO*LDF
+         end if
 
           END DO !i_class = 1, n_mgn_spc (loop over classes of MEGAN species )
 
@@ -1444,7 +1462,7 @@ is_mozcart_species : &
       AAA = Eopt*CT2*EXP(CT1*X)
       BBB = (  CT2-CT1*( 1.0-EXP(CT2*X) )  )
       gam_T = AAA/BBB
-
+  
     END SUBROUTINE GAMMA_TISOP
 
     ! -----------------------------------------------------------------

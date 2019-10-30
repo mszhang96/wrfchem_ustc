@@ -6261,6 +6261,12 @@ contains
 !-----------------------------------------------------------------------
     vocflx(lbp:ubp,:) = 0._r8
     vocflx_meg(:) = 0._r8
+    gamma_out(lbp:ubp)=0._r8
+    gammaA_out(lbp:ubp) = 0._r8
+    gammaP_out(lbp:ubp)= 0._r8
+    gammaT_out(lbp:ubp)= 0._r8
+    gammaL_out(lbp:ubp)= 0._r8
+!------------------------------------------------------------------------
 
 #if defined(CLM_DIAGS)
     call wrf_message( '=========================================================================' )
@@ -6413,6 +6419,17 @@ has_veg : &
 ! Calculate total scaling factor
 !-----------------------------------------------------------------------
              gamma = gamma_l * gamma_sm * gamma_a * gamma_p * gamma_T * gamma_c
+!-----------------------------------------------------------------------
+!mszhang add adjust factor
+!-----------------------------------------------------------------------
+      if (trim(meg_cmp%name) == 'isoprene' .or. class_num == 1) then 
+           gamma_out(p)  = gamma
+           gammaT_out(p) = gamma_t
+           gammaL_out(p) = gamma_l
+           gammaP_out(p) = gamma_p
+           gammaA_out(p) = gamma_a
+      end if
+!-----------------------------------------------------------------------
 
              if ( gamma >= 0._r8 .and. gamma < 100._r8 ) then
                vocflx_meg(imeg) = epsilon * gamma * megemis_units_factor / (rho*meg_cmp%molec_weight) ! ppm-m/min
@@ -6592,7 +6609,7 @@ end function get_map_EF
 ! !INTERFACE:
   function get_gamma_P( par_sun_in, par24_sun_in, par240_sun_in, par_sha_in, par24_sha_in, &
                         par240_sha_in, fsun_in, fsun240_in, forc_solad240_in, forc_solai240_in, &
-                        LDF_in )
+                        LDF_in)
   
 ! Activity factor for PPFD (Guenther et al., 2006): all light dependent species
 !-------------------------
@@ -6640,7 +6657,7 @@ end function get_map_EF
     real(r8), parameter :: cp_fix = 1.21_r8                ! empirical coefficient
 
     real(r8) :: gamma_p_LDF             ! activity factor for PPFD
-    real(r8) :: get_gamma_P             ! return value
+    real(r8) :: get_gamma_P           ! return value
     real(r8) :: cp                      ! temporary
     real(r8) :: alpha                   ! temporary
 
@@ -6669,7 +6686,6 @@ end function get_map_EF
   
   ! Calculate total activity factor for PPFD accounting for light-dependent fraction
   get_gamma_P = (1._r8 - LDF_in) + LDF_in * gamma_p_LDF
-
 end function get_gamma_P
 !-----------------------------------------------------------------------
 
@@ -6698,9 +6714,9 @@ function get_gamma_L(fsun240_in,elai_in)
 ! !LOCAL VARIABLES:
 
     ! varibles in
-    real(r8),intent(in) :: fsun240_in
-    real(r8),intent(in) :: elai_in
-    real(r8)            :: get_gamma_L             ! return value
+    real(r8),intent(in)  :: fsun240_in
+    real(r8),intent(in)  :: elai_in
+    real(r8)             :: get_gamma_L             ! return value
  
 
     ! parameters
@@ -57561,6 +57577,7 @@ end module initializeMod
                   ,t_veg24, t_veg240, fsun24, fsun240                 &
                   ,fsd24, fsd240, fsi24, fsi240, laip                 &
                   ,mbio_emis   ,do_bioe, id                           &
+                  ,gamma1d,gamma_p1d,gamma_l1d,gamma_t1d,gamma_a1d    &
 #ifdef CN
 !CROP and CN restart and outputs
                 ,forc_ndepxy,tlaixy,tsaixy,htopxy,hbotxy  &  
@@ -57844,6 +57861,8 @@ end module initializeMod
   real(r8),intent(out)  :: rhoxy
   real(r8),intent(inout)  :: mbio_emis(:)
   logical, intent(in)   :: do_bioe
+  !mszhang
+  real(r8) :: gamma1d,gamma_p1d,gamma_l1d,gamma_t1d,gamma_a1d
 
   integer   :: nstp
 !ylu add albedo coefficients
@@ -58390,6 +58409,23 @@ grid_cell_loop : &
     do p = begp,endp
     lai1d = lai1d + (clm3%g%l%c%p%pps%elai(p)+clm3%g%l%c%p%pps%esai(p))*wtp(p)
     enddo
+
+!mszhang add adjust factor outputs
+    gamma1d   = 0._r8
+    gamma_p1d = 0._r8
+    gamma_l1d = 0._r8
+    gamma_t1d = 0._r8
+    gamma_a1d = 0._r8
+
+    do p = begp,endp
+      gamma1d   = gamma1d   + clm3%g%l%c%p%pvf%gamma_out(p)*wtp(p)
+      gamma_a1d = gamma_a1d + clm3%g%l%c%p%pvf%gammaA_out(p)*wtp(p)
+      gamma_l1d = gamma_l1d + clm3%g%l%c%p%pvf%gammaL_out(p)*wtp(p)
+      gamma_p1d = gamma_p1d + clm3%g%l%c%p%pvf%gammaP_out(p)*wtp(p)
+      gamma_t1d = gamma_t1d + clm3%g%l%c%p%pvf%gammaT_out(p)*wtp(p)
+     ! write(0,*) 'mszhang check the gamma_out and weight in every pft index',p,wtp(p),gamma1d
+     ! print*,'mszhang check the gamma_out and weight in every pft index',p,wtp(p),gamma1d
+    end do
 
 !Debug
     msg = ''
@@ -59020,7 +59056,7 @@ subroutine driver (doalb,ilx,jlx,nextsw_cday, declinp1, declin, &
    if( do_bioe ) then
      call CLMDebug('Begin VOCEmission')
      call VOCEmission(begp, endp, ilx, jlx, rho, mbio_emis, &  
-                      filter%num_soilp, filter%soilp,terrain_height,terrain_effect)   !CLM4  !checked and modified according to CLM4
+                      filter%num_soilp, filter%soilp,terrain_height,terrain_effect) !CLM4  !checked and modified according to CLM4
    endif
 !#endif
 
@@ -59364,7 +59400,8 @@ CONTAINS
                 alswvisdir, alswvisdif, alswnirdir, alswnirdif,      & ! clm
                 swvisdir, swvisdif, swnirdir, swnirdif,              & ! clm
                 t_veg24, t_veg240, fsun24, fsun240,                  &
-                fsd24, fsd240, fsi24, fsi240, laip                   &
+                fsd24, fsd240, fsi24, fsi240, laip,                   &
+                gamma2d,gamma_p2d,gamma_l2d,gamma_t2d,gamma_a2d                & !mszhang add adjust factor
 #ifdef CN
 !CROP&CN restart and outputs
                 ,dyntlai,dyntsai,dyntop,dynbot &
@@ -59663,6 +59700,16 @@ CONTAINS
   real(r8) :: flwdsxy_buf
   real(r8) :: forc_psrfxy_buf
   real(r8) :: mbio_emis(ne_area)
+  real,dimension(ims:ime,jms:jme),intent(inout) :: gamma2d
+  real,dimension(ims:ime,jms:jme),intent(inout) :: gamma_p2d
+  real,dimension(ims:ime,jms:jme),intent(inout) :: gamma_l2d
+  real,dimension(ims:ime,jms:jme),intent(inout) :: gamma_t2d
+  real,dimension(ims:ime,jms:jme),intent(inout) :: gamma_a2d
+  real(r8) :: gamma_buf
+  real(r8) :: gamma_p_buf
+  real(r8) :: gamma_l_buf
+  real(r8) :: gamma_t_buf
+  real(r8) :: gamma_a_buf
 
 !ADD_NEW_VAR
   real(r8) :: forc_ndepxy_buf
@@ -59969,6 +60016,11 @@ i_loop : &
    snowrds2d4(i,j) = 0.0
    snowrds2d5(i,j) = 0.0
    lai2d(i,j) = 0.0
+   gamma2d(i,j) = 0.0
+   gamma_p2d(i,j) = 0.0
+   gamma_l2d(i,j) = 0.0
+   gamma_t2d(i,j) = 0.0 
+   gamma_a2d(i,j) = 0.0
 
    sfc_frc_aer_2d(i,j) = 0.0
    sfc_frc_aer_snow_2d(i,j) = 0.0
@@ -60444,6 +60496,7 @@ patch_loop_1 : &
                   ,fsd24(i,:,j), fsd240(i,:,j), fsi24(i,:,j), fsi240(i,:,j)     &
                   ,laip(i,:,j)                                                  &
                   ,mbio_emis, do_bioe, id                                       &
+                  ,gamma_buf,gamma_p_buf,gamma_l_buf,gamma_t_buf,gamma_a_buf                        &
 #ifdef CN
 !CROP and CN restart and outputs
                 ,forc_ndepxy_buf    ,organic_buf  ,tlai_buf ,tsai_buf,htop_buf,hbot_buf    &  !ADD_NEW_VAR
@@ -60856,6 +60909,13 @@ patch_loop_2 : &
 
 !czhao add LAI outputs 
               lai2d(i,j)  = lai_buf 
+
+!mszhang add adjust factor outputs
+              gamma2d(i,j)  = gamma_buf
+              gamma_p2d(i,j)  = gamma_p_buf
+              gamma_l2d(i,j)  = gamma_l_buf
+              gamma_t2d(i,j)  = gamma_t_buf
+              gamma_a2d(i,j)  = gamma_a_buf
 
       end if is_land
         call CLMDebug('good before call urban')

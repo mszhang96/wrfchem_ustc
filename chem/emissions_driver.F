@@ -69,6 +69,11 @@ CONTAINS
          vprm_in,rad_vprm,lambda_vprm,alpha_vprm,resp_vprm,               &
          xtime,tslb,wet_in,rainc,rainnc,potevp,sfcevp,lu_index,            &
          biomt_par,emit_par,ebio_co2oce,eghg_bio,                          &
+         ! mszhang add adjust factor for MEGANv2.04
+         af,gamt,gaml,gamp,gama,                                           &
+         ! mszhang add adjust factor for Guenther1
+         af_iso,                                                           &
+         ! mszhang add adjust factor for MEGAN2.1 in sf_clm        
 
          ids,ide, jds,jde, kds,kde,                                        &
          ims,ime, jms,jme, kms,kme,                                        &
@@ -97,7 +102,7 @@ CONTAINS
   USE module_ghg_fluxes
   USE module_lightning_nox_driver
   USE module_cam_mam_addemiss, only: cam_mam_addemiss
-  
+  USE module_data_megan2  
   IMPLICIT NONE
 
    TYPE(grid_config_rec_type),  INTENT(IN   )    :: config_flags
@@ -337,7 +342,17 @@ CONTAINS
       CHARACTER (LEN=80) :: message
       LOGICAL :: do_bioemiss, do_plumerisefire,do_ex_volcanoe
 
-! ..
+! mszhang add adjust factor for MEGANv2.04
+    REAL, DIMENSION(ims:ime , jms:jme),INTENT(INOUT) :: af
+    REAL, DIMENSION(ims:ime , jms:jme),INTENT(INOUT) :: gamt
+    REAL, DIMENSION(ims:ime , jms:jme),INTENT(INOUT) :: gaml
+    REAL, DIMENSION(ims:ime , jms:jme),INTENT(INOUT) :: gamp
+    REAL, DIMENSION(ims:ime , jms:jme),INTENT(INOUT) :: gama
+
+! mszhang add adjust factor for Guenther1
+    REAL, DIMENSION(ims:ime,jms:jme),INTENT(INOUT) :: af_iso
+
+! mszhang add adjust factor for MEGANv2.1 in module_sf_clm
 ! ..
 ! .. Intrinsic Functions ..
 !     INTRINSIC max, min
@@ -796,7 +811,7 @@ CONTAINS
      CASE (GUNTHER1)
        if(ktau.eq.1.or.mod(ktau,stepbioe).eq.0)then
           CALL wrf_debug(15,'biogenic emissions: calling Gunther1')
-          call bio_emissions(id,ktau,dtstep,DX,config_flags,               &
+          call bio_emissions(id,ktau,dtstep,DX,config_flags,af_iso,        &
                gmt,julday,t_phy,moist,p8w,t8w,                             &
                e_bio,p_phy,chem,rho_phy,dz8w,ne_area,                      &
                ivgtyp,gsw,vegfra,rmol,ust,znt,xlat,xlong,z_at_w,           &
@@ -862,12 +877,13 @@ CONTAINS
                ebio_aro1, ebio_aro2, ebio_ccho, ebio_meoh,               &    
                ebio_ethene, ebio_hcooh, ebio_terp, ebio_bald,            &    
                ebio_cco_oh, ebio_rco_oh,                                 &
-               e_bio,                                                  &
+               e_bio,af,gamt,gaml,gamp,gama,                             &
                ids,ide, jds,jde, kds,kde,                              &
                ims,ime, jms,jme, kms,kme,                              &
                its,ite, jts,jte, kts,kte                               )
        endif
      CASE (MEGAN2_CLM)
+ 
      CASE DEFAULT 
        if( do_bioemiss ) &
             e_bio(its:ite,jts:jte,1:ne_area) = 0.
@@ -989,6 +1005,7 @@ CONTAINS
             ids,ide, jds,jde, kds,kde,                                  &
             ims,ime, jms,jme, kms,kme,                                  &
             its,ite, jts,jte, kts,kte                                   )
+
 
     CASE (CHEM_TRACER)
        do j=jts,jte  
@@ -1605,7 +1622,7 @@ CONTAINS
     END SELECT aer_addemiss_select
 
 ! Lightning NO emission
-    CALL lightning_nox_driver ( &
+        CALL lightning_nox_driver ( &
           ! Frequently used prognostics
             itimestep=ktau, dt=dtstep, dx=dx, dy=dx,                &
             xlat=xlat, xlon=xlong, xland=xland, ht=ht,                &
@@ -1634,7 +1651,6 @@ CONTAINS
             lnox_ic=tracer(:,:,:,p_lnox_ic),             &
             lnox_cg=tracer(:,:,:,p_lnox_cg)          &
           )
-
     END subroutine emissions_driver
 
 END module module_emissions_driver

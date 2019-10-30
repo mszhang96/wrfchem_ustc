@@ -637,6 +637,9 @@ BENCH_START(surf_driver_tim)
      &        ,fsd24=grid%fsd24,                fsd240=grid%fsd240                  & !voce accum variables
      &        ,fsi24=grid%fsi24,                fsi240=grid%fsi240                  & !voce accum variables
      &        ,laip=grid%laip,                                                      & !voce accum variables
+     !mszhang add clm megan2.1 adjust factor
+     &         gamma2d=grid%gamma2d,gamma_p2d=grid%gamma_p2d,gamma_l2d=grid%gamma_l2d,          &
+     &         gamma_t2d=grid%gamma_t2d,gamma_a2d=grid%gamma_a2d,                           &
      !czhao
      &         watsat2d=grid%watsat2d,     & 
      &         snowdust_col2d=grid%snowdust_col,snowdust_top2d=grid%snowdust_top,snow_top2d=grid%snow_top,snow_frac2d=grid%snow_frac,     & 
