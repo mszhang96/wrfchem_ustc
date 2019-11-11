@@ -1082,6 +1082,9 @@ module clm_varcon
   real(r8) displar(0:numpft)     !ratio of displacement height to canopy top height (-)
   real(r8) roota_par(0:numpft)   !CLM rooting distribution parameter [1/m]
   real(r8) rootb_par(0:numpft)   !CLM rooting distribution parameter [1/m]
+  !mszhang add gamma_D
+  real(r8) psiclose(0:numpft)    !soil water potential when stomata fully closed
+  real(r8) psiopen(0:numpft)     !soil water potential when stomata fully open
 
 data (pftname(i),i=1,16)/'needleleaf_evergreen_temperate_tree',&
                            'needleleaf_evergreen_boreal_tree'   ,&
@@ -1161,13 +1164,21 @@ data (pftname(i),i=1,16)/'needleleaf_evergreen_temperate_tree',&
        0.25, 0.25, 0.01, 0.25, 0.25, -0.30, -0.30,&
        -0.30, -0.30, -0.30/
 
+  data (psiclose(i),i=1,16)/-255000, -255000, -255000, -255000, -255000,  &
+       -224000, -224000, -224000,-428000, -428000, -428000, -275000,-275000,&
+       -275000, -275000,-275000/
+
+  data (psiopen(i),i=1,16)/ -66000, -66000, -66000, -66000,  &
+       -66000,-35000, -35000, -35000, -83000, -83000, -83000, -74000,&
+       -74000, -74000, -74000,-74000/
+
   data (roota_par(i),i=1,16)/ 7.0, 7.0, 7.0, 7.0,&
       7.0, 6.0, 6.0, 6.0, 7.0, 7.0, 7.0, 11.0, &
       11.0, 11.0,  6.0,  6.0/
 
   data (rootb_par(i),i=1,16)/ 2.0, 2.0, 2.0, &
-     1.0, 1.0, 2.0, 2.0, 2.0, 1.5, 1.5, 1.5, &
-     2.0, 2.0, 2.0, 3.0, 3.0/
+      1.0, 1.0, 2.0, 2.0, 2.0, 1.5, 1.5, 1.5, &
+      2.0, 2.0, 2.0, 3.0, 3.0/
 
 contains
 
@@ -1697,6 +1708,9 @@ type, public :: pft_epc_type
    real(r8), pointer :: season_decid(:) !binary flag for seasonal-deciduous leaf habit (0 or 1)
    ! new variables for fire code
    real(r8), pointer :: resist(:)       !resistance to fire (no units)
+   !mszhang add gamma_D
+   real(r8), pointer :: psiclose(:)
+   real(r8), pointer :: psiopen(:)
 end type pft_epc_type
 
 #if (defined CNDV) || (defined CROP)
@@ -2395,6 +2409,7 @@ type, public :: pft_vflux_type
    real(r8), pointer :: gammaP_out(:)
    real(r8), pointer :: gammaA_out(:)
    real(r8), pointer :: gammaS_out(:)
+   real(r8), pointer :: gammaD_out(:)
 end type pft_vflux_type
 
 !----------------------------------------------------
@@ -3904,6 +3919,9 @@ module pftvarcon
   real(r8):: season_decid(0:numpft) !binary flag for seasonal-deciduous leaf habit (0 or 1)
   ! new pft parameters for CN-fire code
   real(r8):: resist(0:numpft)       !resistance to fire (no units)
+  !mszhang add gamma_D
+  real(r8):: psiclose(0:numpft)     !soil water potential when stomata are fully closed
+  real(r8):: psiopen(0:numpft)      !soli water potential when stomata are fully opend
   real(r8):: pftpar20(0:numpft)       !tree maximum crown area (m2)
   real(r8):: pftpar28(0:numpft)       !min coldest monthly mean temperature
   real(r8):: pftpar29(0:numpft)       !max coldest monthly mean temperature
@@ -4600,6 +4618,9 @@ contains
        z0mr(noveg)         = 0._r8
        displar(noveg)      = 0._r8
        dleaf(noveg)        = 0._r8
+       !mszhang add gamma_D
+       psiclose(noveg)     = 0._r8
+       psiopen(noveg)      = 0._r8
        c3psn(noveg)        = 1._r8
        vcmx25(noveg)       = 0._r8
        mp(noveg)           = 9._r8
@@ -5984,7 +6005,8 @@ contains
 ! !IROUTINE: VOCEmission
 !
 ! !INTERFACE:
-  subroutine VOCEmission (lbp, ubp, ilx, jlx, rho, mbio_emis, num_soilp, filter_soilp,terrain_height,terrain_control)
+  subroutine VOCEmission (lbp, ubp, ilx, jlx, rho, mbio_emis, num_soilp, filter_soilp,terrain_height,terrain_control,&
+    bio_emiss_opt)
 !
 ! ! NEW DESCRIPTION-updated by Chun Zhao from CLM4.0 in CESM
 ! Volatile organic compound emission
@@ -6010,9 +6032,13 @@ contains
 ! Guenther et al., 2006.
 ! Guenther, Heald et al., 2012 describes MEGAN 2.1 and the implementation in CLM 
 ! Subroutine written to operate at the patch level.
-
+! 
+! Jiang and Guenther et al.,2018,describes MEGAN3 about drought stress.
+! Coupled with CLM4.0 by Ming Shuai Zhang. 
 !
 ! !USES:
+   ! use module_configure
+    !use module_state_description
     use clmtype
     use clm_varpar   , only : numpft
     use shr_const_mod, only : SHR_CONST_RGAS
@@ -6040,6 +6066,11 @@ contains
     logical, intent(in)    :: terrain_control
     real(r8), intent(in)    :: rho
     real(r8), intent(inout) :: mbio_emis(:)
+!mszhang select megan versions
+    integer, intent(in)     :: bio_emiss_opt
+!mszhang add phase to vcmx
+    !character(len=*), intent(in) :: phase         ! 'sun' or 'sha'
+
 !
 ! !CALLED FROM:
 !
@@ -6066,6 +6097,7 @@ contains
     real(r8), pointer :: sla(:)           ! specific leaf area [m2 leaf g-1 C]
     real(r8), pointer :: h2osoi_vol(:,:)  ! volumetric soil water (m3/m3)
     real(r8), pointer :: h2osoi_ice(:,:)  ! ice soil content (kg/m3)
+    real(r8), pointer :: h2osoi_liq(:,:)       !liquid water (kg/m2) (new) (-nlevsno+1:nlevgrnd)  
     real(r8), pointer :: dz(:,:)          ! depth of layer (m)
     real(r8), pointer :: coszen(:)        ! cosine of solar zenith angle
     real(r8), pointer :: efisop(:,:)      ! emission factors for isoprene for each pft [ug C m-2 h-1]
@@ -6084,6 +6116,14 @@ contains
     real(r8), pointer :: cisun(:)         ! sunlit intracellular CO2 (Pa)
     real(r8), pointer :: cisha(:)         ! shaded intracellular CO2 (Pa)
     real(r8), pointer :: forc_pbot(:)     ! atmospheric pressure (Pa)
+    real(r8), pointer :: vcmxsun(:)       !sunlit leaf Vcmax (umolCO2/m^2/s)
+    real(r8), pointer :: vcmxsha(:)       !shaded leaf Vcmax (umolCO2/m^2/s)
+    real(r8), pointer :: vcmx(:)          ! maximum rate of carboxylation (umol co2/m**2/s)
+    real(r8), pointer :: rootfr(:,:)      ! fraction of roots in each soil level(nlevgrnd)
+    real(r8), pointer :: t_soisno(:,:)    !soil temperature (Kelvin)  (-nlevsno+1:nlevgrnd) 
+    real(r8), pointer :: psiclose(:)
+    real(r8), pointer :: psiopen(:) 
+    real(r8), pointer :: soilpsi(:,:)     ! soil psi (c,j) mszhang
 
     real(r8), parameter :: smpmax = 2.57e5_r8 ! maximum soil matrix potential
 !-----------------------------------------------------------------------
@@ -6112,12 +6152,14 @@ contains
     real(r8), pointer :: gammaL_out(:)
     real(r8), pointer :: gammaA_out(:)
     real(r8), pointer :: gammaS_out(:)
+    real(r8), pointer :: gammaD_out(:)
+
 !
 !
 ! !OTHER LOCAL VARIABLES:
 !EOP
 !
-    integer  :: fp,p,g,n,j              ! indices
+    integer  :: fp,p,g,n,j,c              ! indices
     integer  :: ct_bad
     integer  :: class_num, n_meg_comps, imech, imeg, ii
     real(r8) :: epsilon                 ! emission factor [ugC m-2 h-1]
@@ -6138,6 +6180,7 @@ contains
     real(r8) :: gamma_a                 ! activity factor for leaf age
     real(r8) :: gamma_c
     real(r8) :: gamma_sm                ! activity factor for soil moisture
+    real(r8) :: gamma_d                 ! activity factor for drought
     real(r8) :: x                       ! temporary 
     real(r8) :: elai_prev               ! lai for previous timestep
     real(r8) :: fnew, fgro, fmat, fsen  ! fractions of leaves at different phenological stages
@@ -6206,7 +6249,13 @@ contains
     bsw              => clm3%g%l%c%cps%bsw
     watsat           => clm3%g%l%c%cps%watsat
     sucsat           => clm3%g%l%c%cps%sucsat
-
+    !mszhang get_gamma_D
+    t_soisno         => clm3%g%l%c%ces%t_soisno
+    h2osoi_liq       => clm3%g%l%c%cws%h2osoi_liq
+    psiclose         => pftcon%psiclose
+    psiopen          => pftcon%psiopen
+    soilpsi          => clm3%g%l%c%cps%soilpsi
+    
 !-----------------------------------------------------------------------
 ! Assign local pointers to derived subtypes components (pft-level)
 !-----------------------------------------------------------------------
@@ -6244,7 +6293,13 @@ contains
     gammaA_out       => clm3%g%l%c%p%pvf%gammaA_out
     gammaS_out       => clm3%g%l%c%p%pvf%gammaS_out
     gamma_out        => clm3%g%l%c%p%pvf%gamma_out
+    gammaD_out       => clm3%g%l%c%p%pvf%gammaD_out
     sla              => clm3%g%l%c%p%pps%slasha
+    !fuction get_gamma_D by mszhang
+    rootfr           => clm3%g%l%c%p%pps%rootfr
+    vcmxsha          => clm3%g%l%c%p%pps%vcmxsha
+    vcmxsun          => clm3%g%l%c%p%pps%vcmxsun
+
 
     t_veg24          => clm3%g%l%c%p%pvs%t_veg24
     t_veg240         => clm3%g%l%c%p%pvs%t_veg240
@@ -6266,6 +6321,7 @@ contains
     gammaP_out(lbp:ubp)= 0._r8
     gammaT_out(lbp:ubp)= 0._r8
     gammaL_out(lbp:ubp)= 0._r8
+    gammaD_out(lbp:ubp)= 0._r8
 !------------------------------------------------------------------------
 
 #if defined(CLM_DIAGS)
@@ -6277,8 +6333,9 @@ contains
     do fp = 1,num_soilp
        p = filter_soilp(fp)
        g = pgridcell(p)
+       c = pcolumn(p)
 #if defined(CLM_DIAGS)
-       write(msg,'(''fp,p,g,ivt = '',4i5)') fp,p,g,ivt(p)
+       write(msg,'(''fp,p,g,c,ivt = '',4i5)') fp,p,g,c,ivt(p)
        call wrf_message( trim(msg) )
 #endif
     end do
@@ -6289,6 +6346,8 @@ fp_loop : &
     do fp = 1,num_soilp
        p = filter_soilp(fp)
        g = pgridcell(p)
+       !mszhang add rootfr
+       c = pcolumn(p)
 
        epsilon = 0._r8
 !-----------------------------------------------------------------------
@@ -6311,6 +6370,10 @@ has_veg : &
           par_sha = ((1._r8 - fsun(p)) * forc_solai(g,1)) * 4.6_r8
           par24_sha = ((1._r8 - fsun24(p)) * forc_solai24(p)) * 4.6_r8
           par240_sha = ((1._r8 - fsun240(p)) * forc_solai240(p)) * 4.6_r8
+!-----------------------------------------------------------------------
+!rootfr
+ !         rootfr = rootfr(p,:)
+!-----------------------------------------------------------------------
 
 #if defined(CLM_DIAGS)
        write(msg,'(''VOCEmission: parm diagnostics @ fp,p,g = '',3i5)') fp,p,g
@@ -6344,6 +6407,18 @@ has_veg : &
 !          gamma_sm = get_gamma_SM(clayfrac(p), sandfrac(p), h2osoi_vol(c,:), h2osoi_ice(c,:), &
 !               dz(c,:), bsw(c,:), watsat(c,:), sucsat(c,:), root_depth(ivt(p)))
           gamma_sm = 1.0_r8
+!-----------------------------------------------------------------------
+
+
+!-----------------------------------------------------------------------
+! Activity factor for drought by mszhang
+!-----------------------------------------------------------------------
+       if (bio_emiss_opt == 5) then
+          gamma_d = get_gamma_D(clayfrac(p),sandfrac(p),rootfr(p,:),vcmxsun(p),vcmxsha(p),h2osoi_ice(c,:),h2osoi_liq(c,:),dz(c,:), &
+      watsat(c,:), soilpsi(c,:),t_soisno(c,:),psiclose(p),psiopen(p))
+       else
+          gamma_d = 1.0_r8
+       end if
 
 !-----------------------------------------------------------------------
 ! Loop through VOCs for light, temperature and leaf age activity factor & apply
@@ -6418,7 +6493,8 @@ has_veg : &
 !-----------------------------------------------------------------------
 ! Calculate total scaling factor
 !-----------------------------------------------------------------------
-             gamma = gamma_l * gamma_sm * gamma_a * gamma_p * gamma_T * gamma_c
+             gamma = gamma_l * gamma_sm * gamma_a * gamma_p * gamma_T * gamma_c * gamma_d
+
 !-----------------------------------------------------------------------
 !mszhang add adjust factor
 !-----------------------------------------------------------------------
@@ -6428,6 +6504,7 @@ has_veg : &
            gammaL_out(p) = gamma_l
            gammaP_out(p) = gamma_p
            gammaA_out(p) = gamma_a
+           gammaD_out(p) = gamma_d
       end if
 !-----------------------------------------------------------------------
 
@@ -6754,7 +6831,7 @@ function get_gamma_SM(clayfrac_in, sandfrac_in, h2osoi_vol_in, h2osoi_ice_in, dz
 
 ! !USES:
     use clm_varcon   , only : denice
-    use clm_varpar   , only : nlevsoi
+    use clm_varpar   , only : nlevsoi !10
 !
 ! !ARGUMENTS:
     implicit none
@@ -6820,7 +6897,132 @@ function get_gamma_SM(clayfrac_in, sandfrac_in, h2osoi_vol_in, h2osoi_ice_in, dz
 
 end function get_gamma_SM
 !-----------------------------------------------------------------------
-  
+
+
+!-----------------------------------------------------------------------
+! FUNCTION: get_gamma_SM
+!
+! !INTERFACE:
+function get_gamma_D(clayfrac_in, sandfrac_in,rootfr_in,vcmxsun_in,vcmxsha_in,h2osoi_ice_in,h2osoi_liq_in,dz_in, &
+      watsat_in, soilpsi_in,t_soisno_in,psiclose_in,psiopen_in)
+!
+! Activity factor for drought stress (Jiang and Guenther et al., 2018):
+!-----------------------------------------------------------------------
+! The function beta ranges from 1 when the soil is wet to near 0 when the soil is dry and depends on the
+! soil water potential of each soil layer.rootfr(c,j) is the root distribution of the plant functional type.
+! wilting point potential is in units of matric potential (mm) 
+! (1 J/Kg = 0.001 MPa, approx = 0.1 m)
+! convert to volumetric soil water using equation 7.118 of the CLM4 Technical Note
+!
+! 1. beta = sigama(wilti*rootfri) is threhold soli water stress function.(equation 8.17)
+!
+!           psiclose-soilpsi      watsat-theta_ice
+! 2. wilt = ----------------- * [------------------] <=1 (T>Tf-2)   (equation 8.18)
+!           psiclose-psiopen          watsat
+!
+!         = 0                                            (T<=Tf-2)
+!
+!Notes: T is soil temperature in each soil layer
+!       Tf is freezing temperature 273.15k
+!       psiclose and psiopen are the soil water potential when stomata are fully closed or opened.(Tabel 8.1)
+!       soilpsi is calculated in [subroutine mkarbinit] (equation 8.19)
+!
+! 3. gamma_d = 1           (beta>0.6)
+!            = Vcmax/alpha (beta<0.6,alpha=37)
+!            = 0           (beta<0.6) We do not know under what conditions gamma_d is equal to 0 
+!                                     so this option is ignored now! 
+!
+!
+! !CALLED FROM: VOCEmission
+!
+! !REVISION HISTORY:
+! Author: Ming Shuai Zhang (01/11/2019)
+!
+
+! !USES:
+    use clm_varcon   , only : denice
+    use clm_varpar   , only : nlevsoi,nlevgrnd !10
+    use clmtype
+
+! !ARGUMENTS:
+    implicit none
+!
+! !LOCAL VARIABLES:
+
+    ! varibles in
+    real(r8),intent(in) :: clayfrac_in
+    real(r8),intent(in) :: sandfrac_in
+    real(r8),intent(in) :: h2osoi_ice_in(nlevsoi)
+    real(r8),intent(in) :: h2osoi_liq_in(nlevsoi)
+   ! real(r8),intent(in) :: bsw_in(nlevsoi)
+    real(r8),intent(in) :: watsat_in(nlevgrnd)
+    real(r8),intent(in) :: soilpsi_in(nlevgrnd)
+    real(r8),intent(in) :: dz_in(nlevsoi)
+    real(r8),intent(in) :: rootfr_in(nlevgrnd)
+    real(r8),intent(in) :: vcmxsun_in
+    real(r8),intent(in) :: vcmxsha_in
+    real(r8),intent(in) :: t_soisno_in(nlevgrnd)
+    real(r8),intent(in) :: psiclose_in
+    real(r8),intent(in) :: psiopen_in
+
+ 
+    real(r8)            :: get_gamma_D
+
+    ! local variables
+    integer  :: j
+    real(r8) :: nl                      ! temporary number of soil levels
+    real(r8) :: theta_ice               ! water content in ice in m3/m3
+    real(r8) :: wilt                    ! wilting point in m3/m3
+    real(r8) :: beta                    ! temporary
+    real(r8) :: vcmax                   ! (vcmxsun+vcmxsha)/2 mszhang
+
+    ! parameters
+    real(r8), parameter :: smpmax = 2.57e5_r8              ! maximum soil matrix potential
+    real(r8), parameter :: beta1 = 0.6_r8                  ! threhold soli water stress function
+    real(r8), parameter :: alpha = 37                      ! empirical coefficient(experiment data)
+
+    !vcmax depended on the phase,which has different values in sun phase and shadow phase.
+    !but we do not know how to calculate the vcmax by vcmxsun and vcmxsha.
+    !So we average the vcmxsun and vcmxsha to get the vcmx value.
+    !vcmxsun and vcmxsha  were calculated in [subroutine stomata] 
+    !According to the max rate of carboxylation at 25C(Vcmx25) in CLM tech note equation8.13
+    !mszhang changed in 2019/11/6
+    vcmax = (vcmxsha_in+vcmxsun_in)/2
+    
+    if ((clayfrac_in > 0) .and. (sandfrac_in > 0)) then 
+      get_gamma_D = 0._r8
+
+      beta = 0._r8  
+       do j = 1,nlevsoi
+             theta_ice = h2osoi_ice_in(j)/(dz_in(j)*denice)
+             !wilt = ((smpmax/sucsat_in(j))**(-1._r8/bsw_in(j))) * (watsat_in(j) - theta_ice)
+           if(t_soisno_in(j) > 271.15)then
+             wilt=((psiclose_in-soilpsi_in(j))/(psiclose_in-psiopen_in))*((watsat_in(j)-theta_ice)/watsat_in(j))
+           else
+             wilt = 0._r8 
+           end if
+
+             beta = beta+(wilt*rootfr_in(j))
+        end do
+
+       
+             if (beta >= beta1) then 
+                get_gamma_D = get_gamma_D + 1._r8
+             !else if ( beta < beta1) then
+                !get_gamma_D = get_gamma_D + vcmx_in / alpha
+            ! else
+                !get_gamma_D = get_gamma_D + 0._r8
+             else
+                get_gamma_D = get_gamma_D + vcmax / alpha
+             end if
+    end if
+
+
+end function get_gamma_D
+!-----------------------------------------------------------------------
+
+
+
 !-----------------------------------------------------------------------
 ! FUNCTION: get_gamma_T
 !
@@ -7818,6 +8020,8 @@ contains
     allocate(pftcon%dleaf(0:numpft))
     allocate(pftcon%c3psn(0:numpft))
     allocate(pftcon%vcmx25(0:numpft))
+    allocate(pftcon%psiclose(0:numpft))
+    allocate(pftcon%psiopen(0:numpft))
     allocate(pftcon%mp(0:numpft))
     allocate(pftcon%qe25(0:numpft))
     allocate(pftcon%xl(0:numpft))
@@ -7871,6 +8075,8 @@ contains
     pftcon%dleaf(:) = nan
     pftcon%c3psn(:) = nan
     pftcon%vcmx25(:) = nan
+    pftcon%psiclose(:) = nan
+    pftcon%psiopen(:) = nan
     pftcon%mp(:) = nan
     pftcon%qe25(:) = nan
     pftcon%xl(:) = nan
@@ -9770,6 +9976,7 @@ contains
     allocate(pvf%gammaP_out(beg:end))
     allocate(pvf%gammaA_out(beg:end))
     allocate(pvf%gammaS_out(beg:end))
+    allocate(pvf%gammaD_out(beg:end))
 
     pvf%vocflx_tot(beg:end) = spval
     pvf%vocflx(beg:end,1:shr_megan_mechcomps_n) = spval
@@ -9794,6 +10001,7 @@ contains
     pvf%gammaP_out(beg:end) = nan
     pvf%gammaA_out(beg:end) = nan
     pvf%gammaS_out(beg:end) = nan
+    pvf%gammaD_out(beg:end) = nan
 
   end subroutine init_pft_vflux_type
 
@@ -12000,6 +12208,8 @@ end subroutine clmtype_dealloc
     deallocate(pftcon%dleaf )
     deallocate(pftcon%c3psn )
     deallocate(pftcon%vcmx25 )
+    deallocate(pftcon%psiclose)
+    deallocate(pftcon%psiopen)
     deallocate(pftcon%mp )
     deallocate(pftcon%qe25 )
     deallocate(pftcon%xl )
@@ -13134,6 +13344,7 @@ end subroutine clmtype_dealloc
     deallocate(pvf%gammaP_out )
     deallocate(pvf%gammaA_out )
     deallocate(pvf%gammaS_out )
+    deallocate(pvf%gammaD_out )
   end subroutine dealloc_pft_vflux_type 
 
 !------------------------------------------------------------------------
@@ -17160,7 +17371,7 @@ subroutine iniTimeConst
                            flivewd, fcur, lf_flab, lf_fcel, lf_flig, fr_flab, fr_fcel, fr_flig, &
                            dw_fcel, dw_flig, leaf_long, evergreen, stress_decid, season_decid, &
                            resist, pftpar20, pftpar28, pftpar29, pftpar30, pftpar31, &
-                           allom1s, allom2s, &
+                           allom1s, allom2s, psiclose, psiopen, &
                            allom1 , allom2 , allom3  , reinickerp, dwood
   use module_cam_support, only: endrun
 #if (defined CROP)
@@ -17394,6 +17605,8 @@ subroutine iniTimeConst
       end do
       pftcon%qe25(m) = qe25(m)
       pftcon%vcmx25(m) = vcmx25(m)
+      pftcon%psiclose(m) = psiclose(m)
+      pftcon%psiopen(m) = psiopen(m)
       pftcon%mp(m) = mp(m)
       pftcon%c3psn(m) = c3psn(m)
       pftcon%slatop(m) = slatop(m)
@@ -19648,6 +19861,7 @@ contains
    h2osoi_liq   => clm3%g%l%c%cws%h2osoi_liq
    h2osoi_ice   => clm3%g%l%c%cws%h2osoi_ice
    h2osno       => clm3%g%l%c%cws%h2osno
+
 
    ! Get relevant sizes
 
@@ -36884,7 +37098,7 @@ contains
 ! !IROUTINE: Stomata
 !
 ! !INTERFACE:
-   subroutine Stomata (fn, filterp, lbp, ubp, ei, ea, o2, co2, rb, dayl_factor, phase)
+   subroutine Stomata (fn, filterp, lbp, ubp, ei, ea, o2, co2, rb, dayl_factor,phase)
 !
 ! !DESCRIPTION: 
 ! Leaf stomatal resistance and leaf photosynthesis. Modifications for CN code.
@@ -36919,12 +37133,13 @@ contains
      real(r8), intent(in)    :: co2(lbp:ubp)       ! atmospheric co2 concentration (pa)
      real(r8), intent(inout) :: rb(lbp:ubp)        ! boundary layer resistance (s/m)
      real(r8), intent(in)    :: dayl_factor(lbp:ubp) ! scalar (0-1) for daylength
+    ! real(r8), intent(out)   :: vcmx(lbp:ubp)     ! maximum rate of carboxylation (umol co2/m**2/s)
      character(len=*), intent(in) :: phase         ! 'sun' or 'sha'
 !
 ! !CALLED FROM:
 ! subroutine CanopyFluxes in this module
 !
-! !LOCAL VARIABLES:
+! !LOCAL VARIABLES
 !
 ! local pointers to implicit in variables
 ! new ecophys variables (leafcn, flnr) added 1/26/04
@@ -37128,7 +37343,7 @@ contains
 #else
            vcmx(p) = lnc(p) * flnr(ivt(p)) * fnr * act / f2(tc) * btran(p) * dayl_factor(p) * fnitr(ivt(p))
 #endif
-           
+           !vcmax(p) = vcmx(p)
            ! First guess ci
 
            ci(p) = 0.7_r8*co2(p)*c3psn(ivt(p)) + 0.4_r8*co2(p)*(1._r8-c3psn(ivt(p)))
@@ -57543,7 +57758,7 @@ end module initializeMod
                   ,flwdsxy         ,forc_solsxy        ,forc_sollxy   &
                   ,forc_solsdxy    ,forc_solldxy       ,forc_pbotxy   &
                   ,forc_psrfxy     ,iveg               ,isl           & 
-                  ,terrain_height, terrain_effect    &
+                  ,terrain_height, terrain_effect      ,bio_emiss_opt &
                   ,lndmsk          ,xlat               ,xlon          &
                   ,areaxy          ,dt1                ,yr            &
                   ,mnth            ,dy                 ,nsec          &
@@ -57577,7 +57792,7 @@ end module initializeMod
                   ,t_veg24, t_veg240, fsun24, fsun240                 &
                   ,fsd24, fsd240, fsi24, fsi240, laip                 &
                   ,mbio_emis   ,do_bioe, id                           &
-                  ,gamma1d,gamma_p1d,gamma_l1d,gamma_t1d,gamma_a1d    &
+                  ,gamma1d,gamma_p1d,gamma_l1d,gamma_t1d,gamma_a1d,gamma_d1d    &
 #ifdef CN
 !CROP and CN restart and outputs
                 ,forc_ndepxy,tlaixy,tsaixy,htopxy,hbotxy  &  
@@ -57862,7 +58077,7 @@ end module initializeMod
   real(r8),intent(inout)  :: mbio_emis(:)
   logical, intent(in)   :: do_bioe
   !mszhang
-  real(r8) :: gamma1d,gamma_p1d,gamma_l1d,gamma_t1d,gamma_a1d
+  real(r8) :: gamma1d,gamma_p1d,gamma_l1d,gamma_t1d,gamma_a1d,gamma_d1d
 
   integer   :: nstp
 !ylu add albedo coefficients
@@ -57881,6 +58096,7 @@ end module initializeMod
   integer, intent(in)  :: id
   real, intent(in)  :: terrain_height 
   logical, intent(in)  :: terrain_effect
+  integer, intent(in)  :: bio_emiss_opt !mszhang
   integer  :: period
   integer  :: iveg
   integer  :: isl
@@ -58179,7 +58395,7 @@ grid_cell_loop : &
      call wrf_debug( 300,'clm: Calling Driver' )
      call driver (doalb,ilx,jlx,caldayp1, declinp1, declin, &
                   rho, mbio_emis, do_bioe, id,  &
-                  drydep_buf,wetdep_buf,terrain_height,terrain_effect)
+                  drydep_buf,wetdep_buf,terrain_height,terrain_effect,bio_emiss_opt)
      call wrf_debug( 300,'clm: Driver done' )
 
 !-------------------------------------------------------------------------
@@ -58416,6 +58632,7 @@ grid_cell_loop : &
     gamma_l1d = 0._r8
     gamma_t1d = 0._r8
     gamma_a1d = 0._r8
+    gamma_d1d = 0._r8
 
     do p = begp,endp
       gamma1d   = gamma1d   + clm3%g%l%c%p%pvf%gamma_out(p)*wtp(p)
@@ -58423,6 +58640,7 @@ grid_cell_loop : &
       gamma_l1d = gamma_l1d + clm3%g%l%c%p%pvf%gammaL_out(p)*wtp(p)
       gamma_p1d = gamma_p1d + clm3%g%l%c%p%pvf%gammaP_out(p)*wtp(p)
       gamma_t1d = gamma_t1d + clm3%g%l%c%p%pvf%gammaT_out(p)*wtp(p)
+      gamma_d1d = gamma_d1d + clm3%g%l%c%p%pvf%gammaD_out(p)*wtp(p)
      ! write(0,*) 'mszhang check the gamma_out and weight in every pft index',p,wtp(p),gamma1d
      ! print*,'mszhang check the gamma_out and weight in every pft index',p,wtp(p),gamma1d
     end do
@@ -58484,7 +58702,7 @@ grid_cell_loop : &
 ! !INTERFACE:
 subroutine driver (doalb,ilx,jlx,nextsw_cday, declinp1, declin, &
                    rho, mbio_emis, do_bioe, id, &
-                   drydep_buf,wetdep_buf,terrain_height,terrain_effect)
+                   drydep_buf,wetdep_buf,terrain_height,terrain_effect,bio_emiss_opt)
 !
 ! !DESCRIPTION:
 ! This subroutine provides the main CLM driver calling sequence.  Most
@@ -58638,6 +58856,7 @@ subroutine driver (doalb,ilx,jlx,nextsw_cday, declinp1, declin, &
   logical , intent(in) :: do_bioe  !true if time for megan bio emission calc
   real, intent(in)    :: terrain_height 
   logical, intent(in)    :: terrain_effect
+  integer, intent(in)    :: bio_emiss_opt !mszhang
   real(r8), intent(in)    :: rho
   real(r8), intent(inout) :: mbio_emis(:)
   real(r8), dimension(4,num_drydep_flux),intent(in):: drydep_buf,wetdep_buf  !czhao
@@ -59056,7 +59275,7 @@ subroutine driver (doalb,ilx,jlx,nextsw_cday, declinp1, declin, &
    if( do_bioe ) then
      call CLMDebug('Begin VOCEmission')
      call VOCEmission(begp, endp, ilx, jlx, rho, mbio_emis, &  
-                      filter%num_soilp, filter%soilp,terrain_height,terrain_effect) !CLM4  !checked and modified according to CLM4
+                      filter%num_soilp, filter%soilp,terrain_height,terrain_effect,bio_emiss_opt) !CLM4  !checked and modified according to CLM4
    endif
 !#endif
 
@@ -59401,7 +59620,7 @@ CONTAINS
                 swvisdir, swvisdif, swnirdir, swnirdif,              & ! clm
                 t_veg24, t_veg240, fsun24, fsun240,                  &
                 fsd24, fsd240, fsi24, fsi240, laip,                   &
-                gamma2d,gamma_p2d,gamma_l2d,gamma_t2d,gamma_a2d                & !mszhang add adjust factor
+                gamma2d,gamma_p2d,gamma_l2d,gamma_t2d,gamma_a2d,gamma_d2d   & !mszhang add adjust factor
 #ifdef CN
 !CROP&CN restart and outputs
                 ,dyntlai,dyntsai,dyntop,dynbot &
@@ -59700,16 +59919,19 @@ CONTAINS
   real(r8) :: flwdsxy_buf
   real(r8) :: forc_psrfxy_buf
   real(r8) :: mbio_emis(ne_area)
+  !mszhang
   real,dimension(ims:ime,jms:jme),intent(inout) :: gamma2d
   real,dimension(ims:ime,jms:jme),intent(inout) :: gamma_p2d
   real,dimension(ims:ime,jms:jme),intent(inout) :: gamma_l2d
   real,dimension(ims:ime,jms:jme),intent(inout) :: gamma_t2d
   real,dimension(ims:ime,jms:jme),intent(inout) :: gamma_a2d
+  real,dimension(ims:ime,jms:jme),intent(inout) :: gamma_d2d
   real(r8) :: gamma_buf
   real(r8) :: gamma_p_buf
   real(r8) :: gamma_l_buf
   real(r8) :: gamma_t_buf
   real(r8) :: gamma_a_buf
+  real(r8) :: gamma_d_buf
 
 !ADD_NEW_VAR
   real(r8) :: forc_ndepxy_buf
@@ -60021,6 +60243,7 @@ i_loop : &
    gamma_l2d(i,j) = 0.0
    gamma_t2d(i,j) = 0.0 
    gamma_a2d(i,j) = 0.0
+   gamma_d2d(i,j) = 0.0
 
    sfc_frc_aer_2d(i,j) = 0.0
    sfc_frc_aer_snow_2d(i,j) = 0.0
@@ -60455,8 +60678,8 @@ patch_loop_1 : &
                   ,forc_qxy_buf        ,zgcmxy_buf             ,prec_buf        &
                   ,flwdsxy_buf         ,forc_sols_buf          ,forc_soll_buf   &
                   ,forc_solsd_buf      ,forc_solld_buf         ,forc_pbot_buf   &
-                  ,forc_psrfxy_buf     ,ivgtyp(i,j)            ,isltyp(i,j)    &
-                  ,ht(i,j)             ,terrain_effect      &
+                  ,forc_psrfxy_buf     ,ivgtyp(i,j)            ,isltyp(i,j)     &
+                  ,ht(i,j)             ,terrain_effect         ,bio_emiss_opt   &
                   ,lndmsk              ,xlat_buf               ,xlon_buf        &
                   ,area_buf            ,dtt                    ,myr             &
                   ,mon                 ,mday                   ,msec            &
@@ -60496,7 +60719,7 @@ patch_loop_1 : &
                   ,fsd24(i,:,j), fsd240(i,:,j), fsi24(i,:,j), fsi240(i,:,j)     &
                   ,laip(i,:,j)                                                  &
                   ,mbio_emis, do_bioe, id                                       &
-                  ,gamma_buf,gamma_p_buf,gamma_l_buf,gamma_t_buf,gamma_a_buf                        &
+                  ,gamma_buf,gamma_p_buf,gamma_l_buf,gamma_t_buf,gamma_a_buf,gamma_d_buf   &
 #ifdef CN
 !CROP and CN restart and outputs
                 ,forc_ndepxy_buf    ,organic_buf  ,tlai_buf ,tsai_buf,htop_buf,hbot_buf    &  !ADD_NEW_VAR
@@ -60916,6 +61139,7 @@ patch_loop_2 : &
               gamma_l2d(i,j)  = gamma_l_buf
               gamma_t2d(i,j)  = gamma_t_buf
               gamma_a2d(i,j)  = gamma_a_buf
+              gamma_d2d(i,j)  = gamma_d_buf
 
       end if is_land
         call CLMDebug('good before call urban')
@@ -61176,7 +61400,7 @@ end subroutine clmdrv
                                                                          )
 
   USE module_wrf_error
-  USE module_state_description, only : MEGAN2_CLM, &
+  USE module_state_description, only : MEGAN2_CLM, MEGAN30, &
            CBMZ_MOSAIC_4BIN, CBMZ_MOSAIC_KPP, CBMZ_MOSAIC_8BIN, CBMZ_MOSAIC_4BIN_AQ, &
            CBMZ_MOSAIC_8BIN_AQ,CBMZ_MOSAIC_4BIN_VBS2_KPP,CBMZ_MOSAIC_DMS_4BIN, &
            CBMZ_MOSAIC_DMS_8BIN, CBMZ_MOSAIC_DMS_4BIN_AQ, CBMZ_MOSAIC_DMS_8BIN_AQ, &
@@ -61562,7 +61786,7 @@ IF ( wrf_dm_on_monitor() ) THEN
 
 END IF
 
-   if( bio_emiss_opt == MEGAN2_CLM .and. id == 1 ) then
+   if( bio_emiss_opt == MEGAN2_CLM .or. bio_emiss_opt== MEGAN30 .and. id == 1 ) then
      call wrf_message( "megan_specifier diagnostic in clminit" )
      call wrf_message( "megan_specifier(1)" )
      call wrf_message( trim(megan_specifier(1)) )
@@ -62142,7 +62366,7 @@ END IF
       end do
       end do
 
-      if( bio_emiss_opt == MEGAN2_CLM ) then
+      if( bio_emiss_opt == MEGAN2_CLM .or. bio_emiss_opt== MEGAN30 ) then
         dtime = dt
 #if defined(USE_CLM_ACCUM)
         call initAccFlds( id, its, ite, jts, jte )

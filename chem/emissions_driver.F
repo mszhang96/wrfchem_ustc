@@ -882,7 +882,7 @@ CONTAINS
                ims,ime, jms,jme, kms,kme,                              &
                its,ite, jts,jte, kts,kte                               )
        endif
-     CASE (MEGAN2_CLM)
+     CASE (MEGAN2_CLM,MEGAN30)
  
      CASE DEFAULT 
        if( do_bioemiss ) &

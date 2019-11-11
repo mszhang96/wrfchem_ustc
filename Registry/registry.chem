@@ -497,6 +497,7 @@ state    real  gamma_p2d      ij      misc        1         -      rh03     "gam
 state    real  gamma_l2d      ij      misc        1         -      rh03     "gamma_l2d"          "megan2.1 af_lai"    "dimensionless"
 state    real  gamma_t2d      ij      misc        1         -      rh03     "gamma_t2d"          "megan2.1 af_temp"    "dimensionless"
 state    real  gamma_a2d      ij      misc        1         -      rh03     "gamma_a2d"          "megan2.1 af_age"    "dimensionless"
+state    real  gamma_d2d      ij      misc        1         -      rh03     "gamma_d2d"       "megan3.0 af_drought"    "dimensionless"
 state    real  sebio_iso      ij      misc        1         -      i06r     "sebio_iso"         "Reference biog emiss"  "mol km^-2 hr^-1"
 state    real  sebio_oli      ij      misc        1         -      i06r     "sebio_oli"         "Reference biog emiss"  "mol km^-2 hr^-1"
 state    real  sebio_api      ij      misc        1         -      i06r     "sebio_api"         "Reference biog emiss"  "mol km^-2 hr^-1"
@@ -3906,6 +3907,7 @@ package   gunther1      bio_emiss_opt==1             -             -
 package   beis314       bio_emiss_opt==2             -             -
 package   megan2        bio_emiss_opt==3             -             state:mebio_isop,mebio_apin,mebio_bcar,mebio_acet,mebio_mbo,mebio_no,msebio_isop,mlai,pftp_bt,pftp_nt,pftp_sb,pftp_hb,mtsa,mswdown,EFmegan
 package   megan2_clm    bio_emiss_opt==4             -             -
+package   megan30       bio_emiss_opt==5             -             -
 
 # Biospheric CO2 and CH4 emissions
 package   ebioco2       bio_emiss_opt==16            -             vprm_in:vegfra_vprm,evi,evi_min,evi_max,lswi,lswi_max,lswi_min;eghg_bio:ebio_gee,ebio_res,ebio_co2oce

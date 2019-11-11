@@ -424,7 +424,7 @@ CONTAINS
 
       enddo
       enddo
-     CASE (MEGAN2,MEGAN2_CLM)
+     CASE (MEGAN2,MEGAN2_CLM,MEGAN30)
 
       do j = jts,jte
         !czhao:the unit of e_bio is ppm m/min

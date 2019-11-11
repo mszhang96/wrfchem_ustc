@@ -521,7 +521,7 @@ BENCH_START(surf_driver_tim)
       
 #ifdef WRF_USE_CLM
       if(config_flags%chem_opt.gt.0) then !czhao +++++
-      if( config_flags%bio_emiss_opt == MEGAN2_CLM ) then
+      if( config_flags%bio_emiss_opt == MEGAN2_CLM .or. config_flags%bio_emiss_opt == MEGAN30 ) then
         do_bioe = grid%itimestep == 1 .or. mod( grid%itimestep,grid%stepbioe ) == 0
       else
         do_bioe = .false.
@@ -639,7 +639,7 @@ BENCH_START(surf_driver_tim)
      &        ,laip=grid%laip,                                                      & !voce accum variables
      !mszhang add clm megan2.1 adjust factor
      &         gamma2d=grid%gamma2d,gamma_p2d=grid%gamma_p2d,gamma_l2d=grid%gamma_l2d,          &
-     &         gamma_t2d=grid%gamma_t2d,gamma_a2d=grid%gamma_a2d,                           &
+     &         gamma_t2d=grid%gamma_t2d,gamma_a2d=grid%gamma_a2d,gamma_d2d=grid%gamma_d2d,      &
      !czhao
      &         watsat2d=grid%watsat2d,     & 
      &         snowdust_col2d=grid%snowdust_col,snowdust_top2d=grid%snowdust_top,snow_top2d=grid%snow_top,snow_frac2d=grid%snow_frac,     & 

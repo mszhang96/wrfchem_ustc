@@ -106,7 +106,7 @@ CONTAINS
      &           t_veg24, t_veg240, fsun24, fsun240,                 &
      &           fsd24, fsd240, fsi24, fsi240, laip,                 &
      !mszhang add adjust factor for megan2.1
-     &           gamma2d,gamma_p2d,gamma_l2d,gamma_t2d,gamma_a2d               &
+     &           gamma2d,gamma_p2d,gamma_l2d,gamma_t2d,gamma_a2d,gamma_d2d   &
 #ifdef CN
 !ADD_NEW_VAR for crop and cn
      &           ,dyntlai,dyntsai,dyntop,dynbot                              &
@@ -990,6 +990,7 @@ CONTAINS
   real,optional,dimension(ims:ime,jms:jme),intent(inout)  :: gamma_l2d
   real,optional,dimension(ims:ime,jms:jme),intent(inout)  :: gamma_t2d
   real,optional,dimension(ims:ime,jms:jme),intent(inout)  :: gamma_a2d
+  real,optional,dimension(ims:ime,jms:jme),intent(inout)  :: gamma_d2d
 
 #ifdef CN
 !ylu 05/31/2011
@@ -3050,7 +3051,7 @@ CONTAINS
                 t_veg24, t_veg240, fsun24, fsun240,                  &
                 fsd24, fsd240, fsi24, fsi240, laip,                   &
                 !mszhang add adjust factor for megan2.1
-                gamma2d,gamma_p2d,gamma_l2d,gamma_t2d,gamma_a2d                 &
+                gamma2d,gamma_p2d,gamma_l2d,gamma_t2d,gamma_a2d,gamma_d2d   &
 #ifdef CN
 !CROP&CN RESTART AND OUTPUTS
                 ,dyntlai,dyntsai,dyntop,dynbot &
