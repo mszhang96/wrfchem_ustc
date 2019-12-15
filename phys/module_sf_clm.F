@@ -6988,9 +6988,11 @@ function get_gamma_D(clayfrac_in, sandfrac_in,rootfr_in,vcmxsun_in,vcmxsha_in,h2
     !According to the max rate of carboxylation at 25C(Vcmx25) in CLM tech note equation8.13
     !mszhang changed in 2019/11/6
     vcmax = (vcmxsha_in+vcmxsun_in)/2
-    
+
+ if(vcmax > 0) then  
+ 
     if ((clayfrac_in > 0) .and. (sandfrac_in > 0)) then 
-      get_gamma_D = 0._r8
+      get_gamma_D = 1.0_r8
 
       beta = 0._r8  
        do j = 1,nlevsoi
@@ -7007,16 +7009,18 @@ function get_gamma_D(clayfrac_in, sandfrac_in,rootfr_in,vcmxsun_in,vcmxsha_in,h2
 
        
              if (beta >= beta1) then 
-                get_gamma_D = get_gamma_D + 1._r8
+                get_gamma_D =  1.0_r8
              !else if ( beta < beta1) then
-                !get_gamma_D = get_gamma_D + vcmx_in / alpha
+                !get_gamma_D =  vcmx_in / alpha
             ! else
-                !get_gamma_D = get_gamma_D + 0._r8
+                !get_gamma_D =   0._r8
              else
-                get_gamma_D = get_gamma_D + vcmax / alpha
+                get_gamma_D =  vcmax / alpha
              end if
     end if
-
+ else
+   get_gamma_D =1.0_r8 
+ end if
 
 end function get_gamma_D
 !-----------------------------------------------------------------------
